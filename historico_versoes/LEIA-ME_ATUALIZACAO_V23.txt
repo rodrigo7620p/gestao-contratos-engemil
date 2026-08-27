@@ -1,0 +1,27 @@
+ATUALIZAÇÃO INCREMENTAL — GESTÃO DE CONTRATOS ENGEMIL V23
+
+1. Encerre o sistema com Ctrl+C e faça backup de gestao_contratos.db, uploads,
+   trash e configuracao_email.bat.
+2. Extraia ATUALIZACAO_GESTAO_CONTRATOS_ENGEMIL_V23_SEM_BANCO.zip diretamente
+   sobre a pasta atual GESTÃO_CONTRATOS_ENGEMIL.
+3. Confirme a substituição dos arquivos de programa. O pacote incremental não
+   contém banco, anexos, lixeira, ambiente virtual nem credenciais de e-mail.
+4. No terminal da pasta, execute:
+      .\.venv\Scripts\Activate.ps1
+      pip install -r requirements.txt
+      python -c "from db import init_db; init_db()"
+5. Inicie com iniciar_sistema.bat e confirme no menu lateral: Versão 23.
+6. Abra Ficha do contrato > Aditivos e confira os valores no padrão
+   R$ 22.763.546,65.
+7. Em Ficha do contrato > ARTs, associe uma ART ao contrato inicial ou ao
+   aditivo correto. Volte a Aditivos e confira a coluna ARTs vinculadas.
+
+IMPORTANTE
+- A migração apenas acrescenta amendment_id e instrument_scope aos registros de
+  ART. Contratos, aditivos, usuários, anexos e demais históricos são preservados.
+- ARTs antigas não recebem vínculo automático para evitar associação incorreta.
+  Elas são exibidas como “Não associado — revisar” até a conferência do usuário.
+- A coluna ARTs vinculadas dos aditivos é somente leitura e é alimentada pelos
+  registros da aba ARTs.
+- Continue utilizando HTTPS, backup diário e permissões mínimas ao publicar o
+  sistema para outras pessoas.

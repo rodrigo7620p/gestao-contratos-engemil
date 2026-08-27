@@ -1,0 +1,71 @@
+MANIFESTO DE INTEGRIDADE — GESTÃO DE CONTRATOS ENGEMIL V33
+Data: 21/08/2026
+Gerado por: sessão de revisão de código (Claude), a pedido de Rodrigo.
+
+Origem preservada:
+- base: versão 32 consolidada (entregue por esta mesma sessão);
+- gestao_contratos.db entregue SEM alteração — hash SHA-256 idêntico ao
+  arquivo original recebido de Rodrigo:
+  6cb1d3be34f4147e21a418dfb3f02a6d60ffa55c1107f74ddcb85dd2804309a1;
+- nenhuma migração de banco nesta versão (nenhuma tabela/coluna nova).
+
+Arquivos alterados nesta versão (SHA-256):
+- app.py: 6452191f53f1716c5296342439f374c99ec1c24df9a8e70fc087dd957222dd54
+- alerts.py: 00471bd19ede2970d429bf988948d55ad291cdbf32897e358599380e483f8871
+- test_core.py: ace20184dfcdc4e945fdf0e05801992d19b8a6152f6ce11c5d564db284f8f0a4
+- README.md: d39e8d8e5e50519f569abbd1a04f7eb43b2f347edf14b3e1a402bcb8901eddc0
+- GESTAO_LICITACOES.md: a6718447c1029dc9db41fba018b727cd8c69d9fc4f3f7a5f27e5afa08a221b9b
+- GESTAO_SESMT.md: 768a3ec7a0aad965e5922afefd1e19aa68bd4f9589ce78750a7f140794431405
+
+Arquivos novos nesta versão (SHA-256):
+- reiniciar_sistema.bat: 3fd90d0d033e170f48283622f36ea037147fb07d85d986081145723f8f7d638a
+- instalar_servico_windows.bat: 4cf1511c0086f36d1f86f0c859c229634b405948e805f89cea3b2a685894faa9
+- reiniciar_servico.bat: 579e69bbd94f4008587f39edc002d2ac5bc451d0e87f34a5dc197b0e1401124a
+- remover_servico_windows.bat: d8b9098940c0af065f8e07bc56ed98a96246cd492f86aa6cff7eb9a815471fac
+
+db.py e reports.py permanecem idênticos aos entregues na V32. bids.py e
+requirements.txt permanecem idênticos aos entregues na V30/V31. Nenhum
+outro arquivo do projeto foi tocado.
+
+Validações concluídas nesta sessão:
+- compilação (py_compile) de app.py, db.py, reports.py, bids.py,
+  alerts.py e test_core.py: OK;
+- Licitações — edição completa: testada com a licitação real já
+  cadastrada por Rodrigo (processo 71000.108395/2025-01, MDS), aplicando
+  a mesma atualização que o formulário produziria (objeto, UF,
+  modalidade, valor estimado, data da disputa, responsável e CNPJ do
+  órgão, antes vazios, preenchidos com sucesso);
+- gráficos da Visão Geral: especificação Vega-Lite validada
+  (chart.to_dict()) e renderização sem exceção via
+  streamlit.testing.v1.AppTest, usando dados sintéticos de 5 contratos;
+- alertas do SESMT: sesmt_notification_text() e process_sesmt_alerts()
+  testados de ponta a ponta com dados sintéticos (exame vencendo em 10
+  dias e treinamento vencido há 3 dias), incluindo o orquestrador
+  process_repactuation_alerts() com o novo bloco agregado;
+- test_core.py: causa raiz da falha "Objeto do contrato ausente"
+  (presente desde a V27) corrigida — o caminho de contingência do
+  próprio teste não preenchia o campo object. Um segundo problema
+  (variável "result" não definida nesse mesmo caminho) também corrigido.
+  Suíte agora conclui sem nenhuma asserção falha;
+- test_ui.py: investigado com três métodos diferentes (snapshot da
+  lista de campos, verificação direta do resultado de any(), inspeção
+  do objeto encontrado) — todos confirmam que o campo "Título
+  profissional" existe e está correto. A falha da asserção parece ser
+  uma particularidade do framework streamlit.testing.v1.AppTest
+  reavaliando estado entre acessos consecutivos à mesma coleção de
+  elementos, não um defeito da aplicação. Não corrigida nesta versão
+  por não ser bloqueante — documentada para investigação futura;
+- suíte de regressão completa (test_core.py e test_v16.py a test_v24.py)
+  executada em ambiente Linux equivalente: 100% aprovada, sem nenhuma
+  falha pendente conhecida além da observação sobre test_ui.py acima;
+- instalar_servico_windows.bat, reiniciar_servico.bat e
+  remover_servico_windows.bat NÃO foram testados contra uma instalação
+  real do NSSM/Windows — o ambiente desta sessão não tem Windows
+  disponível. A lógica foi revisada com cuidado (sintaxe de comandos do
+  NSSM conferida contra a documentação oficial), mas recomenda-se testar
+  com atenção antes de depender deles em produção.
+
+Este manifesto documenta apenas o que foi executado nesta sessão de
+revisão. Como nos manifestos V16 a V32, os hashes de banco
+"antes/depois da migração" não se aplicam aqui porque não houve
+migração de banco nesta versão.

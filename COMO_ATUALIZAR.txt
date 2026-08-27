@@ -1,0 +1,66 @@
+# COMO ATUALIZAR SEM PERDER NENHUM DADO
+
+Este guia vale para QUALQUER atualização futura, não só a de hoje. Leia
+com atenção — o problema mais provável de "sumiço de dados" é a forma
+como o pacote é extraído, não o conteúdo do pacote em si.
+
+## O porquê do problema
+
+Todo pacote que você recebe é o **projeto inteiro** (para você poder
+conferir tudo), incluindo uma cópia de `gestao_contratos.db` e da pasta
+`uploads/`. Só que essa cópia dentro do pacote é **congelada no momento em
+que o projeto foi originalmente enviado para análise** — ou seja, ela NÃO
+tem os contratos, licitações, ARTs e documentos que você cadastrou no
+sistema depois disso.
+
+Se você extrai o `.zip` e manda o Windows **"Substituir os arquivos no
+destino"** (ou usa "Extrair tudo" apontando direto para a pasta do
+sistema), o Windows sobrescreve `gestao_contratos.db` e a pasta
+`uploads/` da pasta em uso pelas versões antigas e congeladas que vieram
+dentro do zip — apagando na hora tudo que você lançou depois. É exatamente
+isso que deve estar acontecendo.
+
+## A regra de ouro
+
+**NUNCA extraia o `.zip` diretamente dentro da pasta onde o sistema está
+rodando. NUNCA use "Substituir tudo".**
+
+## Procedimento seguro, passo a passo, sempre
+
+1. Extraia o `.zip` novo em uma pasta **separada e temporária** — por
+   exemplo, `C:\Users\RODRIGO_NOT\Downloads\atualizacao_nova\` — nunca
+   diretamente em cima da pasta do sistema.
+2. Abra o `LEIA-ME_ATUALIZACAO_VXX.txt` dessa pasta temporária (o número
+   mais alto). Ele sempre lista, logo no topo, exatamente quais arquivos
+   mudaram naquela versão — por exemplo: "Arquivos alterados: app.py,
+   db.py, bids.py".
+3. Copie **manualmente, um por um, só esses arquivos específicos** da
+   pasta temporária para a pasta real do sistema
+   (`GESTÃO_CONTRATOS_ENGEMIL\`), substituindo apenas eles.
+4. **Nunca copie, nunca arraste e nunca substitua**, em nenhuma
+   circunstância:
+   - `gestao_contratos.db` (todo o seu banco de dados);
+   - a pasta `uploads/` (todos os documentos anexados: ASO, certificados,
+     ARTs, garantias etc.);
+   - a pasta `.venv/` (ambiente Python já instalado);
+   - `configuracao_email.bat` (sua senha de e-mail configurada);
+   - a pasta `trash/`, se existir.
+5. Apague a pasta `__pycache__` de dentro da pasta real do sistema (essa
+   sim pode/deve ser apagada sempre — nunca guarda dado seu, só cache).
+6. Rode `reiniciar_sistema.bat` (ou `iniciar_sistema.bat`, se ainda não
+   tiver o outro).
+7. Depois de confirmar que a versão nova está funcionando, pode apagar a
+   pasta temporária da atualização.
+
+## Se em algum momento você já tiver substituído por engano
+
+Não mexa em mais nada e me avise imediatamente. O Windows manda arquivos
+substituídos para a Lixeira por padrão (não para o "trash/" do sistema —
+a lixeira normal do Windows) — na maioria dos casos dá para restaurar o
+`gestao_contratos.db` de lá, se for rápido.
+
+## Resumo em uma frase
+
+O `.zip` que você recebe é para **conferência e para pegar os arquivos de
+código específicos listados no LEIA-ME** — nunca para jogar a pasta
+inteira em cima do sistema que está em uso.

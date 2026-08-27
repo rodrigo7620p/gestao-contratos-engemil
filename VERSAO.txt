@@ -1,0 +1,21 @@
+GESTÃO DE CONTRATOS ENGEMIL
+Versão: 42
+Data: 24/08/2026
+
+Principais alterações:
+- Licitações: a escolha "Como este certame será cadastrado?" agora tem
+  3 opções explícitas — Individual, Vários itens individuais (sem
+  agrupamento), ou Grupo(s) com itens (classificação pelo valor total
+  do grupo) — em vez das 2 opções anteriores, que não distinguiam
+  claramente "vários itens soltos" de "um grupo com vários itens";
+- ao escolher "Grupo(s) com itens" ou "Vários itens individuais", o
+  cadastro do primeiro grupo/item já vem com o Tipo certo pré-marcado,
+  sem precisar trocar manualmente;
+- novo atalho "Gerar linhas" na aba Grupos/Itens: informe quantos itens
+  o grupo tem e o sistema já cria as linhas "Item 1", "Item 2"... para
+  você só preencher quantidade e valores — no mesmo formato usado no
+  Compras.gov.br;
+- testado com os 3 grupos completos de um exemplo real do TJDF (Pregão
+  15/2026): Grupo 1 com 5 itens somou exatamente R$ 592.810,56, igual
+  ao valor mostrado no portal;
+- nenhuma alteração de schema de banco nesta versão.

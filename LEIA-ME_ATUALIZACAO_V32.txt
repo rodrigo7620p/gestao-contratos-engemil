@@ -1,0 +1,104 @@
+ATUALIZAÇÃO SEGURA - GESTÃO DE CONTRATOS ENGEMIL V32
+
+1. Feche o sistema (veja a seção "Como reiniciar o sistema corretamente"
+   mais abaixo se você não usa mais o terminal para isso).
+2. Faça uma cópia de segurança de:
+   - gestao_contratos.db
+   - uploads
+   - trash, se existir
+   - configuracao_email.bat
+3. Este pacote foi entregue como projeto completo (não incremental).
+   Substitua TODOS os arquivos .py da pasta do projeto pelos deste
+   pacote. Arquivos alterados nesta versão: app.py, db.py, reports.py.
+   A pasta historico_versoes/ é nova (organização de documentação, não
+   afeta o funcionamento). O README.md também foi atualizado.
+4. Apague a pasta __pycache__ dentro da pasta do projeto (a raiz, não a
+   de dentro de .venv) antes de reiniciar.
+5. Não apague nem substitua o banco, uploads, ambiente .venv ou
+   configuração de e-mail.
+6. Confira os hashes (opcional, recomendado):
+   Get-FileHash app.py,db.py,reports.py -Algorithm SHA256
+   Compare com MANIFESTO_INTEGRIDADE_V32.txt.
+7. Execute iniciar_sistema.bat. A migração aditiva do banco (colunas
+   ata_contract_id/ata_amendment_id em arts) será aplicada
+   automaticamente.
+8. Confirme no rodapé a indicação Versão 32.
+9. Gere um Backlog oficial em PDF e confira a página 2: logo alinhada
+   (sem sobrepor a tarja do título), texto do chip "ATIVO" em branco
+   sobre o fundo escuro, e as duas tabelas novas (Maiores contratos e
+   Vencendo em 90 dias).
+10. Em um contrato do tipo ATA, cadastre uma ART e confirme que o campo
+    "Instrumento contratual de referência" agora lista também a ATA e os
+    contratos/aditivos decorrentes dela.
+11. Gere uma "Ficha completa em Word" de um contrato com vários aditivos
+    e confirme que o cabeçalho (logo) aparece em todas as páginas, não só
+    na primeira.
+
+FUNCIONALIDADE PRINCIPAL DESTA VERSÃO
+
+1) Backlog oficial em PDF — página 2 corrigida e enriquecida
+   - Logo realinhada (não sobrepõe mais a tarja cinza do título).
+   - Texto sobre fundo escuro sempre em branco (chip de status), nunca
+     mais escuro sobre escuro.
+   - Novo indicador "Ticket médio por contrato".
+   - Duas tabelas novas: Maiores contratos (valor vigente) e Vencendo
+     nos próximos 90 dias.
+
+2) ARTs associadas a ATA e contratos decorrentes
+   - O campo "Instrumento contratual de referência" no cadastro/edição
+     de ARTs agora também lista a própria ATA e os contratos/aditivos
+     decorrentes dela — cobrindo o caso de uma ATA que não gerou nenhum
+     contrato decorrente, mas já tem ARTs vinculadas.
+
+3) Ficha contratual em Word — cabeçalho e tabelas
+   - O cabeçalho (logo ENGEMIL) agora se repete em todas as páginas,
+     não só na primeira — mesmo padrão visual dos modelos de Ofício,
+     Carta e Procuração.
+   - Proporção das colunas ajustada nas tabelas de Instrumentos e
+     aditivos, Garantias, Coberturas e Endossos, eliminando quebras de
+     linha desnecessárias.
+
+4) Limpeza da pasta do projeto
+   - Documentação de versões antigas (V16 a V27: LEIA-ME e manifestos de
+     integridade, mais o antigo ATUALIZACAO.md) movida para
+     historico_versoes/ — nada foi apagado, só organizado.
+   - README.md atualizado: agora descreve os módulos Licitações e SESMT
+     (que faltavam) e o novo perfil de usuário "sesmt".
+   - uploads/, assets/ e a base de dados não foram tocados.
+
+ACHADOS DESTA REVISÃO (não corrigidos — pré-existentes, documentados)
+
+- test_ui.py (teste de interface via streamlit.testing.v1.AppTest) falha
+  numa asserção sobre o campo "Título profissional" do formulário de
+  ARTs. Reproduzi essa mesma falha na V31 original, sem nenhuma alteração
+  minha — ou seja, não foi introduzida nesta sessão. Não investiguei a
+  fundo por não ser bloqueante (a funcionalidade em si foi validada
+  manualmente, gerando ARTs de teste com sucesso), mas vale investigar
+  quando houver tempo.
+- A falha já conhecida de test_core.py ("Objeto do contrato" ausente no
+  caminho de contingência sem a planilha legada) continua presente e
+  também não é desta versão.
+
+COMO REINICIAR O SISTEMA CORRETAMENTE (sem precisar reiniciar o
+computador)
+
+Se você só abre http://localhost:8501 no navegador sem passar pelo
+terminal, o sistema provavelmente já está rodando em segundo plano desde
+a última vez que você (ou alguém) executou iniciar_sistema.bat, e
+reiniciar o Windows é uma forma "bruta" de encerrar esse processo. Para
+reiniciar sem reiniciar a máquina:
+
+1. Abra o Gerenciador de Tarefas (Ctrl+Shift+Esc).
+2. Na aba "Detalhes" (ou "Processos"), procure por "python.exe" — pode
+   haver mais de um. Se estiver em dúvida sobre qual é o do sistema,
+   finalize todos os "python.exe" listados (não afeta outros programas,
+   já que o Windows não usa Python nativamente).
+3. Confirme em http://localhost:8501 que a página para de responder
+   (erro de conexão).
+4. Rode iniciar_sistema.bat de novo (duplo clique). Aguarde a janela do
+   terminal mostrar "You can now view your Streamlit app..." antes de
+   voltar ao navegador.
+
+Isso é exatamente o que reiniciar o computador também faz (encerrar o
+processo e iniciar de novo) — só que sem esperar o Windows inteiro
+reiniciar.

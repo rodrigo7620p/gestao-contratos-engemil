@@ -1,0 +1,58 @@
+MANIFESTO DE INTEGRIDADE — GESTÃO DE CONTRATOS ENGEMIL V29
+Data: 10/08/2026
+Gerado por: sessão de revisão de código (Claude), a pedido de Rodrigo.
+
+Origem preservada:
+- base: versão 28 consolidada (entregue por esta mesma sessão);
+- gestao_contratos.db entregue SEM alteração nesta versão. As tabelas
+  bid_processes e bid_rankings são criadas pela migração aditiva
+  automática de init_db() no primeiro início do sistema;
+- hash do banco entregue (idêntico ao da V28, não tocado):
+  e03b4f7ac1a3e2807bf2a22eed8aafa41ab16b3a29554ea1d108bfe6962fb57c;
+- migração testada em três cópias isoladas do gestao_contratos.db real
+  (não no arquivo entregue): tabelas criadas, 100 contratos preservados
+  em todas as execuções, nenhum outro campo alterado.
+
+Arquivos novos nesta versão (SHA-256):
+- bids.py: 411d26ae1d85b338ff52bbbca40b259c4f31bfc45d01129a1e2e00ebf2dbda3d
+- GESTAO_LICITACOES.md: d9702a4b80d9a5f11322fe47e7b238ad32130173c9034b5dc8b8542ad7abe526
+- assets/fonts/DejaVuSans.ttf: ae7b7855e115a5966d8b1b3f80f254ccc117ec86f9965e202ee2940453837280
+- assets/fonts/DejaVuSans-Bold.ttf: 5c1247acef7f2b8522a31742c76d6adcb5569bacc0be7ceaa4dc39dd252ce895
+- assets/fonts/LICENSE.txt (nota de licença da fonte embutida, sem hash
+  crítico — conteúdo apenas informativo)
+
+Arquivos alterados nesta versão (SHA-256):
+- app.py: e2de1274618fe3c34b2eefca075280044569f0e7d666e7fe1390cb543a4539c6
+- db.py: 708311f7d37bb2680fa228850f9f3967cc79f40e2aee418640e569a149abe75a
+- requirements.txt: ef5548bfe7b7598456229a2dcbceb400993ea494b996c321622ecf6ba8996425
+
+reports.py permanece idêntico ao entregue na V28. Nenhum outro arquivo do
+projeto foi tocado.
+
+Validações concluídas nesta sessão:
+- compilação (py_compile) de app.py, db.py, bids.py e reports.py: OK;
+- geração real da imagem PNG de classificação testada com dados do
+  exemplo fornecido (print da tela), incluindo o caso de nomes de empresa
+  longos e de linha ENGEMIL destacada — conferida visualmente;
+- fluxo completo simulado direto no banco (cadastro de licitação, inserção
+  de classificação, leitura e geração de imagem a partir dos dados
+  gravados) executado sem erros;
+- suíte de regressão completa (test_core.py e test_v16.py a test_v27.py)
+  executada em ambiente Linux equivalente: todas as versões passaram,
+  exceto a falha pré-existente de test_core.py já descrita nos manifestos
+  anteriores (não relacionada a esta atualização). Uma segunda falha real
+  foi encontrada e corrigida nesta mesma sessão antes da entrega: o
+  test_v23.py acusou o uso de NumberColumn(format="R$ %.2f") na coluna de
+  lance final, padrão que a própria equipe já tinha descartado em versão
+  anterior — corrigido para o padrão texto + parse_brazilian_number já
+  usado em outras colunas monetárias do sistema;
+- a chamada real à API do PNCP (pncp_search_contratacoes) NÃO foi testada
+  contra a internet nesta sessão — o ambiente de desenvolvimento usado não
+  tem acesso a pncp.gov.br. Apenas a documentação oficial e exemplos de
+  terceiros foram conferidos. Recomenda-se testar essa chamada
+  manualmente no primeiro uso, no ambiente de produção com internet.
+
+Este manifesto documenta apenas o que foi executado nesta sessão de
+revisão. Como nos manifestos V16 a V27, os hashes de banco
+"antes/depois da migração" não se aplicam aqui porque a migração roda no
+computador de Rodrigo, não neste ambiente de revisão.

@@ -1,0 +1,55 @@
+ATUALIZAÇÃO SEGURA - GESTÃO DE CONTRATOS ENGEMIL V31
+
+1. Feche o sistema com Ctrl+C.
+2. Faça uma cópia de segurança de:
+   - gestao_contratos.db
+   - uploads
+   - trash, se existir
+   - configuracao_email.bat
+3. Este pacote foi entregue como projeto completo (não incremental).
+   Substitua TODOS os arquivos .py da pasta do projeto pelos deste
+   pacote. Arquivos alterados nesta versão: app.py, db.py, reports.py.
+   Arquivo novo: GESTAO_SESMT.md.
+4. Apague a pasta __pycache__ dentro da pasta do projeto (a raiz, não a
+   de dentro de .venv) antes de reiniciar.
+5. Não apague nem substitua o banco, uploads, ambiente .venv ou
+   configuração de e-mail.
+6. Confira os hashes (opcional, recomendado):
+   Get-FileHash app.py,db.py,reports.py -Algorithm SHA256
+   Compare com MANIFESTO_INTEGRIDADE_V31.txt.
+7. Execute iniciar_sistema.bat. A migração aditiva do banco (tabelas do
+   SESMT e novas colunas em documents) será aplicada automaticamente.
+8. Confirme no rodapé a indicação Versão 31.
+9. Teste o Backlog oficial em PDF (Exportações ou Contratos → Backlog):
+   confirme que a carteira sai numa página só e que a segunda página
+   (dashboard) aparece corretamente.
+10. Abra o menu SESMT, cadastre um profissional de teste vinculado a um
+    contrato, lance um exame e um treinamento, e confirme o upload de
+    documento.
+11. Em Usuários, crie ou edite um usuário com perfil "SESMT" e confirme
+    que ele consegue lançar dados em SESMT.
+
+FUNCIONALIDADE PRINCIPAL DESTA VERSÃO
+
+1) Backlog oficial em PDF
+   - Página 1: ajuste automático de página única, sempre em A4 retrato,
+     com paginação normal apenas quando a quantidade de contratos
+     tornaria as linhas ilegíveis.
+   - Página 2 (nova): dashboard de carteira em A4 paisagem — indicadores,
+     valor vigente por centro de custo e por categoria, contratos por
+     status — pensado para impressão em preto e branco (uma única
+     família de cor, variando apenas o tom).
+
+2) Menu SESMT (novo)
+   - Cadastro de profissionais vinculados a contrato.
+   - Exames ocupacionais (ASO): tipo, data, resultado, validade, anexo.
+   - Treinamentos/certificados (NRs): nome, instituição, carga horária,
+     validade, anexo.
+   - Indicadores de exames/treinamentos vencidos e vencendo em 30 dias.
+   - Novo perfil de usuário "sesmt", com edição restrita por padrão ao
+     próprio módulo (ver GESTAO_SESMT.md para o racional completo).
+
+DETALHE IMPORTANTE: todo profissional do SESMT precisa de um contrato
+vinculado no cadastro — não é possível deixar em branco. O motivo está
+explicado em GESTAO_SESMT.md, junto com uma sugestão de contorno para
+profissionais do quadro próprio sem contrato específico.

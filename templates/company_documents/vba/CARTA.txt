@@ -1,0 +1,908 @@
+Option Explicit
+
+' =====================================================
+' GERAR CARTA
+' =====================================================
+
+Sub GerarCarta()
+
+    Dim caminhoBase As String
+    Dim caminhoControle As String
+    Dim caminhoSaida As String
+
+    Dim numeroAtual As Long
+    Dim novoNumero As Long
+
+    Dim anoAtual As String
+    Dim numeroCarta As String
+    Dim numeroArquivo As String
+
+    Dim orgao As String
+    Dim sigla As String
+    Dim contrato As String
+    Dim processo As String
+    Dim centroCusto As String
+    Dim objeto As String
+
+    Dim etapa As Integer
+
+    ' =====================================================
+    ' ENGENHEIRO
+    ' =====================================================
+
+    Dim engenheiro As String
+    Dim nacionalidade As String
+    Dim titulo As String
+    Dim cpf As String
+    Dim crea As String
+
+    ' =====================================================
+    ' ASSINATURA
+    ' =====================================================
+
+    Dim responsavel As String
+    Dim dados As String
+    Dim cargo As String
+
+    ' =====================================================
+    ' CAMINHOS
+    ' =====================================================
+
+    caminhoBase = _
+    "G:\Meu Drive\REDE\SISTEMA_DOC_ENGEMIL"
+
+    caminhoControle = _
+    caminhoBase & _
+    "\01_CONTROLE\controle_carta.txt"
+
+    caminhoSaida = _
+    caminhoBase & _
+    "\03_GERADOS\02_CARTAS\"
+
+    ' =====================================================
+    ' CRIA PASTAS
+    ' =====================================================
+
+    Call CriarPastaSeNaoExistir(caminhoBase)
+
+    Call CriarPastaSeNaoExistir( _
+    caminhoBase & "\01_CONTROLE")
+
+    Call CriarPastaSeNaoExistir( _
+    caminhoBase & "\03_GERADOS")
+
+    Call CriarPastaSeNaoExistir( _
+    caminhoBase & "\03_GERADOS\02_CARTAS")
+
+    ' =====================================================
+    ' DADOS COM BOTÃO VOLTAR
+    ' =====================================================
+
+    anoAtual = Year(Date)
+
+    etapa = 1
+
+    Do While etapa <= 5
+
+        Select Case etapa
+
+            Case 1
+
+                orgao = PerguntarCampo( _
+                "ÓRGÃO", _
+                "Informe o órgão:", _
+                orgao)
+
+                If orgao = "<<" Then
+
+                    MsgBox _
+                    "Já está no primeiro campo.", _
+                    vbExclamation
+
+                Else
+
+                    etapa = etapa + 1
+
+                End If
+
+            Case 2
+
+                sigla = PerguntarCampo( _
+                "SIGLA", _
+                "Informe a sigla:", _
+                sigla)
+
+                If sigla = "<<" Then
+
+                    etapa = etapa - 1
+
+                Else
+
+                    etapa = etapa + 1
+
+                End If
+
+            Case 3
+
+                contrato = PerguntarCampo( _
+                "CONTRATO", _
+                "Informe o contrato:", _
+                contrato)
+
+                If contrato = "<<" Then
+
+                    etapa = etapa - 1
+
+                Else
+
+                    etapa = etapa + 1
+
+                End If
+
+            Case 4
+
+                processo = PerguntarCampo( _
+                "PROCESSO", _
+                "Informe o processo:", _
+                processo)
+
+                If processo = "<<" Then
+
+                    etapa = etapa - 1
+
+                Else
+
+                    etapa = etapa + 1
+
+                End If
+
+            Case 5
+
+                centroCusto = PerguntarCampo( _
+                "CENTRO DE CUSTO", _
+                "Informe o centro de custo:", _
+                centroCusto)
+
+                If centroCusto = "<<" Then
+
+                    etapa = etapa - 1
+
+                Else
+
+                    etapa = etapa + 1
+
+                End If
+
+        End Select
+
+    Loop
+
+    ' =====================================================
+    ' OBJETO LONGO
+    ' =====================================================
+
+    MsgBox _
+    "O próximo bloco de notas será para o OBJETO.", _
+    vbInformation
+
+    objeto = LerTextoArquivo( _
+    "objeto_carta.txt", _
+    "COLE OU DIGITE O OBJETO AQUI.")
+
+    ' =====================================================
+    ' ENGENHEIRO
+    ' =====================================================
+
+    Call SelecionarEngenheiro( _
+    engenheiro, _
+    nacionalidade, _
+    titulo, _
+    cpf, _
+    crea)
+
+    ' =====================================================
+    ' ASSINATURA
+    ' =====================================================
+
+    Call SelecionarAssinatura( _
+    responsavel, _
+    dados, _
+    cargo)
+
+    If centroCusto = "" Then
+
+        MsgBox _
+        "Operação cancelada.", _
+        vbExclamation
+
+        Exit Sub
+
+    End If
+
+    ' =====================================================
+    ' NUMERAÇÃO
+    ' =====================================================
+
+    numeroAtual = LerNumeroControle( _
+    caminhoControle)
+
+    novoNumero = numeroAtual + 1
+
+    numeroCarta = _
+    "CA-" & _
+    anoAtual & "-" & _
+    Format(novoNumero, "0000") & _
+    "/ENGEMIL/DCONT/" & _
+    contrato & "/" & _
+    sigla
+
+    ' =====================================================
+    ' NOME DO ARQUIVO
+    ' =====================================================
+
+    numeroArquivo = _
+    Replace(numeroCarta, "/", "-")
+
+    ' =====================================================
+    ' SUBSTITUIÇÕES
+    ' =====================================================
+
+    Call SubstituirTextoCompleto( _
+    "{{NUMERO_CARTA}}", _
+    numeroCarta)
+
+    Call SubstituirTextoCompleto( _
+    "{{DATA}}", _
+    Format(Date, "dd/mm/yyyy"))
+
+    Call SubstituirTextoCompleto( _
+    "{{DATA_EXTENSO}}", _
+    DataPorExtenso())
+
+    Call SubstituirTextoCompleto( _
+    "{{ORGAO}}", _
+    orgao)
+
+    Call SubstituirTextoCompleto( _
+    "{{SIGLA}}", _
+    sigla)
+
+    Call SubstituirTextoCompleto( _
+    "{{CONTRATO}}", _
+    contrato)
+
+    Call SubstituirTextoCompleto( _
+    "{{PROCESSO}}", _
+    processo)
+
+    Call SubstituirTextoCompleto( _
+    "{{CENTRO_CUSTO}}", _
+    centroCusto)
+
+    Call SubstituirTextoCompleto( _
+    "{{OBJETO}}", _
+    objeto)
+
+    ' =====================================================
+    ' ENGENHEIRO
+    ' =====================================================
+
+    Call SubstituirTextoCompleto( _
+    "{{ENGENHEIRO}}", _
+    engenheiro)
+
+    Call SubstituirTextoCompleto( _
+    "{{NACIONALIDADE}}", _
+    nacionalidade)
+
+    Call SubstituirTextoCompleto( _
+    "{{TITULO}}", _
+    titulo)
+
+    Call SubstituirTextoCompleto( _
+    "{{CPF}}", _
+    cpf)
+
+    Call SubstituirTextoCompleto( _
+    "{{CREA}}", _
+    crea)
+
+    ' =====================================================
+    ' ASSINATURA
+    ' =====================================================
+
+    Call SubstituirTextoCompleto( _
+    "{{RESPONSAVEL}}", _
+    responsavel)
+
+    Call SubstituirTextoCompleto( _
+    "{{DADOS}}", _
+    dados)
+
+    Call SubstituirTextoCompleto( _
+    "{{CARGO}}", _
+    cargo)
+
+    ' =====================================================
+    ' SALVAR WORD
+    ' =====================================================
+
+    ActiveDocument.SaveAs2 _
+    FileName:= _
+    caminhoSaida & numeroArquivo & ".docx", _
+    FileFormat:=wdFormatXMLDocument
+
+    ' =====================================================
+    ' GERAR PDF
+    ' =====================================================
+
+    ActiveDocument.ExportAsFixedFormat _
+    OutputFileName:= _
+    caminhoSaida & numeroArquivo & ".pdf", _
+    ExportFormat:=wdExportFormatPDF
+
+    ' =====================================================
+    ' SALVAR CONTROLE
+    ' =====================================================
+
+    Call SalvarNumeroControle( _
+    caminhoControle, _
+    novoNumero)
+
+    MsgBox _
+    "CARTA GERADA COM SUCESSO!" & _
+    vbCrLf & vbCrLf & _
+    numeroCarta, _
+    vbInformation
+
+End Sub
+
+' =====================================================
+' INPUTBOX COM VOLTAR
+' =====================================================
+
+Function PerguntarCampo( _
+titulo As String, _
+mensagem As String, _
+valorAnterior As String) As String
+
+    Dim resposta As String
+
+    resposta = InputBox( _
+    mensagem & vbCrLf & vbCrLf & _
+    "Digite << para VOLTAR.", _
+    titulo, _
+    valorAnterior)
+
+    PerguntarCampo = resposta
+
+End Function
+
+' =====================================================
+' ASSINATURA
+' =====================================================
+
+Sub SelecionarAssinatura( _
+ByRef responsavel As String, _
+ByRef dados As String, _
+ByRef cargo As String)
+
+    Dim opcao As String
+
+    opcao = InputBox( _
+    "Selecione o responsável:" & vbCrLf & vbCrLf & _
+    "1 - MATHEUS" & vbCrLf & _
+    "2 - REGITON", _
+    "ASSINATURA")
+
+    Select Case opcao
+
+        Case "1"
+
+            responsavel = _
+            "MATHEUS ANTONIO MILITAO DE MENEZES"
+
+            dados = _
+            "CREA 13.814/D-DF CPF: 000.400.681-02"
+
+            cargo = _
+            "Engenheiro Civil – Sócio Diretor"
+
+        Case "2"
+
+            responsavel = _
+            "REGITON LUIZ MILITÃO DE MENEZES"
+
+            dados = _
+            "CPF: 907.015.771-34"
+
+            cargo = _
+            "Diretor Administrativo"
+
+        Case Else
+
+            MsgBox _
+            "Opção inválida.", _
+            vbExclamation
+
+            End
+
+    End Select
+
+End Sub
+
+' =====================================================
+' ENGENHEIROS
+' =====================================================
+
+Sub SelecionarEngenheiro( _
+ByRef engenheiro As String, _
+ByRef nacionalidade As String, _
+ByRef titulo As String, _
+ByRef cpf As String, _
+ByRef crea As String)
+
+    Dim opcao As String
+
+    opcao = InputBox( _
+    "SELECIONE O ENGENHEIRO:" & vbCrLf & vbCrLf & _
+    "1 - MATHEUS" & vbCrLf & _
+    "2 - REGITON" & vbCrLf & _
+    "3 - FABIO BARRETO" & vbCrLf & _
+    "4 - GERALDO" & vbCrLf & _
+    "5 - LUIZ CARLOS" & vbCrLf & _
+    "6 - IURE" & vbCrLf & _
+    "7 - JOSE RICARDO" & vbCrLf & _
+    "8 - FERNANDO" & vbCrLf & _
+    "9 - ROGERIO" & vbCrLf & _
+    "10 - RICARDO" & vbCrLf & _
+    "11 - EDUARDO" & vbCrLf & _
+    "12 - RODOLFO" & vbCrLf & _
+    "13 - CHRISTIAN" & vbCrLf & _
+    "14 - STANLEY" & vbCrLf & _
+    "15 - ADOLFO" & vbCrLf & _
+    "16 - LUCAS" & vbCrLf & _
+    "17 - HEITOR" & vbCrLf & _
+    "18 - VERONICA" & vbCrLf & _
+    "19 - JANAINA" & vbCrLf & _
+    "20 - MARIA ELIZANGELA", _
+    "ENGENHEIRO")
+
+    Select Case opcao
+
+        Case "1"
+            engenheiro = "o Sr. MATHEUS ANTONIO MILITAO DE MENEZES"
+            nacionalidade = "brasileiro"
+            titulo = "Engenheiro Civil"
+            cpf = "000.400.681-02"
+            crea = "13814/D-DF"
+
+        Case "2"
+            engenheiro = "o Sr. REGITON QUEIROZ DE MENEZES"
+            nacionalidade = "brasileiro"
+            titulo = "Engenheiro Eletricista"
+            cpf = "889.127.108-00"
+            crea = "2454/D-DF"
+            
+        Case "3"
+            engenheiro = "o Sr. FABIO BARRETO COSTA"
+            nacionalidade = "brasileiro"
+            titulo = "Engenheiro Eletricista, Engenheiro de Segurança do Trabalho"
+            cpf = "045.009.586-06"
+            crea = "1200181913/D-MT 17022/V"
+
+        Case "4"
+            engenheiro = "o Sr. GERALDO REIS PACHECO"
+            nacionalidade = "brasileiro"
+            titulo = "Engenheiro Agrônomo"
+            cpf = "227.022.881-20"
+            crea = "6246/D-DF"
+
+        Case "5"
+            engenheiro = "o Sr. LUIZ CARLOS VIANA JORGE"
+            nacionalidade = "brasileiro"
+            titulo = "Engenheiro Eletricista - Eletrônica"
+            cpf = "006.447.851-36"
+            crea = "16403/D-DF"
+
+        Case "6"
+            engenheiro = "o Sr. IURE ARAUJO SANTIAGO"
+            nacionalidade = "brasileiro"
+            titulo = "Engenheiro Mecânico"
+            cpf = "264.425.821-91"
+            crea = "4224/D-GO 10746/V"
+
+        Case "7"
+            engenheiro = "o Sr. JOSE RICARDO VIDIGAL BARROS"
+            nacionalidade = "brasileiro"
+            titulo = "Engenheiro Eletricista - Eletrônica, Engenheiro Civil"
+            cpf = "968.204.111-20"
+            crea = "17269/D-DF"
+
+        Case "8"
+            engenheiro = "o Sr. FERNANDO VAHIA TERZELLA"
+            nacionalidade = "brasileiro"
+            titulo = "Engenheiro Civil"
+            cpf = "689.803.101-53"
+            crea = "17022/D-DF"
+
+        Case "9"
+            engenheiro = "o Sr. ROGERIO RAMOS DE FREITAS SILVA"
+            nacionalidade = "brasileiro"
+            titulo = "Engenheiro Civil"
+            cpf = "858.932.771-04"
+            crea = "12296/D-GO 15859/V"
+
+        Case "10"
+            engenheiro = "o Sr. RICARDO FURTUOSO DA SILVA"
+            nacionalidade = "brasileiro"
+            titulo = "Engenheiro Eletricista, Engenheiro de Segurança do Trabalho"
+            cpf = "049.904.496-73"
+            crea = "92095/D-MG 16568/V"
+            
+        Case "11"
+            engenheiro = "o Sr. EDUARDO CARLOS DE OLIVEIRA E SILVA JUNIO"
+            nacionalidade = "brasileiro"
+            titulo = "Engenheiro Civil, Engenheiro Eletricista"
+            cpf = "633.918.051-53"
+            crea = "8971/D-GO 13871/V"
+
+        Case "12"
+            engenheiro = "o Sr. RODOLFO CHAVES PACHECO"
+            nacionalidade = "brasileiro"
+            titulo = "Engenheiro Eletricista, Engenheiro de Segurança do Trabalho"
+            cpf = "038.835.131-48"
+            crea = "25444/D-DF"
+
+        Case "13"
+            engenheiro = "o Sr. CHRISTIAN CRUVINEL FRANCA"
+            nacionalidade = "brasileiro"
+            titulo = "Engenheiro de Controle e Automação"
+            cpf = "055.876.141-07"
+            crea = "31048/D-DF"
+
+        Case "14"
+            engenheiro = "o Sr. STANLEY ROBERTO FERREIRA DE SOUZA CAMP"
+            nacionalidade = "brasileiro"
+            titulo = "Engenheiro Mecânico"
+            cpf = "731.766.641-68"
+            crea = "19600/D-DF"
+
+        Case "15"
+            engenheiro = "o Sr. ADOLFO ALVES FERREIRA NETO"
+            nacionalidade = "brasileiro"
+            titulo = "Engenheiro Civil, Engenheiro de Segurança do Trabalho"
+            cpf = "075.040.446-95"
+            crea = "112196/D-MG 22634/V"
+
+        Case "16"
+            engenheiro = "o Sr. LUCAS VIANA JORGE"
+            nacionalidade = "brasileiro"
+            titulo = "Eng. Eletrôn."
+            cpf = "040.626.851-75"
+            crea = "23912/D-DF"
+
+        Case "17"
+            engenheiro = "o Sr. HEITOR TEIXEIRA RODRIGUES"
+            nacionalidade = "brasileiro"
+            titulo = "Engenheiro Civil"
+            cpf = "701.605.581-74"
+            crea = "1017717680/D-GO - 30348/V"
+
+        Case "18"
+            engenheiro = "a Sra. VERÔNICA DE JESUS SILVA COELHO"
+            nacionalidade = "brasileira"
+            titulo = "Engenheira Civil, Engenheira de Segurança do Trabalho"
+            cpf = "036.854.841-41"
+            crea = "32462/D-DF"
+
+        Case "19"
+            engenheiro = "a Sra. JANAINA LOIOLA ABREU"
+            nacionalidade = "brasileira"
+            titulo = "Engenheira Eletricista - Eletrônica"
+            cpf = "029.679.811-84"
+            crea = "27857/D-DF"
+
+        Case "20"
+            engenheiro = "a Sra. MARIA ELIZANGELA DE LIMA CALDAS"
+            nacionalidade = "brasileira"
+            titulo = "Engenheira Eletricista - Eletrônica"
+            cpf = "027.031.994-81"
+            crea = "3257221 SSP/PB"
+
+        Case Else
+
+            MsgBox _
+            "Engenheiro inválido.", _
+            vbExclamation
+
+            End
+
+    End Select
+
+End Sub
+
+' =====================================================
+' LEITOR UTF-8
+' =====================================================
+
+Function LerTextoArquivo( _
+nomeArquivo As String, _
+textoInicial As String) As String
+
+    Dim caminhoTemp As String
+    Dim shell As Object
+    Dim stream As Object
+
+    caminhoTemp = _
+    Environ("TEMP") & "\" & nomeArquivo
+
+    Set stream = _
+    CreateObject("ADODB.Stream")
+
+    stream.Type = 2
+    stream.Charset = "utf-8"
+
+    stream.Open
+    stream.WriteText textoInicial
+    stream.SaveToFile caminhoTemp, 2
+    stream.Close
+
+    Set shell = _
+    CreateObject("WScript.Shell")
+
+    shell.Run _
+    "notepad.exe " & _
+    Chr(34) & caminhoTemp & Chr(34), _
+    1, _
+    True
+
+    Set stream = _
+    CreateObject("ADODB.Stream")
+
+    stream.Type = 2
+    stream.Charset = "utf-8"
+
+    stream.Open
+    stream.LoadFromFile caminhoTemp
+
+    LerTextoArquivo = stream.ReadText
+
+    stream.Close
+
+End Function
+
+' =====================================================
+' DATA POR EXTENSO
+' =====================================================
+
+Function DataPorExtenso() As String
+
+    Dim meses As Variant
+
+    meses = Array( _
+    "janeiro", "fevereiro", "março", _
+    "abril", "maio", "junho", _
+    "julho", "agosto", "setembro", _
+    "outubro", "novembro", "dezembro")
+
+    DataPorExtenso = _
+    "Brasília/DF., " & _
+    Day(Date) & " de " & _
+    meses(Month(Date) - 1) & _
+    " de " & _
+    Year(Date) & "."
+
+End Function
+
+' =====================================================
+' LER CONTROLE
+' =====================================================
+
+Function LerNumeroControle( _
+caminhoArquivo As String) As Long
+
+    Dim arquivo As Integer
+    Dim conteudo As String
+
+    If Dir(caminhoArquivo) = "" Then
+
+        arquivo = FreeFile
+
+        Open caminhoArquivo _
+        For Output As #arquivo
+
+        Print #arquivo, 0
+
+        Close #arquivo
+
+    End If
+
+    arquivo = FreeFile
+
+    Open caminhoArquivo _
+    For Input As #arquivo
+
+    Line Input #arquivo, conteudo
+
+    Close #arquivo
+
+    If Trim(conteudo) = "" Then
+
+        LerNumeroControle = 0
+
+    Else
+
+        LerNumeroControle = CLng(conteudo)
+
+    End If
+
+End Function
+
+' =====================================================
+' SALVAR CONTROLE
+' =====================================================
+
+Sub SalvarNumeroControle( _
+caminhoArquivo As String, _
+numero As Long)
+
+    Dim arquivo As Integer
+
+    arquivo = FreeFile
+
+    Open caminhoArquivo _
+    For Output As #arquivo
+
+    Print #arquivo, numero
+
+    Close #arquivo
+
+End Sub
+
+' =====================================================
+' SUBSTITUIR TEXTO COMPLETO
+' =====================================================
+
+Sub SubstituirTextoCompleto( _
+localizar As String, _
+substituirPor As String)
+
+    Dim rngStory As Range
+    Dim rngAtual As Range
+
+    Dim secao As Section
+    Dim cabecalho As HeaderFooter
+    Dim rodape As HeaderFooter
+
+    Dim shp As Shape
+
+    For Each rngStory In _
+    ActiveDocument.StoryRanges
+
+        Set rngAtual = rngStory
+
+        Do While Not rngAtual Is Nothing
+
+            Call SubstituirEmRangeSeguro( _
+            rngAtual, _
+            localizar, _
+            substituirPor)
+
+            Set rngAtual = _
+            rngAtual.NextStoryRange
+
+        Loop
+
+    Next rngStory
+
+    For Each secao In _
+    ActiveDocument.Sections
+
+        For Each cabecalho In _
+        secao.Headers
+
+            Call SubstituirEmRangeSeguro( _
+            cabecalho.Range, _
+            localizar, _
+            substituirPor)
+
+            For Each shp In cabecalho.Shapes
+
+                If shp.TextFrame.HasText Then
+
+                    Call SubstituirEmRangeSeguro( _
+                    shp.TextFrame.TextRange, _
+                    localizar, _
+                    substituirPor)
+
+                End If
+
+            Next shp
+
+        Next cabecalho
+
+        For Each rodape In _
+        secao.Footers
+
+            Call SubstituirEmRangeSeguro( _
+            rodape.Range, _
+            localizar, _
+            substituirPor)
+
+            For Each shp In rodape.Shapes
+
+                If shp.TextFrame.HasText Then
+
+                    Call SubstituirEmRangeSeguro( _
+                    shp.TextFrame.TextRange, _
+                    localizar, _
+                    substituirPor)
+
+                End If
+
+            Next shp
+
+        Next rodape
+
+    Next secao
+
+End Sub
+
+' =====================================================
+' SUBSTITUIR RANGE
+' =====================================================
+
+Sub SubstituirEmRangeSeguro( _
+rngOrigem As Range, _
+localizar As String, _
+substituirPor As String)
+
+    Dim rngBusca As Range
+
+    Set rngBusca = rngOrigem.Duplicate
+
+    With rngBusca.Find
+
+        .ClearFormatting
+        .Text = localizar
+        .Forward = True
+        .Wrap = wdFindStop
+        .Format = False
+        .MatchCase = False
+        .MatchWholeWord = False
+
+    End With
+
+    Do While rngBusca.Find.Execute
+
+        rngBusca.Text = substituirPor
+
+        rngBusca.Collapse wdCollapseEnd
+
+    Loop
+
+End Sub
+
+' =====================================================
+' CRIAR PASTA
+' =====================================================
+
+Sub CriarPastaSeNaoExistir( _
+caminho As String)
+
+    Dim fso As Object
+
+    Set fso = _
+    CreateObject( _
+    "Scripting.FileSystemObject")
+
+    If Not _
+    fso.FolderExists(caminho) Then
+
+        fso.CreateFolder caminho
+
+    End If
+
+End Sub
+

@@ -1,0 +1,63 @@
+MANIFESTO DE INTEGRIDADE — GESTÃO DE CONTRATOS ENGEMIL V40
+Data: 23/08/2026
+Gerado por: sessão de revisão de código (Claude), a pedido de Rodrigo.
+
+Origem preservada:
+- base: versão 39 consolidada (mesma sessão, contexto retomado do
+  próprio pacote V39 já entregue e do zip original enviado por Rodrigo
+  no início da colaboração);
+- gestao_contratos.db entregue SEM alteração — hash SHA-256 idêntico ao
+  arquivo original recebido de Rodrigo:
+  6cb1d3be34f4147e21a418dfb3f02a6d60ffa55c1107f74ddcb85dd2804309a1;
+- conferido repetidas vezes ao longo desta sessão, sem nenhuma
+  divergência — todos os comandos que importaram app.py usaram
+  GESTAO_DB_PATH apontado para arquivo temporário isolado;
+- migração testada em cópia isolada do banco real: tabela
+  bid_lot_items criada, colunas lot_type (bid_lots) e dispute_time
+  (bid_processes) criadas, 101 contratos preservados, nenhuma tabela ou
+  coluna existente alterada.
+
+Arquivos alterados nesta versão (SHA-256):
+- app.py: 68d2756eeb0dd54421ce37c9d55012c0d56325a067607e3c3d434d9c5e14168b
+- db.py: e92366b215643dfe8fce6a067c07a7659a9dd3c4abab125056ba7f3cfeb117ba
+- reports.py: 327b8d8ea2c2fa516216002591540ad05dcd65e975ac6ff579730cc1e0b39a76
+- contract_utils.py: a460b940bbaf542ea38c1d88bf15920f30567bc415a12f47fbe459f333f44e85
+
+Documentação atualizada (SHA-256):
+- GESTAO_LICITACOES.md: 8447b794a9fc3dfcc584a0ee24d68f9592917fc75752412704e06df156e48a09
+
+bids.py, alerts.py, test_core.py, README.md e COMO_ATUALIZAR.txt
+permanecem idênticos aos entregues nas versões anteriores. Nenhum outro
+arquivo do projeto foi tocado.
+
+Validações concluídas nesta sessão:
+- compilação (py_compile) de app.py, db.py, reports.py, contract_utils.py,
+  bids.py: OK;
+- format_cnpj() testada isoladamente: "04768702000170" →
+  "04.768.702/0001-70"; string vazia e None devolvem string vazia sem
+  erro; "00394429000135" salvo via formulário (dígitos puros) e exibido
+  formatado ("00.394.429/0001-35") ao reabrir para edição;
+- recompute_bid_lot_totals() testada com os valores exatos de um print
+  real de licitação do TJDF (Pregão 15/2026, Grupo 1, 5 itens: LUMINÁRIA,
+  LÂMPADA LED, PLUGUE ×2, CABO ELÉTRICO FLEXÍVEL) — valor estimado
+  somado bateu exatamente com o valor mostrado no portal
+  (R$ 592.810,56). O valor ofertado somado no teste divergiu em
+  aproximadamente R$ 325 do valor do portal — identificado como erro de
+  transcrição manual de um centavo ao reconstruir os dados do print
+  para o teste, não uma falha da fórmula (que é a mesma para os dois
+  valores: quantidade × valor unitário, somado por item);
+- cadastro de licitação com "Por grupo(s) e/ou item(ns)" testado via
+  streamlit.testing.v1.AppTest: confirmado que quantity/estimated_value
+  ficam None/0 nesse modo (os valores passam a viver nos grupos/itens,
+  não no processo);
+- todos os 6 usos de st.multiselect no sistema (app.py) confirmados com
+  placeholder="Selecione..." — nenhum "Choose options" restante;
+- página completa de Licitações (com licitação, grupo e item já
+  cadastrados) testada via AppTest, sem exceções;
+- suíte de regressão completa (test_core.py e test_v16.py a test_v24.py)
+  executada em ambiente Linux equivalente: 100% aprovada.
+
+Este manifesto documenta o que foi executado nesta sessão de revisão.
+Como nos manifestos anteriores, os hashes de "banco antes/depois da
+migração" não se aplicam aqui porque a migração roda no computador de
+Rodrigo, não neste ambiente de revisão.

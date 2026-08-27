@@ -1,0 +1,50 @@
+MANIFESTO DE INTEGRIDADE — GESTÃO DE CONTRATOS ENGEMIL V24
+Data: 31/07/2026
+
+Origem preservada:
+- base: versão 23 consolidada e em uso;
+- banco antes/depois: SHA-256 a8c792750ec5192915ce8d34fcf7964f9726f435d343ea38a544f916bd5d10d4;
+- PRAGMA integrity_check: ok;
+- PRAGMA foreign_key_check: sem inconsistências;
+- contratos: 100 antes / 100 depois;
+- aditivos: 385 antes / 385 depois;
+- documentos: 2 antes / 2 depois;
+- usuários: 1 antes / 1 depois;
+- cargos: 10 antes / 10 depois;
+- obrigações: 2 antes / 2 depois;
+- ARTs: 10 antes / 10 depois;
+- CNOs: 0 antes / 0 depois;
+- anexos: 7 arquivos, 772.668 bytes.
+
+Arquivos principais após a atualização:
+- app.py: a5f37c76d37a1e8936df85b12fe17c19a34a934059c2912fa92e03d414ddfb99
+- notifications.py: 7573fe540942e21d0ba0d425d51315abe7f06cabd7eeede4aec180c96ae949a3
+- alerts.py: cf3b053c2d3bfe93ab6a13512388cf7a5597850d8048aeabe83b60a51c70de83
+- db.py: 52d857c7c9933a2a8554648639157c56ca748deb593ce76a0745e5bd579809aa
+- reports.py: 8efb22beb8a274d97eb421972784dcae41a97d237302996d42cf12dfc3e0475e
+- contract_utils.py: 42c41ed7f16766c6b0a69173989782aa1ac9de5e6b475fab071f9c3988bf2e6a
+- configuracao_email.exemplo.bat: fa9db80863af11d94ef5241df2b743100571d5eec26215649a463fde2006ce4b
+- testar_email.bat: b128d4260d7be7446b8551ca73865b42c5e43a36e8ed9a9ae57f1152ea26009b
+- executar_alertas.bat: 84cce5297f7579de261f79cc373fa255fcc4b228e8653cfd14a93fafdc4f1dfd
+
+Validações concluídas:
+- compilação de app.py, notifications.py, alerts.py, db.py e reports.py;
+- test_core.py;
+- test_v16.py;
+- test_v18.py;
+- test_v19.py;
+- test_v20.py;
+- test_v21.py;
+- test_v22.py;
+- test_v23.py;
+- test_v24.py;
+- configuração do arquivo local prevalece sobre ambiente antigo;
+- alteração do BAT reconhecida sem reiniciar o módulo;
+- STARTTLS, autenticação, remetente, destinatário e cópia validados com SMTP simulado;
+- senha ausente do diagnóstico, da interface e dos pacotes;
+- todas as rotas de e-mail centralizadas em notifications.send_email;
+- migração inexistente nesta versão e banco preservado byte a byte.
+
+O pacote incremental V24 não contém banco, uploads, trash, ambiente virtual ou
+configuracao_email.bat. O pacote completo preserva banco e anexos, porém também
+não contém configuracao_email.bat para impedir a distribuição de credenciais.

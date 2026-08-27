@@ -1,0 +1,59 @@
+MANIFESTO DE INTEGRIDADE — GESTÃO DE CONTRATOS ENGEMIL V41
+Data: 23/08/2026
+Gerado por: sessão de revisão de código (Claude), a pedido de Rodrigo.
+
+Origem preservada:
+- base: versão 40 consolidada (mesma sessão);
+- gestao_contratos.db entregue SEM alteração — hash SHA-256 idêntico ao
+  arquivo original recebido de Rodrigo:
+  6cb1d3be34f4147e21a418dfb3f02a6d60ffa55c1107f74ddcb85dd2804309a1;
+- conferido antes e depois de todos os testes desta sessão, sem nenhuma
+  divergência;
+- nenhuma alteração de schema de banco nesta versão (ajuste puramente
+  de cálculo/exibição).
+
+Arquivos alterados nesta versão (SHA-256):
+- app.py: dbc16dcdb1c45d7d01e43732319fbbaaa03b6b80862d16ea690baf64ac293fac
+- bids.py: 2fa04a404df90814aa5ae512a9d019a1d967b90c4a4a7a3342026c0dee4d2506
+- reports.py: afb1fd5d5683582a7daf7475fc7496491773b28ebaf7137c723a755ef5e57e77
+
+Documentação atualizada (SHA-256):
+- GESTAO_LICITACOES.md: a03d88775ef7ec51a4fc3b4fc6d72776d9568f8ceaabdb5e7dae8583d3b539f9
+
+db.py, contract_utils.py, alerts.py, test_core.py, README.md e
+COMO_ATUALIZAR.txt permanecem idênticos aos entregues nas versões
+anteriores. Nenhum outro arquivo do projeto foi tocado.
+
+Mudança de comportamento importante (documentada, não um bug): os três
+pontos que calculavam desconto (parse_pasted_ranking_auto,
+recompute_bid_lot_totals, e o formulário de edição manual de licitação)
+paravam o percentual em 0,00% quando o lance ficava acima do valor
+estimado (via max(0.0, ...)). Isso foi removido — agora o percentual
+real (negativo, matematicamente) é calculado e guardado, e cada local
+de exibição (imagem de classificação, PDF de licitações vigentes)
+decide como mostrá-lo: percentual normal em vermelho quando é desconto
+de verdade, ou "▲ X,XX%" em laranja quando o valor está acima do
+estimado. Nenhum dado histórico é afetado — apenas classificações novas
+ou recalculadas a partir de agora usam a fórmula sem o piso em zero.
+
+Validações concluídas nesta sessão:
+- compilação (py_compile) de app.py, bids.py, reports.py: OK;
+- generate_ranking_image testada com os valores exatos do print
+  enviado por Rodrigo (TCU, Pregão 53/2026, UASG 30001): os três
+  últimos colocados (Interativa Facilities +1,10%, Covam Construções
+  +1,58%, VRL Manutenções +9,26%, todos acima do estimado) mostraram
+  corretamente "▲ X,XX%" em laranja — conferido visualmente;
+- renderização do caractere ▲ na fonte Helvetica do PDF (reportlab)
+  testada e confirmada — gerado um PDF de teste e convertido para
+  imagem para inspeção visual antes de aprovar;
+- geração do nome de arquivo testada com os dados do exemplo de Rodrigo:
+  resultado exato "CLASS_TCU_53-2026_30001.png";
+- página completa de Licitações testada via streamlit.testing.v1.AppTest
+  com uma classificação incluindo lance acima do estimado, sem
+  exceções;
+- suíte de regressão completa (test_core.py e test_v16.py a test_v24.py)
+  executada em ambiente Linux equivalente: 100% aprovada.
+
+Este manifesto documenta o que foi executado nesta sessão de revisão.
+Como nos manifestos anteriores, os hashes de "banco antes/depois da
+migração" não se aplicam aqui porque não houve migração nesta versão.

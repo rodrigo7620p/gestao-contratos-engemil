@@ -1,0 +1,29 @@
+ATUALIZAÇÃO V18 - GESTÃO DE CONTRATOS ENGEMIL
+
+1. Encerre o Streamlit com Ctrl + C.
+2. Faça backup de gestao_contratos.db, uploads, trash e configuracao_email.bat.
+3. Abra ATUALIZACAO_GESTAO_CONTRATOS_ENGEMIL_V18_SEM_BANCO.zip.
+4. Extraia TODOS os arquivos diretamente na pasta onde estão app.py e
+   gestao_contratos.db.
+5. Confirme "Substituir os arquivos no destino".
+6. Execute iniciar_sistema.bat.
+7. Na tela de login, confirme a identificação "Versão 18".
+
+ATENÇÃO
+
+- Não crie uma segunda pasta GESTÃO_CONTRATOS_ENGEMIL dentro da instalação.
+- O pacote incremental não contém banco, anexos, trash ou ambiente virtual.
+- O Backlog oficial da versão 18 é gerado somente em PDF.
+- O PDF não contém as colunas anuais de remanescente.
+
+COLUNAS DO BACKLOG OFICIAL
+
+Item
+Centro de custo
+Contratante
+Contrato
+Início
+Fim
+Valor atual
+Instrumento vigente
+Remanescente total

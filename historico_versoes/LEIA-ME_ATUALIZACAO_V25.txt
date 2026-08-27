@@ -1,0 +1,28 @@
+ATUALIZAÇÃO INCREMENTAL — GESTÃO DE CONTRATOS ENGEMIL V25
+
+1. Encerre o sistema com Ctrl+C.
+2. Faça backup de gestao_contratos.db, uploads, trash e configuracao_email.bat.
+3. Extraia ATUALIZACAO_GESTAO_CONTRATOS_ENGEMIL_V25_SEM_BANCO.zip diretamente
+   sobre a pasta atual GESTÃO_CONTRATOS_ENGEMIL e confirme a substituição.
+4. O pacote incremental não contém banco, anexos, lixeira, ambiente virtual nem
+   credenciais de e-mail.
+5. Execute no terminal da pasta:
+      .\.venv\Scripts\Activate.ps1
+      python -c "from db import init_db; init_db()"
+6. Inicie com iniciar_sistema.bat e confirme no menu lateral: Versão 25.
+
+CONFERÊNCIAS RECOMENDADAS
+- Em Prazos e obrigações, envie um teste e confirme o assunto no padrão:
+  01.02.00253_EMBRATUR_[VENCE EM 30 DIA(S)].
+- Em CNO, marque A definir, Sim e Não. Os campos devem aparecer somente em Sim.
+- Em Contratos, abra a geração do Backlog e cadastre um novo diretor ou gestor
+  no expansor de responsáveis pela assinatura.
+- Em Índices, atualize os parâmetros e gere o PDF oficial. A relação contratual
+  deve ocupar a primeira página; fórmulas, justificativa e assinatura devem
+  ocupar a segunda.
+
+IMPORTANTE
+- A migração apenas acrescenta contracts.cno_required. Nenhum CNO é excluído.
+- Contratos com CNO já cadastrado são reconhecidos automaticamente como “Sim”.
+- A definição “Não aplicável” recolhe os formulários, mas preserva registros
+  históricos para rastreabilidade.

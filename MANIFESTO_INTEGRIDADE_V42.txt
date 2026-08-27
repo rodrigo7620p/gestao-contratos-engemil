@@ -1,0 +1,46 @@
+MANIFESTO DE INTEGRIDADE — GESTÃO DE CONTRATOS ENGEMIL V42
+Data: 24/08/2026
+Gerado por: sessão de revisão de código (Claude), a pedido de Rodrigo.
+
+Origem preservada:
+- base: versão 41 consolidada (mesma sessão);
+- gestao_contratos.db entregue SEM alteração — hash SHA-256 idêntico ao
+  arquivo original recebido de Rodrigo:
+  6cb1d3be34f4147e21a418dfb3f02a6d60ffa55c1107f74ddcb85dd2804309a1;
+- conferido antes e depois de todos os testes desta sessão, sem nenhuma
+  divergência;
+- nenhuma alteração de schema de banco nesta versão (ajuste de
+  interface e experiência de cadastro).
+
+Arquivo alterado nesta versão (SHA-256):
+- app.py: 7d8fa699549587f318be59c0bf6388fb19eeaa16a34eb837f472d96decf81748
+
+Documentação atualizada (SHA-256):
+- GESTAO_LICITACOES.md: e1dbac77a3b82639335d00a4ed49482ac51157298c6de51f966ee88dfc9f7a03
+
+db.py, bids.py, reports.py, contract_utils.py, alerts.py, test_core.py,
+README.md e COMO_ATUALIZAR.txt permanecem idênticos aos entregues nas
+versões anteriores. Nenhum outro arquivo do projeto foi tocado.
+
+Validações concluídas nesta sessão:
+- compilação (py_compile) de app.py: OK;
+- as 3 opções de estrutura testadas via streamlit.testing.v1.AppTest:
+  confirmado que aparecem corretamente na tela ("Individual", "Vários
+  itens individuais", "Grupo(s) com itens") e que escolher "Grupo(s)
+  com itens" faz o campo "Tipo" do primeiro grupo cadastrado já vir
+  pré-marcado como "Grupo" (índice correto no selectbox, sem precisar
+  trocar manualmente);
+- recriados os 3 grupos do exemplo real do TJDF (Pregão 15/2026, UASG
+  100001) em banco isolado: Grupo 1 com os 5 itens exatos do print
+  (quantidades 2.322/9.286/2.322/2.322/3.482, valores unitários
+  187,34/11,30/6,32/4,05/8,27) somou R$ 592.810,56 — idêntico ao valor
+  mostrado no portal. Grupo 2 com 5 itens sintéticos também testado
+  (soma R$ 300.000,00, conferida manualmente). Listagem de grupos
+  confirmada no formato "Grupo N | X itens", igual ao layout do
+  Compras.gov.br;
+- suíte de regressão completa (test_core.py e test_v16.py a test_v24.py)
+  executada em ambiente Linux equivalente: 100% aprovada.
+
+Este manifesto documenta o que foi executado nesta sessão de revisão.
+Como nos manifestos anteriores, os hashes de "banco antes/depois da
+migração" não se aplicam aqui porque não houve migração nesta versão.

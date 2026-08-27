@@ -1,0 +1,62 @@
+ATUALIZAÇÃO SEGURA - GESTÃO DE CONTRATOS ENGEMIL V30
+
+CONTEXTO: esta versão corrige o erro "no such table: bid_processes" que
+apareceu depois da V29. A causa foi confirmada pelo próprio traceback do
+erro: o número de linha reportado em db.py batia com a V28, não com a
+V29 — ou seja, o arquivo db.py não tinha sido substituído corretamente
+na atualização anterior. Siga os passos abaixo com atenção redobrada
+nessa etapa.
+
+1. Feche o sistema com Ctrl+C.
+2. Faça uma cópia de segurança de:
+   - gestao_contratos.db
+   - uploads
+   - trash, se existir
+   - configuracao_email.bat
+3. Este pacote foi entregue como projeto completo (não incremental).
+   Substitua TODOS os arquivos .py da pasta do projeto pelos deste
+   pacote — não apenas alguns. Arquivos alterados nesta versão: app.py,
+   db.py, bids.py.
+4. IMPORTANTE — apague a pasta __pycache__ dentro da pasta do projeto
+   (a raiz, não a de dentro de .venv) antes de reiniciar. Isso evita que
+   o Python use bytecode antigo em cache em vez dos arquivos novos.
+5. Não apague nem substitua o banco, uploads, ambiente .venv ou
+   configuração de e-mail.
+6. Confira se os arquivos batem com o manifesto (opcional, mas
+   recomendado). No PowerShell, dentro da pasta do projeto:
+   Get-FileHash app.py,db.py,bids.py -Algorithm SHA256
+   Compare com os valores em MANIFESTO_INTEGRIDADE_V30.txt.
+7. Execute iniciar_sistema.bat. A migração aditiva do banco (nova coluna
+   agency_cnpj em bid_processes) será aplicada automaticamente.
+8. Confirme no rodapé a indicação Versão 30.
+9. Abra Licitações e confirme que a tela carrega sem erro.
+
+FUNCIONALIDADE PRINCIPAL DESTA VERSÃO
+
+- Novo campo "CNPJ do órgão" no cadastro e na edição de licitações.
+- Nova verificação automática de homologação no PNCP: na aba "Resumo e
+  edição" de uma licitação com CNPJ do órgão preenchido, o botão
+  "Verificar no PNCP" consulta os contratos publicados por aquele órgão
+  num período e confere se algum foi firmado com o CNPJ da ENGEMIL
+  (04.768.702/0001-70). Se encontrar, oferece marcar a licitação como
+  "HOMOLOGADA - VENCEDORA" com valor e número de controle PNCP já
+  preenchidos.
+
+LIMITAÇÃO IMPORTANTE, EXPLICADA EM DETALHE EM GESTAO_LICITACOES.md
+
+O pedido original era "puxar automaticamente todas as licitações em que
+a ENGEMIL está participando". Conferi o Manual de Integração oficial do
+PNCP (Consultas API v1.0) e confirmei: **nenhum serviço de consulta do
+PNCP aceita filtrar por CNPJ do fornecedor/participante** — todos filtram
+por CNPJ do órgão comprador. Isso não é uma limitação da implementação;
+é uma limitação da própria API pública do governo. Por isso, o que foi
+implementado é o máximo tecnicamente possível com o PNCP: confirmação
+automática de RESULTADO (venceu/não venceu) para licitações que você já
+cadastrou com o CNPJ do órgão — não descoberta automática de novas
+participações nem acompanhamento de disputas em andamento.
+
+Para a descoberta automática de verdade (incluindo disputas em
+andamento), o caminho seria integrar com a plataforma onde a ENGEMIL
+efetivamente faz login e envia propostas (Portal de Compras Públicas,
+Compras.gov.br), já documentado como próximo passo em
+GESTAO_LICITACOES.md.

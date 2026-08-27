@@ -1,0 +1,15 @@
+# Histórico de versões (V16 a V27)
+
+Esta pasta reúne os LEIA-ME de atualização e os manifestos de integridade
+das versões 16 a 27, além do antigo `ATUALIZACAO.md` (formato usado antes
+de existir um LEIA-ME por versão — seu conteúdo descrevia só a V27 e já
+está integralmente coberto por `LEIA-ME_ATUALIZACAO_V27.txt`).
+
+Nada aqui foi apagado — só organizado, para a raiz do projeto não acumular
+dezenas de arquivos de versões já consolidadas há muito tempo. Os
+documentos das versões mais recentes (a partir da V28) continuam na raiz
+do projeto, junto com `VERSAO.txt`, que sempre reflete a versão atual.
+
+Se precisar auditar uma alteração antiga específica, o manifesto de
+integridade da versão correspondente traz os hashes SHA-256 dos arquivos
+de código daquela entrega.

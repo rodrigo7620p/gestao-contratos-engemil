@@ -1,0 +1,41 @@
+GESTÃO DE CONTRATOS ENGEMIL — MANIFESTO DA ATUALIZAÇÃO V17
+Data da validação: 30/07/2026
+
+Base de atualização:
+- versão 16 recebida com os dados já inseridos pelo usuário;
+- banco preservado sem limpeza, substituição ou recriação.
+
+Banco atualizado: gestao_contratos.db
+SHA-256 do banco: d38e474f44e03008b9527d1e6188854f73648d43f09b04d9244c2ead3d6403c4
+PRAGMA integrity_check: ok
+
+Quantidades preservadas:
+- contratos: 100
+- aditivos/instrumentos: 484
+- contratos decorrentes de ATA: 0
+- cargos: 10
+- ARTs: 10
+- CNOs: 0
+- documentos anexados: 2
+- usuários: 1
+- registros de auditoria: 84
+
+Alterações funcionais:
+- quadro Remanescente previsto ano a ano com grade responsiva própria;
+- conferência cadastral detalhada por contrato, campo, motivo e providência;
+- botão para abrir diretamente a ficha apontada pelo dashboard;
+- Backlog ENGEMIL em PDF A4 vertical, baseado na apresentação da análise crítica;
+- exportação Excel do backlog mantida.
+
+Pendência ativa confirmada no dashboard:
+- centro de custo 01.02.00320;
+- contratante FUNDO NACIONAL DE DESENVOLVIMENTO DA EDUCAÇÃO;
+- contrato 337/2026;
+- Responsável administrativo não informado;
+- Valor atual não informado ou igual a zero.
+
+Outras pendências históricas continuam listadas pelo verificador de integridade e
+não foram alteradas automaticamente, pois dependem de confirmação humana.
+
+Nenhum contrato, aditivo, cargo, ART, documento, usuário ou registro de auditoria
+foi excluído durante a atualização.

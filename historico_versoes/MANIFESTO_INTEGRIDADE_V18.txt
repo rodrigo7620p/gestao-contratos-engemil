@@ -1,0 +1,50 @@
+GESTÃO DE CONTRATOS ENGEMIL — MANIFESTO DA ATUALIZAÇÃO V18
+Data da validação: 30/07/2026
+
+Base utilizada:
+- versão 17 preparada sobre o banco e os anexos recebidos pelo usuário;
+- compatibilidade integral com as melhorias funcionais da versão 16;
+- banco preservado sem limpeza, substituição ou recriação.
+
+Banco: gestao_contratos.db
+SHA-256: d38e474f44e03008b9527d1e6188854f73648d43f09b04d9244c2ead3d6403c4
+PRAGMA integrity_check: ok
+
+Quantidades preservadas:
+- contratos: 100
+- aditivos/instrumentos: 484
+- cargos: 10
+- ARTs: 10
+- documentos anexados: 2
+- usuários: 1
+- registros de auditoria: 84
+
+Alterações verificáveis:
+- Versão 18 exibida na tela de login, menu lateral e rodapé;
+- controle visível com ícone para exibir pendências cadastrais;
+- identificação do contrato, campo, motivo e providência;
+- atalho para abrir a ficha correspondente;
+- Backlog oficial disponibilizado exclusivamente em PDF;
+- gerador legado do Backlog em Word removido do código;
+- projeções anuais excluídas do PDF e preservadas no Excel;
+- pacote incremental sem banco e sem pasta intermediária.
+
+Colunas exclusivas do Backlog oficial:
+1. Item
+2. Centro de custo
+3. Contratante
+4. Contrato
+5. Início
+6. Fim
+7. Valor atual
+8. Instrumento vigente
+9. Remanescente total
+
+Pendência ativa identificada:
+- centro de custo 01.02.00320;
+- contrato 337/2026 - FNDE;
+- Responsável administrativo não informado;
+- Valor atual não informado ou igual a zero.
+
+Nenhum contrato, aditivo, cargo, ART, documento, usuário ou registro de auditoria
+foi excluído durante a atualização.

@@ -1,0 +1,63 @@
+MANIFESTO DE INTEGRIDADE — GESTÃO DE CONTRATOS ENGEMIL V36
+Data: 21/08/2026
+Gerado por: sessão de revisão de código (Claude), a pedido de Rodrigo.
+
+Origem preservada:
+- base: versão 35 consolidada (entregue por esta mesma sessão);
+- gestao_contratos.db entregue SEM alteração — hash SHA-256 idêntico ao
+  arquivo original recebido de Rodrigo:
+  6cb1d3be34f4147e21a418dfb3f02a6d60ffa55c1107f74ddcb85dd2804309a1;
+- nesta sessão, disciplina reforçada de isolamento de testes: todo
+  comando que importa app.py foi executado com GESTAO_DB_PATH apontado
+  para um arquivo temporário isolado, e o hash do banco real foi
+  conferido repetidas vezes ao longo da sessão (não só no fim), sem
+  nenhuma divergência desta vez;
+- migração testada em cópia isolada do banco real: coluna quantity
+  criada em bid_processes, dados existentes preservados.
+
+Arquivos alterados nesta versão (SHA-256):
+- app.py: 2dc73de7ec1688a9f1db507e4e22f0d02dcf7620c112ae844d6023e5a6986134
+- db.py: a6787e2a13670989d8ae39ff1a85316aea59f25fe955f5efec16af41aac90f82
+- bids.py: d6304e4d3b0da85d194f518a229226cdea3e24fa8f607ef17616c64ec91c87f4
+- GESTAO_LICITACOES.md: 53d2644f3e550751a8366f883fbaca0e86e57844fac64cd531c4572dcc3658fd
+
+reports.py permanece idêntico ao entregue na V35. alerts.py, test_core.py,
+README.md permanecem idênticos aos entregues na V33/V34. Nenhum outro
+arquivo do projeto foi tocado.
+
+Validações concluídas nesta sessão:
+- compilação (py_compile) de app.py, db.py, bids.py, reports.py: OK;
+- bug "DESCLASSIFICADA no lugar do nome" reproduzido com o texto real
+  enviado por Rodrigo (empresas H2F, VERDANT, RWA) e corrigido — nomes
+  extraídos corretamente, situação registrada à parte;
+- bug do desconto 99,98% reproduzido com dados reconstruídos a partir
+  dos prints da licitação CONAB PE 13/2026 (UASG 135100, item
+  Revestimento Piso, quantidade 3.750, valor unitário estimado
+  R$ 322,03, valor unitário ofertado pela ENGEMIL R$ 200,00) e corrigido:
+  valor global calculado corretamente (R$ 750.000,00), desconto real
+  de 37,89% (contra os 99,98% incorretos observados antes);
+- reordenação de desclassificadas testada e confirmada (H2F, VERDANT,
+  RWA movidas para o final da lista, renumeradas, sem afetar a
+  numeração das empresas classificadas);
+- reconhecimento do percentual entre parênteses testado e confirmado
+  (usado corretamente como reserva quando não há valor estimado
+  cadastrado);
+- preenchimento automático da aba Resumo e edição testado de ponta a
+  ponta (banco isolado): our_bid_value, our_discount_percent e
+  our_ranking atualizados corretamente a partir da linha da ENGEMIL
+  após colar a classificação;
+- título da imagem gerada testado com o exemplo CONAB — formato "CONAB
+  · 13/2026 · UASG 135100 · Estimado: R$ 1.207.612,50" renderizado e
+  conferido visualmente;
+- formulário "Nova licitação" testado via streamlit.testing.v1.AppTest —
+  confirmado que Responsável e E-mail já vêm preenchidos com os dados
+  do usuário logado, sem exceções;
+- página completa de Licitações testada via AppTest (login, navegação,
+  todos os elementos), sem exceções;
+- suíte de regressão completa (test_core.py e test_v16.py a test_v24.py)
+  executada em ambiente Linux equivalente: 100% aprovada.
+
+Este manifesto documenta o que foi executado nesta sessão de revisão.
+Como nos manifestos anteriores, os hashes de "banco antes/depois da
+migração" não se aplicam aqui porque a migração roda no computador de
+Rodrigo, não neste ambiente de revisão.

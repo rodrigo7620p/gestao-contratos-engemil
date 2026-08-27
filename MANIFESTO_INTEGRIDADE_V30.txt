@@ -1,0 +1,55 @@
+MANIFESTO DE INTEGRIDADE — GESTÃO DE CONTRATOS ENGEMIL V30
+Data: 10/08/2026
+Gerado por: sessão de revisão de código (Claude), a pedido de Rodrigo.
+
+Origem preservada:
+- base: versão 29 consolidada (entregue por esta mesma sessão);
+- gestao_contratos.db entregue SEM alteração nesta versão. A coluna
+  agency_cnpj em bid_processes é criada pela migração aditiva automática
+  de init_db() no primeiro início do sistema;
+- hash do banco entregue (idêntico ao das V28/V29, não tocado):
+  e03b4f7ac1a3e2807bf2a22eed8aafa41ab16b3a29554ea1d108bfe6962fb57c;
+- migração testada em cópia isolada do gestao_contratos.db real (não no
+  arquivo entregue): coluna agency_cnpj criada, 100 contratos
+  preservados, nenhum outro campo alterado.
+
+Diagnóstico do incidente reportado após a V29 (erro "no such table:
+bid_processes"): o número de linha da função query() no traceback do
+usuário (859) corresponde ao db.py da V28, não ao da V29 (898) — ou seja,
+o arquivo db.py não havia sido substituído corretamente no ambiente do
+usuário. Não foi identificado nenhum defeito no código entregue na V29
+que explicasse o erro. Nenhuma alteração de lógica de banco foi revertida
+por causa desse incidente; apenas reforçadas as instruções de atualização
+(ver LEIA-ME_ATUALIZACAO_V30.txt, incluindo a limpeza de __pycache__).
+
+Arquivos alterados nesta versão (SHA-256):
+- app.py: 554a77c25c9e31acda02f298659cf450674322a347e587b7e8bd1657f89cd895
+- db.py: 369e307d8d59c49fedabb6100f2b2d0bddaab9dee8f8bbe304022f24a3ae7b8d
+- bids.py: d64083bf255a3da88f92c7eff9331ca699bb1058d528c665423f1d80314607e2
+- GESTAO_LICITACOES.md: 1f512fa6873086fef57378b29cbaba926819242a6ddcd28519a21960fec3c525
+
+reports.py permanece idêntico ao entregue na V28/V29. requirements.txt
+permanece idêntico ao entregue na V29 (nenhuma dependência nova nesta
+versão). Nenhum outro arquivo do projeto foi tocado.
+
+Validações concluídas nesta sessão:
+- compilação (py_compile) de app.py, db.py, bids.py e reports.py: OK;
+- migração testada em cópia isolada do banco real: coluna agency_cnpj
+  criada, 100 contratos preservados;
+- suíte de regressão completa (test_core.py e test_v16.py a test_v27.py)
+  executada em ambiente Linux equivalente: todas as versões passaram,
+  exceto a falha pré-existente de test_core.py já descrita nos manifestos
+  anteriores (não relacionada a esta atualização nem ao incidente
+  reportado);
+- a nova função pncp_check_awarded_contracts() foi validada apenas contra
+  o Manual de Integração oficial do PNCP (endpoint /v1/contratos,
+  parâmetros e campos de retorno conferidos linha a linha no manual) —
+  NÃO foi testada contra uma chamada de rede real nesta sessão, pelo
+  mesmo motivo já registrado nos manifestos anteriores (ambiente de
+  desenvolvimento sem acesso a pncp.gov.br). Teste manualmente no
+  primeiro uso.
+
+Este manifesto documenta apenas o que foi executado nesta sessão de
+revisão. Como nos manifestos V16 a V29, os hashes de banco
+"antes/depois da migração" não se aplicam aqui porque a migração roda no
+computador de Rodrigo, não neste ambiente de revisão.

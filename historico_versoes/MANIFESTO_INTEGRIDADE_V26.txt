@@ -1,0 +1,54 @@
+MANIFESTO DE INTEGRIDADE — GESTÃO DE CONTRATOS ENGEMIL V26
+Data: 06/08/2026
+
+Origem preservada:
+- base: pacote consolidado enviado pelo usuário em 06/08/2026;
+- banco recebido: SHA-256 f9bf77489e27aac713b1321cf55340a12d912f1762dd199730ee1fc0ca899a66;
+- banco após migração V26: SHA-256 b636aba63b42c09af18b5d0b2218f1b43cf0a092219e8f72955000abcebe5c00;
+- PRAGMA integrity_check: ok;
+- PRAGMA foreign_key_check: sem inconsistências;
+- contratos: 100 antes / 100 depois;
+- aditivos: 395 antes / 395 depois;
+- documentos: 2 antes / 2 depois;
+- usuários: 1 antes / 1 depois;
+- cargos: 10 antes / 10 depois;
+- obrigações: 1 antes / 1 depois;
+- ARTs: 17 antes / 17 depois;
+- CNOs: 0 antes / 0 depois;
+- anexos: 14 arquivos, 1.131.659 bytes;
+- novas garantias, coberturas e endossos: tabelas criadas vazias, sem registros artificiais.
+
+Arquivos principais após a atualização:
+- app.py: 41884757c0c46a2ad45c0b655d66e8a31c7310f197e4a3b01b8429e6e8969152
+- alerts.py: f7f3aafe53813341b3ae5147eda795eee0b5e0c5c9966fec25d786f48f103da4
+- db.py: 6d8b28842336bf873d532296438fbe4bd2a529abb473261289399c3a3ee38b36
+- reports.py: eec832d56559caf7e6477a19d8df6e703c659798af662f746e570b0f76bd84eb
+- guarantees.py: ac35f231d136182faca573daa1b6635348de010616ec184559872faa5b809ed0
+- verificar_integridade.py: 28294618b27be391510c74f7ee9cf6c560b4b0a7500df01379249c0cd9813981
+- .streamlit/config.toml: 47c76f7a9439514f0efc3ffc987a528ed199ddb32133057abe83eed7ad4167a6
+
+Validações concluídas:
+- compilação dos módulos alterados;
+- testes específicos da V26;
+- testes de regressão da V24;
+- migração aditiva em cópia do banco recebido;
+- integridade SQLite e vínculos de chaves estrangeiras;
+- preservação das quantidades de contratos, aditivos, documentos, usuários e anexos;
+- cálculo percentual de garantia;
+- cálculo da garantia adicional pela diferença entre orçamento estimado e proposta;
+- controle de insuficiência do valor garantido;
+- situação operacional por vigência, fluxo e documento;
+- associação ao contrato inicial, aditivos e instrumentos decorrentes de ATA;
+- coberturas, franquias/POS, endossos e renovações;
+- alertas de vencimento em 60, 30 e 15 dias;
+- inclusão das garantias na planilha Excel e na ficha contratual em Word.
+
+Limitações da validação neste ambiente:
+- a interface Streamlit não foi executada porque o ambiente Linux de validação não
+  possui o pacote Streamlit; a compilação e os testes de regras e relatórios passaram;
+- o test_core.py depende de uma planilha externa ausente no caminho esperado e seu
+  cadastro mínimo não contém objeto contratual; não indica falha da atualização V26.
+
+O pacote incremental V26 não contém banco, uploads, trash, ambiente virtual nem
+configuracao_email.bat. O pacote completo preserva o banco migrado e os anexos,
+mas não contém configuracao_email.bat para impedir a distribuição de credenciais.

@@ -1,0 +1,77 @@
+ATUALIZAÇÃO SEGURA - GESTÃO DE CONTRATOS ENGEMIL V37
+
+LEIA PRIMEIRO: COMO_ATUALIZAR.txt
+
+Esta versão inclui um novo arquivo, COMO_ATUALIZAR.txt, com o
+procedimento definitivo para aplicar qualquer atualização futura sem
+risco de apagar dados que você já cadastrou (contratos, licitações,
+classificações, ARTs, documentos anexados). Leia esse arquivo agora,
+antes de continuar — o resumo:
+
+1. Extraia este .zip numa pasta SEPARADA e temporária, nunca direto na
+   pasta onde o sistema está instalado.
+2. Copie manualmente só os arquivos listados abaixo em "Arquivos
+   alterados" — nunca use "Substituir tudo" nem extraia o zip inteiro
+   por cima da pasta do sistema.
+3. Nunca copie: gestao_contratos.db, a pasta uploads/, a pasta .venv/,
+   configuracao_email.bat, a pasta trash/.
+
+PASSOS DESTA ATUALIZAÇÃO
+
+1. Use reiniciar_sistema.bat (ou Gerenciador de Tarefas + iniciar_sistema.bat).
+2. Backup de gestao_contratos.db, uploads, trash (se existir) e
+   configuracao_email.bat.
+3. Copie manualmente para a pasta do sistema: app.py, db.py, bids.py,
+   COMO_ATUALIZAR.txt (arquivo novo).
+4. Apague o __pycache__ da raiz do projeto.
+5. Execute iniciar_sistema.bat. A migração aditiva (tabela bid_lots;
+   colunas novas em bid_processes e bid_rankings) roda sozinha e
+   preserva tudo que já está cadastrado, incluindo a licitação da CONAB
+   que vocês acabaram de lançar.
+6. Confirme "Versão 37" no rodapé.
+7. Abra a licitação da CONAB e confirme que ela continua lá, com todos
+   os dados. Se quiser usar Grupos/Itens nela, veja o passo 8.
+8. (Opcional) Na aba "Grupos/Itens" de uma licitação, cadastre um grupo
+   de teste e confirme que a classificação dele fica separada da
+   classificação geral da licitação.
+
+FUNCIONALIDADE PRINCIPAL DESTA VERSÃO
+
+1) Três campos de valor
+   Quantidade solicitada, Valor estimado (unitário) e Valor estimado
+   (total) — no cadastro e na edição de licitações, e também dentro de
+   cada Grupo/Item. Se você preencher quantidade e unitário mas deixar
+   o total em 0, o sistema calcula sozinho (quantidade × unitário).
+
+2) Grupos/Itens
+   Nova aba dentro de cada licitação, para certames com mais de um
+   grupo ou item (ex.: "Grupo 1 · 3 itens", "Grupo 2 · 2 itens"). Cada
+   grupo/item tem sua própria quantidade, valor estimado, classificação
+   e imagem para os gestores. Na aba Classificação, quando existir mais
+   de um grupo/item cadastrado, aparece um seletor para escolher qual
+   deles você está classificando.
+
+   IMPORTANTE: isso é opcional. Se a licitação tiver um único item (a
+   grande maioria dos casos até agora), não precisa mexer nesta aba —
+   nada muda no fluxo que vocês já usam.
+
+TESTES REALIZADOS NESTA SESSÃO
+
+- Migração testada em cópia do banco real: nenhuma tabela ou registro
+  existente alterado, 101 contratos e a licitação já cadastrada
+  preservados.
+- Fluxo completo de Grupos/Itens testado em banco isolado: dois grupos
+  cadastrados, classificação de cada um mantida separada (confirmado
+  que a classificação de um grupo não aparece no outro nem no nível
+  geral da licitação), preenchimento automático do resultado por grupo
+  testado e confirmado.
+- Geração de imagem por grupo testada e conferida visualmente (título e
+  objeto mostram o nome do grupo).
+- Página completa de Licitações (com grupo e classificação já
+  cadastrados) testada via streamlit.testing.v1.AppTest — as três abas
+  (Resumo e edição, Grupos/Itens, Classificação) carregam sem erro.
+- Suíte de regressão completa (test_core.py e test_v16.py a test_v24.py):
+  100% aprovada.
+- gestao_contratos.db entregue idêntico (mesmo hash SHA-256) ao que
+  vocês enviaram — conferido repetidas vezes ao longo da sessão, não só
+  no fim. Ver MANIFESTO_INTEGRIDADE_V37.txt.

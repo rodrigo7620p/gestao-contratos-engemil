@@ -1,0 +1,50 @@
+[theme]
+base = "dark"
+
+[theme.dark]
+primaryColor = "#c15d8d"
+backgroundColor = "#101114"
+secondaryBackgroundColor = "#1b1c20"
+textColor = "#f7f7f8"
+borderColor = "#3d353a"
+dataframeBorderColor = "#3d353a"
+dataframeHeaderBackgroundColor = "#27242a"
+showWidgetBorder = true
+
+[theme.dark.sidebar]
+primaryColor = "#c15d8d"
+backgroundColor = "#17181c"
+secondaryBackgroundColor = "#24252a"
+textColor = "#f7f7f8"
+borderColor = "#3d353a"
+
+[theme.light]
+primaryColor = "#771641"
+backgroundColor = "#f5f6f8"
+secondaryBackgroundColor = "#ffffff"
+textColor = "#1f2937"
+borderColor = "#dde1e7"
+dataframeBorderColor = "#dde1e7"
+dataframeHeaderBackgroundColor = "#f3edf0"
+showWidgetBorder = true
+
+[theme.light.sidebar]
+primaryColor = "#771641"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f8f9fb"
+textColor = "#1f2937"
+borderColor = "#dde1e7"
+
+[server]
+maxUploadSize = 200
+enableXsrfProtection = true
+enableCORS = true
+enableStaticServing = false
+headless = true
+address = "127.0.0.1"
+
+[browser]
+gatherUsageStats = false
+
+[client]
+toolbarMode = "viewer"

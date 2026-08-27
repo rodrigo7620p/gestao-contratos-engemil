@@ -1,0 +1,47 @@
+MANIFESTO DE INTEGRIDADE — GESTÃO DE CONTRATOS ENGEMIL V21
+Data da validação: 30/07/2026
+
+ORIGEM
+
+- Base utilizada: versão 20 em funcionamento.
+- SHA-256 antes da migração:
+  a5aa48862e442171361940299613d023246af98d1f5b4514cf29d55b0ea29c3e
+- SHA-256 após a migração:
+  851bed1af84d13aebda78ce826b3954a254eb766410386f7d52155944e228c6c
+
+RESULTADO DA MIGRAÇÃO
+
+- Contratos: 100
+- Aditivos/instrumentos reais: 385
+- Linhas INICIAL / CONTRATO retiradas de Aditivos: 99
+- Linhas INICIAL / CONTRATO restantes: 0
+- Cargos: 10
+- ARTs: 10
+- CNOs existentes: 0
+- Documentos anexados: 2
+- Usuários: 1
+- Registros de auditoria: 86
+
+PRESERVAÇÃO VALIDADA
+
+- As datas originais anteriores e posteriores foram comparadas nos 100 contratos.
+- As datas finais efetivas anteriores e posteriores foram comparadas nos 100 contratos.
+- Os valores efetivos anteriores e posteriores foram comparados nos 100 contratos.
+- Divergências encontradas nessas comparações: 0.
+- Documentos ligados às 99 linhas migradas: 0.
+- Sindicatos ligados às 99 linhas migradas: 0.
+- Integridade SQLite: ok.
+
+OBSERVAÇÕES DE QUALIDADE CADASTRAL
+
+- Permanecem 9 cargos históricos com salário-base igual a zero.
+- Permanecem 10 ARTs históricas sem título profissional.
+- Esses valores não foram inventados nem alterados automaticamente; a plataforma
+  continua sinalizando-os para conferência manual.
+
+SEGURANÇA
+
+- Nenhuma senha SMTP foi gravada no banco.
+- O pacote incremental não substitui configuracao_email.bat.
+- Os avisos automáticos usam notification_log para impedir duplicidade por
+  contrato, data final, tipo de aviso e destinatário.

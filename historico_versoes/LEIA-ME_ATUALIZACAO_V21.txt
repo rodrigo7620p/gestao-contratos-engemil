@@ -1,0 +1,38 @@
+ATUALIZAÇÃO INCREMENTAL — GESTÃO DE CONTRATOS ENGEMIL V21
+Data: 30/07/2026
+
+1. Feche a aplicação e faça uma cópia de segurança da pasta atual.
+2. Extraia o pacote incremental V21 sobre a pasta GESTÃO_CONTRATOS_ENGEMIL.
+3. Confirme a substituição dos arquivos existentes.
+4. Não apague gestao_contratos.db nem a pasta uploads.
+5. Execute iniciar_sistema.bat.
+
+Na primeira abertura, a migração:
+- guarda as datas originais dos contratos importados;
+- retira somente as linhas INICIAL / CONTRATO da tabela de aditivos;
+- adiciona o vínculo opcional entre CNO e contrato decorrente da ATA;
+- mantém contratos, anexos, usuários, permissões e históricos.
+
+ALERTAS PELO GMAIL
+
+1. Abra configuracao_email.exemplo.bat e use-o como modelo.
+2. Preencha configuracao_email.bat:
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_USE_SSL=0
+   SMTP_USER=conta Google que autentica
+   SMTP_PASSWORD=senha de app do Google
+   SMTP_FROM=licitacao@engemil.com.br
+3. Confirme o alias licitacao@engemil.com.br em "Enviar e-mail como" no Gmail.
+4. Execute testar_email.bat.
+5. Execute configurar_alertas_automaticos.bat como administrador do Windows.
+
+Não compartilhe configuracao_email.bat. Ele contém a senha de app.
+
+VALIDAÇÃO
+
+- Aditivos não deve exibir INICIAL / CONTRATO.
+- Os quadros de datas original e atual devem manter os valores anteriores.
+- O CNO de uma ATA deve pedir o contrato decorrente.
+- Contratos deve exibir a coluna Prazo restante.
+- Prazos e obrigações deve exibir o diagnóstico e o botão de teste do e-mail.

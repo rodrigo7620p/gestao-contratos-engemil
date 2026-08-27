@@ -1,0 +1,64 @@
+ATUALIZAÇÃO SEGURA - GESTÃO DE CONTRATOS ENGEMIL V29
+
+1. Feche o sistema com Ctrl+C.
+2. Faça uma cópia de segurança de:
+   - gestao_contratos.db
+   - uploads
+   - trash, se existir
+   - configuracao_email.bat
+3. Este pacote foi entregue como projeto completo (não incremental).
+   Substitua os arquivos de código pelos desta versão dentro da pasta
+   atual:
+   C:\Users\RODRIGO_NOT\OneDrive\Documentos\003 - CONTROLE\GESTÃO_CONTRATOS_ENGEMIL
+   Arquivos novos nesta versão: bids.py, GESTAO_LICITACOES.md,
+   assets/fonts/DejaVuSans.ttf, assets/fonts/DejaVuSans-Bold.ttf,
+   assets/fonts/LICENSE.txt.
+   Arquivos de código alterados: app.py, db.py, requirements.txt.
+4. Não apague nem substitua o banco, uploads, ambiente .venv ou
+   configuração de e-mail.
+5. Atualize o .venv com o novo requirements.txt (adicionamos o pacote
+   requests, usado para consultar o PNCP):
+   .venv\Scripts\python.exe -m pip install -r requirements.txt
+6. Execute iniciar_sistema.bat. A migração aditiva do banco (duas tabelas
+   novas: bid_processes e bid_rankings) será aplicada automaticamente.
+7. Confirme no rodapé a indicação Versão 29.
+8. No menu lateral, abra "Licitações" e cadastre uma licitação de teste.
+9. Na aba Classificação, digite algumas linhas e gere a imagem — confirme
+   que o download funciona e que a identidade visual está correta.
+10. Teste a busca no PNCP (aba "Consultar contratações publicadas no
+    PNCP"). Isso não pôde ser testado com uma chamada real durante o
+    desenvolvimento (o ambiente usado não tinha acesso à internet
+    pública) — foi validado apenas contra a documentação oficial do PNCP.
+    Se algo não funcionar como esperado, veja GESTAO_LICITACOES.md.
+
+FUNCIONALIDADE PRINCIPAL
+
+- Novo menu "Licitações": cadastro, edição, filtros (status, plataforma,
+  texto) e indicadores (em andamento, taxa de sucesso, valor estimado e
+  valor de lance em disputa).
+- Vínculo opcional entre uma licitação e um contrato já cadastrado, para
+  quando ela é convertida em contrato.
+- Aba de classificação por licitação: tabela editável (SEQ, empresa,
+  lance final, desconto, marcação da linha ENGEMIL) e geração de imagem
+  PNG no padrão visual da ENGEMIL para envio aos gestores.
+- Consulta à API pública do PNCP por período, modalidade, UF e CNPJ do
+  órgão, para localizar e conferir editais — ela não traz o mapa de
+  lances em tempo real (isso é da plataforma do pregão, não do PNCP).
+- Ponto de extensão pronto para a API do Portal de Compras Públicas,
+  que exige solicitar uma chave de integração à parte — ver
+  GESTAO_LICITACOES.md para o passo a passo.
+
+ACHADOS/AVISOS DESTA VERSÃO
+
+- A consulta ao PNCP não foi exercitada com uma chamada de rede real
+  durante o desenvolvimento; teste no seu ambiente antes de confiar nela
+  no dia a dia.
+- Ao programar a coluna de "Lance final" na classificação, cheguei a usar
+  st.column_config.NumberColumn(format="R$ %.2f"). O próprio test_v23.py
+  já continha uma checagem que barra esse padrão (a equipe já tinha
+  descartado essa abordagem por causar problema em versão anterior) — o
+  teste pegou o problema antes da entrega, e o código foi corrigido para
+  seguir o mesmo padrão já usado em "Salário-base" (coluna de texto +
+  conversão via parse_brazilian_number). Reforça o valor de rodar
+  test_core.py a test_v27.py depois de qualquer atualização, como já
+  orientado no ANALISE_CIBERSEGURANCA_V22.md.

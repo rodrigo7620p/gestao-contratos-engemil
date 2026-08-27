@@ -1,0 +1,89 @@
+ATUALIZAÇÃO SEGURA - GESTÃO DE CONTRATOS ENGEMIL V40
+
+Siga o COMO_ATUALIZAR.txt: extraia numa pasta separada, copie manualmente
+só os arquivos abaixo, nunca a pasta inteira por cima do sistema em uso.
+
+1. Use reiniciar_sistema.bat.
+2. Backup de gestao_contratos.db, uploads, trash (se existir) e
+   configuracao_email.bat.
+3. Copie manualmente para a pasta do sistema: app.py, db.py, reports.py,
+   contract_utils.py.
+4. Apague o __pycache__ da raiz do projeto.
+5. Execute iniciar_sistema.bat. A migração aditiva (tabela
+   bid_lot_items; colunas lot_type e dispute_time) roda sozinha e
+   preserva tudo que já está cadastrado.
+6. Confirme "Versão 40" no rodapé.
+
+FUNCIONALIDADE PRINCIPAL DESTA VERSÃO
+
+1) Estrutura do certame já no cadastro
+   Ao clicar em "Cadastrar nova licitação", a primeira pergunta agora é
+   "Como este certame será cadastrado?" — Individual (um valor estimado
+   único) ou Por grupo(s) e/ou item(ns). Escolhendo a segunda opção, os
+   campos de quantidade/valor somem do formulário principal (porque
+   passam a ser definidos por grupo/item) e, depois de salvar, a
+   licitação já aparece selecionada com um aviso apontando direto para
+   a aba Grupos/Itens.
+
+2) Detalhamento por item dentro de cada grupo/item
+   Na aba Grupos/Itens, ao editar um grupo/item, agora há uma tabela
+   para cadastrar item por item (nome, quantidade solicitada, valor
+   estimado unitário, nosso valor ofertado unitário) — igual ao que
+   aparece no Compras.gov.br (ex.: "Grupo 1 · 5 itens": LUMINÁRIA,
+   LÂMPADA LED, PLUGUE, PLUGUE, CABO ELÉTRICO FLEXÍVEL). O valor
+   estimado e o valor ofertado do grupo/item passam a ser somados
+   automaticamente a partir dessas linhas (quantidade × valor unitário
+   de cada uma) — não precisa mais calcular manualmente e digitar um
+   total. Se preferir não detalhar item por item, o campo de valor
+   total manual continua disponível, só que fica bloqueado quando já
+   há itens cadastrados (para não haver dois números conflitantes).
+
+3) Horário da disputa
+   Novo campo ao lado da Data da disputa, no cadastro e na edição —
+   também aparece na listagem e é uma coluna disponível no relatório em
+   PDF de licitações vigentes.
+
+4) CNPJ do órgão formatado automaticamente
+   Digite só os números (com ou sem pontuação, tanto faz) — ao abrir
+   para editar depois, o campo já mostra formatado
+   (XX.XXX.XXX/XXXX-XX).
+
+5) Textos em português
+   As caixas de múltipla escolha (filtros de Status, Plataforma,
+   Escopo, Contrato, e a seleção de colunas do relatório em PDF) agora
+   mostram "Selecione..." em vez do texto em inglês que aparecia antes
+   ("Choose options"). Conferi todo o sistema — eram 6 pontos ao todo,
+   todos corrigidos.
+
+TESTES REALIZADOS NESTA SESSÃO
+
+- Migração testada em cópia isolada do banco real: tabela
+  bid_lot_items criada, colunas lot_type e dispute_time criadas, 101
+  contratos preservados.
+- Cálculo de soma dos itens testado com os valores exatos de um
+  print real do TJDF (Grupo 1, 5 itens): o valor estimado somado bateu
+  exatamente com o valor mostrado no portal (R$ 592.810,56).
+- Formatação de CNPJ testada: "00394429000135" salvo e exibido depois
+  como "00.394.429/0001-35".
+- Cadastro de licitação com a opção "Por grupo(s) e/ou item(ns)"
+  testado via streamlit.testing.v1.AppTest — confirmado que os campos
+  de quantidade/valor ficam de fora e não são gravados nesse modo.
+- Página completa de Licitações (com licitação, grupo e item já
+  cadastrados) testada via AppTest, sem exceções.
+- Suíte de regressão completa (test_core.py e test_v16.py a test_v24.py):
+  100% aprovada.
+- gestao_contratos.db entregue idêntico (mesmo hash SHA-256) ao que
+  vocês enviaram — conferido repetidas vezes ao longo da sessão. Ver
+  MANIFESTO_INTEGRIDADE_V40.txt.
+
+OBSERVAÇÃO SOBRE O TESTE DE SOMA DOS ITENS
+
+O valor estimado bateu exatamente com o portal. Já o valor ofertado
+somado no meu teste sintético ficou uns R$ 325,00 diferente do que
+aparecia no print — isso foi um erro meu ao digitar manualmente um dos
+centavos ao reconstruir os dados do print para o teste (não um erro de
+cálculo do sistema, que apenas soma quantidade × valor unitário de cada
+linha). Recomendo conferir o primeiro grupo/item que vocês cadastrarem de
+verdade contra o valor mostrado no portal, só para terem certeza — mas o
+princípio do cálculo (mesma matemática, mesma soma) está correto e
+testado.

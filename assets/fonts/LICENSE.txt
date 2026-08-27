@@ -1,0 +1,8 @@
+Fontes DejaVu Sans (DejaVuSans.ttf, DejaVuSans-Bold.ttf)
+
+Domínio público / licença Bitstream Vera, com permissão de redistribuição
+e uso embutido em aplicações, sem exigência de atribuição.
+Projeto: https://dejavu-fonts.github.io/
+Usadas apenas para renderizar texto na imagem de classificação de
+licitações gerada por bids.py, garantindo aparência consistente entre
+Windows e Linux sem depender de fontes instaladas no sistema operacional.

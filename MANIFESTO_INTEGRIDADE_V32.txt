@@ -1,0 +1,63 @@
+MANIFESTO DE INTEGRIDADE — GESTÃO DE CONTRATOS ENGEMIL V32
+Data: 21/08/2026
+Gerado por: sessão de revisão de código (Claude), a pedido de Rodrigo.
+
+Origem preservada:
+- base: versão 31 consolidada, tal como enviada por Rodrigo (zip
+  GESTÃO_CONTRATOS_ENGEMIL.zip, acompanhado do PDF Backlog_ENGEMIL
+  gerado anteriormente pelo próprio sistema);
+- gestao_contratos.db entregue SEM alteração nesta versão — hash
+  SHA-256 idêntico ao arquivo recebido de Rodrigo:
+  6cb1d3be34f4147e21a418dfb3f02a6d60ffa55c1107f74ddcb85dd2804309a1;
+- nota de transparência: durante os testes desta sessão, uma inserção de
+  dados sintéticos de garantia foi feita por engano na cópia de trabalho
+  local (sem a variável GESTAO_DB_PATH apontada para o banco de teste
+  isolado). O erro foi identificado imediatamente, os registros
+  sintéticos foram removidos, e a contagem de linhas de TODAS as tabelas
+  foi conferida uma a uma contra o arquivo original antes de prosseguir
+  — nenhuma diferença encontrada além do contador interno
+  sqlite_sequence (irrelevante, não é dado do usuário). Por segurança
+  adicional, o arquivo entregue neste pacote foi substituído pelo
+  arquivo original recebido de Rodrigo, byte a byte (hash conferido
+  acima), e não pela cópia de trabalho usada nos testes;
+- migração testada em cópia isolada do gestao_contratos.db real: colunas
+  ata_contract_id/ata_amendment_id criadas em arts, 101 contratos
+  preservados, nenhum outro campo alterado.
+
+Arquivos alterados nesta versão (SHA-256):
+- app.py: 2cd53128ac9cf9c217787ba643e9561f0b136341cd90a8165d46107c6af0c500
+- db.py: e9b466f97bb87a36ce7f2f24bb8fa0a1c6af5a5a6de6fb27ea54b55b6b1e8f44
+- reports.py: ea04b663e185211eb24f423cf797ea320c1558aa3fa63c814294ffaa90c0b562
+- README.md: d11eb20d4061c0de1f3cc139acbd8a44544c39ee1f6b00022190461b1374feab
+
+bids.py e requirements.txt permanecem idênticos aos entregues na V30/V31.
+Nenhum outro arquivo de código foi tocado. Reorganização não-funcional:
+14 arquivos de documentação de versões antigas (V16-V27) movidos para
+historico_versoes/, sem alteração de conteúdo.
+
+Validações concluídas nesta sessão:
+- compilação (py_compile) de app.py, db.py, reports.py e bids.py: OK;
+- Backlog PDF página 2: testado com os 63 contratos ativos reais da
+  ENGEMIL — logo alinhada, contraste correto, tabelas novas populadas
+  corretamente. Conferido visualmente (conversão para imagem);
+- ARTs associadas a ATA: testado com dado real (ATA "Contrato de Registro
+  de Preços" nº 202674211600 · BANCO DO BRASIL - BB), inserção e consulta
+  com JOIN validadas;
+- Ficha contratual em Word: gerada com o contrato real de maior histórico
+  (TJGO, 20 aditivos) e com dados sintéticos de garantia/cobertura/
+  endosso (em banco de teste isolado). Convertida para PDF via LibreOffice
+  e conferida visualmente página a página — cabeçalho presente em todas
+  as 5-6 páginas geradas, tabelas sem quebras de linha desnecessárias;
+- suíte de regressão completa (test_core.py, test_ui.py e test_v16.py a
+  test_v27.py) executada em ambiente Linux equivalente: todas as versões
+  passaram, exceto duas falhas pré-existentes — a de test_core.py já
+  descrita em manifestos anteriores, e uma nova em test_ui.py
+  (asserção sobre o campo "Título profissional") que foi reproduzida
+  também na V31 original, sem nenhuma alteração desta sessão — ou seja,
+  não foi introduzida agora, apenas detectada agora por rodar a suíte
+  completa. Ver LEIA-ME_ATUALIZACAO_V32.txt para detalhes.
+
+Este manifesto documenta apenas o que foi executado nesta sessão de
+revisão. Como nos manifestos V16 a V31, os hashes de banco
+"antes/depois da migração" não se aplicam aqui porque a migração roda no
+computador de Rodrigo, não neste ambiente de revisão.

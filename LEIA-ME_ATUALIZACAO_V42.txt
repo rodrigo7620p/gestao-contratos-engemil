@@ -1,0 +1,61 @@
+ATUALIZAÇÃO SEGURA - GESTÃO DE CONTRATOS ENGEMIL V42
+
+Siga o COMO_ATUALIZAR.txt: extraia numa pasta separada, copie manualmente
+só o arquivo abaixo, nunca a pasta inteira por cima do sistema em uso.
+
+1. Use reiniciar_sistema.bat.
+2. Backup de gestao_contratos.db, uploads, trash (se existir) e
+   configuracao_email.bat.
+3. Copie manualmente para a pasta do sistema: app.py (único arquivo
+   alterado nesta versão).
+4. Apague o __pycache__ da raiz do projeto.
+5. Execute iniciar_sistema.bat. Não há migração de banco nesta versão.
+6. Confirme "Versão 42" no rodapé.
+
+O QUE FOI AJUSTADO
+
+Você apontou que a escolha "Individual" vs "Por grupo(s) e/ou item(ns)"
+não deixava claro a diferença entre um certame com VÁRIOS ITENS SOLTOS
+(cada um concorrendo e sendo classificado separadamente) e um certame
+com GRUPOS (cada grupo reunindo vários itens, mas com uma classificação
+só para o grupo inteiro — que é como o Compras.gov.br decide o
+vencedor, mesmo a disputa de lances sendo item por item).
+
+Agora são 3 opções bem separadas ao cadastrar:
+1. "Individual (um único item para todo o certame)"
+2. "Vários itens individuais (mesmo processo, cada item com sua própria
+   classificação, sem agrupamento)"
+3. "Grupo(s) com itens (cada grupo reúne vários itens, e a
+   classificação é pelo valor total do grupo)"
+
+Escolhendo a opção 2 ou 3, o sistema já sabe que tipo de grupo/item
+você vai cadastrar primeiro — na aba Grupos/Itens, o campo "Tipo" já
+vem pré-marcado certo (Item avulso ou Grupo), sem precisar trocar.
+
+NOVIDADE: gerar linhas "Item 1, Item 2..." automaticamente
+
+Na aba Grupos/Itens, ao detalhar os itens de um grupo pela primeira
+vez, agora aparece "Gerar quantos itens?" — informe a quantidade (ex.:
+5) e clique em "Gerar linhas": o sistema cria "Item 1", "Item 2", "Item
+3"... prontos para você só preencher a quantidade e o valor unitário de
+cada um, no mesmo espírito do que aparece no Compras.gov.br. Esse
+atalho só aparece enquanto o grupo ainda não tem nenhum item cadastrado
+(depois, use o "+" da própria tabela para adicionar mais linhas).
+
+TESTES REALIZADOS NESTA SESSÃO
+
+- Recriei os 3 grupos do seu exemplo do TJDF (Pregão 15/2026, UASG
+  100001): Grupo 1 com 5 itens, Grupo 2 com 5 itens, Grupo 3 (deixado
+  vazio no teste). O Grupo 1, com os valores exatos do print
+  (quantidades 2322/9286/2322/2322/3482 e valores unitários
+  187,34/11,30/6,32/4,05/8,27), somou R$ 592.810,56 — exatamente igual
+  ao valor mostrado no portal.
+- Confirmado que a listagem de grupos mostra o formato "Grupo 1 | 5
+  itens" com o total certo, igual ao layout do Compras.gov.br.
+- Testado via streamlit.testing.v1.AppTest: as 3 opções aparecem
+  corretamente na tela, e escolher "Grupo(s) com itens" faz o campo
+  "Tipo" do primeiro grupo já vir pré-marcado como "Grupo".
+- Suíte de regressão completa (test_core.py e test_v16.py a test_v24.py):
+  100% aprovada.
+- gestao_contratos.db entregue idêntico (mesmo hash SHA-256) ao que
+  vocês enviaram. Ver MANIFESTO_INTEGRIDADE_V42.txt.

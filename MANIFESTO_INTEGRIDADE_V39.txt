@@ -1,0 +1,76 @@
+MANIFESTO DE INTEGRIDADE — GESTÃO DE CONTRATOS ENGEMIL V39
+Data: 23/08/2026
+Gerado por: sessão de revisão de código (Claude), a pedido de Rodrigo.
+
+CONTEXTO DESTA SESSÃO: o ambiente de trabalho foi reiniciado entre a V38
+e esta versão. A sessão foi retomada a partir do próprio pacote V38 já
+entregue (hash de app.py conferido idêntico ao que constava no manifesto
+da V38 antes de qualquer edição) e do zip original enviado por Rodrigo no
+início da colaboração (ainda disponível em /mnt/user-data/uploads/),
+usado para reconstituir as referências de integridade do banco de dados.
+
+Origem preservada:
+- base: versão 38 consolidada (reconstituída a partir do pacote já
+  entregue);
+- gestao_contratos.db entregue SEM alteração — hash SHA-256 idêntico ao
+  arquivo original recebido de Rodrigo:
+  6cb1d3be34f4147e21a418dfb3f02a6d60ffa55c1107f74ddcb85dd2804309a1;
+- durante esta sessão, um comando de teste inicial (antes de qualquer
+  isolamento configurado) tocou por engano o banco real — identificado
+  de imediato (mesmo padrão de incidentes já relatado em manifestos
+  anteriores) e corrigido restaurando o arquivo original antes de
+  qualquer outro teste. A partir daí, todos os comandos desta sessão que
+  importaram app.py usaram GESTAO_DB_PATH apontado para arquivo
+  temporário isolado;
+- migração testada em cópia isolada do banco real: nova tabela
+  contract_employees criada, 101 contratos preservados, nenhuma tabela
+  ou coluna existente alterada.
+
+Arquivos alterados nesta versão (SHA-256):
+- app.py: 337b63b5c5407abc1d0226386b009930fd63cc2bffae24ba794e346ea9d28b5e
+- db.py: 1c18ed39c74a68ccfa71da34caf6980b438a177f664254468ff8a87a100e895e
+- reports.py: bdb5cda30565dfb5b2cfb93f3c6a0e036e2ef231d24058ad6dbe9ea2a54000ce
+
+Documentação atualizada (SHA-256):
+- GESTAO_LICITACOES.md: 511c5c5a8d9a25d5cce63734e0bf6702a30658e1b2c509effcf1f12e500d53a4
+
+bids.py, alerts.py, test_core.py, README.md e COMO_ATUALIZAR.txt
+permanecem idênticos aos entregues nas versões anteriores. Nenhum outro
+arquivo do projeto foi tocado.
+
+Validações concluídas nesta sessão:
+- compilação (py_compile) de app.py, db.py, reports.py, bids.py: OK;
+- um bug real foi introduzido e corrigido na própria sessão: ao adicionar
+  o quarto elemento (indicador de quebra de linha) às tuplas de
+  BID_PDF_COLUMN_CATALOG, um ponto de desempacotamento em app.py
+  (construção do dicionário de rótulos de colunas do exportador de PDF)
+  não foi atualizado, quebrando a tela de Licitações. Identificado pela
+  suíte de testes automatizados (streamlit.testing.v1.AppTest) antes da
+  entrega, corrigido, e a suíte completa foi executada novamente
+  confirmando a correção;
+- reconhecimento automático de colunas da planilha de funcionários
+  (suggest_employee_column_mapping) e filtro por centro de custo
+  (build_employee_import_preview) testados com dados sintéticos (3
+  funcionários, 2 centros de custo distintos): mapeamento automático
+  correto para todas as 6 colunas reconhecíveis, filtro por centro de
+  custo confirmado (2 de 3 linhas importadas, 1 corretamente ignorada);
+- geração do PDF "Licitações vigentes" testada em três cenários: sigla
+  reconhecida (CONAB), sigla não reconhecida (nome completo em múltiplas
+  linhas) e volume alto (25 licitações, confirmando paginação automática
+  em 2 páginas sem reduzir a fonte abaixo do legível);
+- apply_engemil_ranking_to_process (preenchimento automático do Resumo a
+  partir da Classificação) retestado nesta sessão com dados sintéticos:
+  our_bid_value=750000.0, our_discount_percent=37.89, our_ranking=2 —
+  gravados corretamente;
+- página completa de Licitações (com licitação, grupo/item e
+  classificação já cadastrados) e Ficha do contrato (com funcionário
+  nominal já cadastrado) testadas via streamlit.testing.v1.AppTest, sem
+  exceções após a correção do bug acima;
+- suíte de regressão completa (test_core.py e test_v16.py a test_v24.py)
+  executada em ambiente Linux equivalente: 100% aprovada.
+
+Este manifesto documenta o que foi executado nesta sessão de revisão,
+incluindo o incidente de teste inicial e sua correção imediata. Como nos
+manifestos anteriores, os hashes de "banco antes/depois da migração" não
+se aplicam aqui porque a migração roda no computador de Rodrigo, não
+neste ambiente de revisão.

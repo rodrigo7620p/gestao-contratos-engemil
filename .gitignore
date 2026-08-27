@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+gestao_contratos.db
+gestao_contratos.db-*
+uploads/
+trash/
+configuracao_email.bat
+.streamlit/secrets.toml

@@ -1,0 +1,22 @@
+ATUALIZAÇÃO INCREMENTAL — GESTÃO DE CONTRATOS ENGEMIL V22
+
+1. Encerre o sistema com Ctrl+C e faça backup de gestao_contratos.db, uploads,
+   trash e configuracao_email.bat.
+2. Extraia ATUALIZACAO_GESTAO_CONTRATOS_ENGEMIL_V22_SEM_BANCO.zip diretamente
+   sobre a pasta atual GESTÃO_CONTRATOS_ENGEMIL.
+3. Confirme a substituição dos arquivos de programa. O pacote incremental não
+   contém banco, anexos, lixeira, ambiente virtual nem credenciais de e-mail.
+4. No terminal da pasta, execute:
+      .\.venv\Scripts\Activate.ps1
+      pip install -r requirements.txt
+      python -c "from db import init_db; init_db()"
+5. Inicie com iniciar_sistema.bat.
+6. Confira no menu lateral: Versão 22.
+7. Teste F5 na Ficha do contrato, troca de menus, Sair, Backlog PDF e um usuário
+   comum com permissões separadas de consulta/lançamento/modificação.
+
+IMPORTANTE
+- Usuários não administradores nunca visualizam o ambiente Usuários.
+- Novas contas devem trocar a senha inicial no primeiro acesso.
+- Depois de cinco tentativas inválidas, a conta fica bloqueada por 15 minutos.
+- Para acesso pela internet, use HTTPS e proxy reverso; não exponha a porta 8501.

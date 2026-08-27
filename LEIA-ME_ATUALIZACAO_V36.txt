@@ -1,0 +1,71 @@
+ATUALIZAÇÃO SEGURA - GESTÃO DE CONTRATOS ENGEMIL V36
+
+1. Use reiniciar_sistema.bat (ou Gerenciador de Tarefas + iniciar_sistema.bat).
+2. Backup de gestao_contratos.db, uploads, trash (se existir) e
+   configuracao_email.bat.
+3. Pacote completo. Arquivos alterados: app.py, db.py, bids.py.
+4. Apague o __pycache__ da raiz do projeto.
+5. Não apague nem substitua o banco, uploads, .venv ou configuração de
+   e-mail.
+6. Execute iniciar_sistema.bat. A migração aditiva (campo quantity em
+   Licitações) roda sozinha.
+7. Confirme "Versão 36" no rodapé.
+
+TRÊS BUGS REAIS CORRIGIDOS NESTA VERSÃO
+
+Os prints que vocês enviaram mostraram problemas reais em produção — não
+foram só pedidos de melhoria, foram bugs de verdade. Corrigidos:
+
+1) "DESCLASSIFICADA" no lugar do nome da empresa
+   A linha "Desclassificada" (colada entre o CNPJ e o nome, em algumas
+   telas do Compras.gov.br) não era reconhecida como marcação de
+   situação — o parser tratava ela como parte do nome. Corrigido:
+   testei com o texto real que vocês colaram (H2F, VERDANT, RWA) e os
+   nomes saem corretos agora, com a situação registrada certinha.
+
+2) Desconto de 99,98% (deveria ser ~37,89%)
+   Causa raiz: o lance vem por valor UNITÁRIO nesse formato, mas o valor
+   estimado cadastrado é sempre o TOTAL. Sem saber a quantidade, o
+   sistema não tinha como converter um no outro. Corrigido com o novo
+   campo "Quantidade estimada" — preencha-o na aba Resumo e edição
+   (mesmo lugar do valor estimado) e o sistema multiplica sozinho.
+   Testei com o exemplo exato de vocês (piso vinílico CONAB, UASG
+   135100): R$ 200,00 × 3.750 = R$ 750.000,00, desconto 37,89% — bateu.
+
+3) Empresas desclassificadas embaralhando a numeração
+   Corrigido: depois de colar a classificação, o sistema já reordena
+   sozinho — classificadas primeiro (numeradas 1, 2, 3... normalmente),
+   desclassificadas/inabilitadas/desistentes no final.
+
+FUNCIONALIDADE NOVA NESTA VERSÃO
+
+- Reconhecimento do percentual de desconto quando ele vem colado junto
+  do valor, entre parênteses (ex.: "R$ 17.096.139,3259 (34,50 %)") —
+  usado como reserva quando a licitação ainda não tem valor estimado
+  cadastrado.
+- Aba "Resumo e edição" preenchida automaticamente: sempre que a ENGEMIL
+  aparecer na classificação (colada ou editada manualmente), o sistema
+  já atualiza sozinho nosso lance final, desconto e posição de
+  classificação — sem precisar digitar de novo.
+- Título da imagem de classificação: agora mostra sigla do órgão +
+  edital/pregão + UASG + valor estimado (ex.: "CONAB · 13/2026 · UASG
+  135100 · Estimado: R$ 1.207.612,50"), para identificar rapidamente de
+  qual certame se trata.
+- "Responsável pelo acompanhamento" e e-mail pré-preenchidos com o
+  usuário logado ao cadastrar uma nova licitação — mesmo espírito já
+  usado no cadastro de ARTs. Continuam editáveis.
+
+TESTES REALIZADOS NESTA SESSÃO
+
+- Parser testado com o texto real de duas licitações diferentes que
+  vocês colaram (uma com percentual inline e desclassificadas; outra —
+  reconstruída a partir dos prints da CONAB — com valores unitários).
+- Fluxo completo (cadastro → colar classificação → preenchimento
+  automático do Resumo) testado de ponta a ponta em banco isolado.
+- Formulário "Nova licitação" testado via streamlit.testing.v1.AppTest
+  confirmando que o campo Responsável já vem preenchido com o usuário
+  logado.
+- Suíte de regressão completa (test_core.py e test_v16.py a test_v24.py):
+  100% aprovada.
+- gestao_contratos.db entregue idêntico (mesmo hash SHA-256) ao que
+  vocês enviaram — ver MANIFESTO_INTEGRIDADE_V36.txt.

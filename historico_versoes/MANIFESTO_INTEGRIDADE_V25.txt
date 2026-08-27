@@ -1,0 +1,56 @@
+MANIFESTO DE INTEGRIDADE — GESTÃO DE CONTRATOS ENGEMIL V25
+Data: 31/07/2026
+
+Origem preservada:
+- base: versão 24 consolidada e em uso;
+- banco anterior: SHA-256 a8c792750ec5192915ce8d34fcf7964f9726f435d343ea38a544f916bd5d10d4;
+- banco após migração V25: SHA-256 cd14358eefc0a4eb29e7647a438058e3c7fec2610385ae821b5abac9da7c5b87;
+- PRAGMA integrity_check: ok;
+- PRAGMA foreign_key_check: sem inconsistências;
+- contratos: 100 antes / 100 depois;
+- aditivos: 385 antes / 385 depois;
+- documentos: 2 antes / 2 depois;
+- usuários: 1 antes / 1 depois;
+- cargos: 10 antes / 10 depois;
+- obrigações: 2 antes / 2 depois;
+- ARTs: 10 antes / 10 depois;
+- CNOs: 0 antes / 0 depois;
+- anexos: 7 arquivos, 772.668 bytes.
+
+Arquivos principais após a atualização:
+- app.py: a0eeb46294494220d4634896aed4e004facda214068ba73730925e22f7a4cfc6
+- alerts.py: 3af596b0167a37b2a46628ffd7ebf02de691f39e3779e49971f019b43c3faa1f
+- db.py: bbe65d54a4ae97536cfe4a2cd8968e11d449b980729d0e176fcb6f5aa855bf54
+- reports.py: 3b15258d92a302e724d1f1dae543bd9d6d4ad48ccbdb1fa8f461665e25ee276a
+- backlog.py: 134af62f78645831698701de5662fcb8bd6ae684ac16647af3ec444d9e5eb774
+- contract_utils.py: 42c41ed7f16766c6b0a69173989782aa1ac9de5e6b475fab071f9c3988bf2e6a
+- verificar_integridade.py: c41bb7930ceb26f0bbe01e0c262789025b95fc3a7da77fc2d819a2037eafbe13
+- .streamlit/config.toml: 47c76f7a9439514f0efc3ffc987a528ed199ddb32133057abe83eed7ad4167a6
+
+Validações concluídas:
+- compilação de todos os módulos Python;
+- test_core.py;
+- test_v16.py;
+- test_v18.py;
+- test_v19.py;
+- test_v20.py;
+- test_v21.py;
+- test_v22.py;
+- test_v23.py;
+- test_v24.py;
+- test_v25.py;
+- assunto 01.02.00253_EMBRATUR_[VENCE EM 30 DIA(S)] validado;
+- texto de encerramento do e-mail e remoção da cobrança anterior validados;
+- migração aditiva de contracts.cno_required sem perda de registros;
+- CNO histórico reconhecido automaticamente como obrigatório;
+- cadastro central de signatários mantido para Backlog e documentos;
+- PDF de Índices gerado com exatamente duas páginas A4 verticais;
+- primeira página com 65 contratos e totais completos;
+- segunda página com fórmulas, justificativa e assinatura;
+- renderização visual das duas páginas sem cortes ou sobreposições;
+- valores monetários e percentuais no padrão brasileiro;
+- banco e anexos preservados após a migração.
+
+O pacote incremental V25 não contém banco, uploads, trash, ambiente virtual ou
+configuracao_email.bat. O pacote completo preserva o banco migrado e os anexos,
+mas não contém configuracao_email.bat para impedir a distribuição de credenciais.

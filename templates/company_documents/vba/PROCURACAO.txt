@@ -1,0 +1,562 @@
+Option Explicit
+
+' =====================================================
+' GERAR PROCURACAO
+' =====================================================
+
+Sub GerarProc()
+
+    Dim caminhoBase     As String
+    Dim caminhoControle As String
+    Dim caminhoSaida    As String
+
+    Dim numeroAtual  As Long
+    Dim novoNumero   As Long
+
+    Dim anoAtual      As String
+    Dim numeroProc    As String
+    Dim numeroArquivo As String
+    Dim primeiroNome  As String
+
+    ' --- Campos coletados ---
+    Dim centroCusto      As String
+    Dim nome             As String
+    Dim preenchimento    As String
+    Dim poderes          As String
+    Dim validade         As String
+    Dim validadeExtenso  As String
+    Dim validadeDma  As String
+
+    ' --- Assinatura ---
+    Dim responsavel As String
+    Dim dados       As String
+    Dim cargo       As String
+
+    Dim etapa As Integer
+
+    ' =====================================================
+    ' CAMINHOS
+    ' =====================================================
+
+    caminhoBase = _
+        "G:\Meu Drive\REDE\SISTEMA_DOC_ENGEMIL"
+
+    caminhoControle = _
+        caminhoBase & "\01_CONTROLE\controle_procuracao.txt"
+
+    caminhoSaida = _
+        caminhoBase & "\03_GERADOS\03_PROCURACAO\"
+
+    ' =====================================================
+    ' CRIA PASTAS
+    ' =====================================================
+
+    Call CriarPastaSeNaoExistir(caminhoBase)
+    Call CriarPastaSeNaoExistir(caminhoBase & "\01_CONTROLE")
+    Call CriarPastaSeNaoExistir(caminhoBase & "\03_GERADOS")
+    Call CriarPastaSeNaoExistir(caminhoBase & "\03_GERADOS\03_PROCURACAO")
+
+    ' =====================================================
+    ' ETAPA 1 — CENTRO DE CUSTO
+    ' =====================================================
+
+    anoAtual = CStr(Year(Date))
+
+    etapa = 1
+
+    Do While etapa <= 1
+
+        centroCusto = PerguntarCampo( _
+            "CENTRO DE CUSTO", _
+            "Informe o centro de custo:", _
+            centroCusto)
+
+        If centroCusto = "CANCELADO" Then
+            MsgBox "Operacao cancelada.", vbExclamation
+            Exit Sub
+        ElseIf centroCusto = "<<" Then
+            MsgBox "Ja esta no primeiro campo.", vbExclamation
+        Else
+            etapa = etapa + 1
+        End If
+
+    Loop
+
+    ' =====================================================
+    ' ETAPA 2 — NOME DO OUTORGADO
+    ' =====================================================
+
+    etapa = 1
+
+    Do While etapa <= 1
+
+        nome = PerguntarCampo( _
+            "NOME DO OUTORGADO", _
+            "Informe o nome completo do outorgado:", _
+            nome)
+
+        If nome = "CANCELADO" Then
+            MsgBox "Operacao cancelada.", vbExclamation
+            Exit Sub
+        ElseIf nome = "<<" Then
+            MsgBox "Ja esta no primeiro campo.", vbExclamation
+        Else
+            etapa = etapa + 1
+        End If
+
+    Loop
+
+    ' =====================================================
+    ' ETAPA 3 — PREENCHIMENTO (Bloco de Notas)
+    ' Qualificacao completa do outorgado:
+    ' ex: CPF, RG, nacionalidade, estado civil, profissao, endereco
+    ' =====================================================
+
+    MsgBox _
+        "O proximo Bloco de Notas e para o PREENCHIMENTO " & _
+        "dos dados de qualificacao do OUTORGADO." & vbCrLf & vbCrLf & _
+        "Exemplo: CPF nº 000.000.000-00, RG nº 0000000 SSP/DF, " & _
+        "brasileiro, solteiro, engenheiro, residente em ...", _
+        vbInformation, "PREENCHIMENTO"
+
+    preenchimento = LerTextoArquivo( _
+        "preenchimento_proc.txt", _
+        "COLE OU DIGITE A QUALIFICACAO COMPLETA DO OUTORGADO. Exemplo: brasileiro, solteiro, engenheiro, portador do documento  RG nº 0000000 xxx/xx, CPF nº 000.000.000-00, residente em ...")
+
+    ' =====================================================
+    ' ETAPA 4 — PODERES CONFERIDOS (Bloco de Notas)
+    ' =====================================================
+
+    MsgBox _
+        "O proximo Bloco de Notas e para os PODERES CONFERIDOS ao OUTORGADO.", _
+        vbInformation, "PODERES"
+
+    poderes = LerTextoArquivo( _
+        "poderes_proc.txt", _
+        "COLE OU DIGITE OS PODERES CONFERIDOS AO OUTORGADO. DETALHE OS DEVIDOS PODERES")
+
+    ' =====================================================
+    ' ETAPA 5 — VALIDADE
+    ' =====================================================
+
+    etapa = 1
+
+    Do While etapa <= 3
+
+        Select Case etapa
+
+            Case 1
+
+                validade = PerguntarCampo( _
+                    "VALIDADE", _
+                    "Informe a validade da procuracao:" & vbCrLf & _
+                    "Ex: 1, 3, 6, 12...", _
+                    validade)
+
+                If validade = "CANCELADO" Then
+                    MsgBox "Operacao cancelada.", vbExclamation
+                    Exit Sub
+                ElseIf validade = "<<" Then
+                    MsgBox "Ja esta no primeiro campo.", vbExclamation
+                Else
+                    etapa = etapa + 1
+                End If
+
+            Case 2
+
+                validadeExtenso = PerguntarCampo( _
+                    "VALIDADE POR EXTENSO", _
+                    "Informe a validade por extenso:" & vbCrLf & _
+                    "Ex: seis/doze/vinte e quatro", _
+                    validadeExtenso)
+
+                If validadeExtenso = "CANCELADO" Then
+                    MsgBox "Operacao cancelada.", vbExclamation
+                    Exit Sub
+                ElseIf validadeExtenso = "<<" Then
+                    etapa = etapa - 1
+                Else
+                    etapa = etapa + 1
+                End If
+
+            Case 3
+
+                validadeDma = PerguntarCampo( _
+                    "VALIDADE EM DIAS/MESES/ANOS", _
+                    "Informe a validade em dias/meses/anos:" & vbCrLf & _
+                    "Ex: 6 meses / 12 meses / 1 ano", _
+                    validadeDma)
+
+                If validadeExtenso = "CANCELADO" Then
+                    MsgBox "Operacao cancelada.", vbExclamation
+                    Exit Sub
+                ElseIf validadeDma = "<<" Then
+                    etapa = etapa - 1
+                Else
+                    etapa = etapa + 1
+                End If
+
+        End Select
+
+    Loop
+
+    ' =====================================================
+    ' ETAPA 6 — ASSINATURA
+    ' =====================================================
+
+    Call SelecionarAssinatura(responsavel, dados, cargo)
+
+    If responsavel = "" Then
+        MsgBox "Operacao cancelada.", vbExclamation
+        Exit Sub
+    End If
+
+    ' =====================================================
+    ' NUMERACAO
+    ' =====================================================
+
+    numeroAtual = LerNumeroControle(caminhoControle)
+    novoNumero = numeroAtual + 1
+
+    numeroProc = _
+        "PR-" & anoAtual & "-" & _
+        Format(novoNumero, "0000") & _
+        "/ENGEMIL/DCONT/ATIV.ADM"
+
+    ' Obtém apenas o primeiro nome do outorgado
+        primeiroNome = UCase(Trim(Split(nome, " ")(0)))
+
+    ' Monta o nome do arquivo
+       numeroArquivo = Replace(numeroProc, "/", "-") & "-" & primeiroNome
+
+    ' =====================================================
+    ' SUBSTITUICOES — espelham exatamente o template
+    ' =====================================================
+
+    ' Cabecalho
+    Call SubstituirTextoCompleto("{{CENTRO_CUSTO}}", centroCusto)
+    Call SubstituirTextoCompleto("{{DATA}}", Format(Date, "dd/mm/yyyy"))
+
+    ' Identificacao do documento
+    Call SubstituirTextoCompleto("{{NUMERO_PROC}}", numeroProc)
+    Call SubstituirTextoCompleto("{{DATA_EXTENSO}}", DataPorExtenso())
+
+    ' Outorgante — responsavel e dados aparecem no corpo e no rodape
+    Call SubstituirTextoCompleto("{{RESPONSAVEL}}", responsavel)
+    Call SubstituirTextoCompleto("{{DADOS}}", dados)
+
+    ' Outorgado
+    Call SubstituirTextoCompleto("{{NOME}}", nome)
+    Call SubstituirTextoCompleto("{{PREENCHIMENTO}}", preenchimento)
+
+    ' Poderes
+    Call SubstituirTextoCompleto("{{PODERES}}", poderes)
+
+    ' Validade
+    Call SubstituirTextoCompleto("{{VALIDADE}}", validade)
+    Call SubstituirTextoCompleto("{{VALIDADE_EXTENSO}}", validadeExtenso)
+    Call SubstituirTextoCompleto("{{VALIDADE_DMA}}", validadeDma)
+
+    ' Assinatura (rodape)
+    Call SubstituirTextoCompleto("{{CARGO}}", cargo)
+
+    ' =====================================================
+    ' SALVAR WORD
+    ' =====================================================
+
+    ActiveDocument.SaveAs2 _
+        FileName:=caminhoSaida & numeroArquivo & ".docx", _
+        FileFormat:=wdFormatXMLDocument
+
+    ' =====================================================
+    ' GERAR PDF
+    ' =====================================================
+
+    ActiveDocument.ExportAsFixedFormat _
+        OutputFileName:=caminhoSaida & numeroArquivo & ".pdf", _
+        ExportFormat:=wdExportFormatPDF
+
+    ' =====================================================
+    ' SALVAR CONTROLE
+    ' =====================================================
+
+    Call SalvarNumeroControle(caminhoControle, novoNumero)
+
+    MsgBox _
+        "PROCURACAO GERADA COM SUCESSO!" & vbCrLf & vbCrLf & numeroProc, _
+        vbInformation, "Concluido"
+
+End Sub
+
+' =====================================================
+' INPUTBOX COM VOLTAR
+' Retorna "CANCELADO" quando usuario pressiona Cancelar
+' com campo vazio (nao havia valor anterior)
+' =====================================================
+
+Function PerguntarCampo( _
+    titulo As String, _
+    mensagem As String, _
+    valorAnterior As String) As String
+
+    Dim resposta As String
+
+    resposta = InputBox( _
+        mensagem & vbCrLf & vbCrLf & "Digite << para VOLTAR.", _
+        titulo, _
+        valorAnterior)
+
+    If resposta = "" And valorAnterior = "" Then
+        PerguntarCampo = "CANCELADO"
+    Else
+        PerguntarCampo = resposta
+    End If
+
+End Function
+
+' =====================================================
+' ASSINATURA AUTOMATICA
+' Saida controlada: responsavel = "" sinaliza cancelamento
+' =====================================================
+
+Sub SelecionarAssinatura( _
+    ByRef responsavel As String, _
+    ByRef dados As String, _
+    ByRef cargo As String)
+
+    Dim opcao As String
+
+    opcao = InputBox( _
+        "Selecione o responsavel:" & vbCrLf & vbCrLf & _
+        "1 - MATHEUS" & vbCrLf & _
+        "2 - REGITON", _
+        "ASSINATURA")
+
+    Select Case opcao
+
+        Case "1"
+            responsavel = "MATHEUS ANTONIO MILITAO DE MENEZES"
+            dados = "CREA 13.814/D-DF CPF: 000.400.681-02"
+            cargo = "Engenheiro Civil - Socio Diretor"
+
+        Case "2"
+            responsavel = "REGITON LUIZ MILITAO DE MENEZES"
+            dados = "CPF: 907.015.771-34"
+            cargo = "Diretor Administrativo"
+
+        Case Else
+            MsgBox "Opcao invalida ou cancelada.", vbExclamation
+            responsavel = ""
+            dados = ""
+            cargo = ""
+
+    End Select
+
+End Sub
+
+' =====================================================
+' LEITOR / EDITOR UTF-8 VIA BLOCO DE NOTAS
+' =====================================================
+
+Function LerTextoArquivo( _
+    nomeArquivo As String, _
+    textoInicial As String) As String
+
+    Dim caminhoTemp As String
+    Dim shell       As Object
+    Dim stream      As Object
+
+    caminhoTemp = Environ("TEMP") & "\" & nomeArquivo
+
+    ' Escreve o texto inicial no arquivo temp
+    Set stream = CreateObject("ADODB.Stream")
+    stream.Type = 2
+    stream.Charset = "utf-8"
+    stream.Open
+    stream.WriteText textoInicial
+    stream.SaveToFile caminhoTemp, 2
+    stream.Close
+
+    ' Abre o Bloco de Notas e aguarda o usuario fechar
+    Set shell = CreateObject("WScript.Shell")
+    shell.Run "notepad.exe " & Chr(34) & caminhoTemp & Chr(34), 1, True
+
+    ' Le o que o usuario digitou/colou
+    Set stream = CreateObject("ADODB.Stream")
+    stream.Type = 2
+    stream.Charset = "utf-8"
+    stream.Open
+    stream.LoadFromFile caminhoTemp
+    LerTextoArquivo = stream.ReadText
+    stream.Close
+
+End Function
+
+' =====================================================
+' DATA POR EXTENSO
+' =====================================================
+
+Function DataPorExtenso() As String
+
+    Dim meses As Variant
+
+    meses = Array( _
+        "janeiro", "fevereiro", "marco", _
+        "abril", "maio", "junho", _
+        "julho", "agosto", "setembro", _
+        "outubro", "novembro", "dezembro")
+
+    DataPorExtenso = _
+        "Brasília/DF., " & _
+        Day(Date) & " de " & _
+        meses(Month(Date) - 1) & _
+        " de " & Year(Date) & "."
+
+End Function
+
+' =====================================================
+' LER NUMERO DE CONTROLE
+' =====================================================
+
+Function LerNumeroControle( _
+    caminhoArquivo As String) As Long
+
+    Dim arquivo  As Integer
+    Dim conteudo As String
+
+    If Dir(caminhoArquivo) = "" Then
+        arquivo = FreeFile
+        Open caminhoArquivo For Output As #arquivo
+        Print #arquivo, 0
+        Close #arquivo
+    End If
+
+    arquivo = FreeFile
+    Open caminhoArquivo For Input As #arquivo
+    Line Input #arquivo, conteudo
+    Close #arquivo
+
+    If Trim(conteudo) = "" Then
+        LerNumeroControle = 0
+    Else
+        LerNumeroControle = CLng(conteudo)
+    End If
+
+End Function
+
+' =====================================================
+' SALVAR NUMERO DE CONTROLE
+' =====================================================
+
+Sub SalvarNumeroControle( _
+    caminhoArquivo As String, _
+    numero As Long)
+
+    Dim arquivo As Integer
+
+    arquivo = FreeFile
+    Open caminhoArquivo For Output As #arquivo
+    Print #arquivo, numero
+    Close #arquivo
+
+End Sub
+
+' =====================================================
+' SUBSTITUIR TEXTO EM TODO O DOCUMENTO
+' (corpo, cabecalho, rodape, caixas de texto)
+' =====================================================
+
+Sub SubstituirTextoCompleto( _
+    localizar As String, _
+    substituirPor As String)
+
+    Dim rngStory  As Range
+    Dim rngAtual  As Range
+    Dim secao     As Section
+    Dim cabecalho As HeaderFooter
+    Dim rodape    As HeaderFooter
+    Dim shp       As Shape
+
+    ' Percorre todas as historias do documento (corpo, notas etc.)
+    For Each rngStory In ActiveDocument.StoryRanges
+        Set rngAtual = rngStory
+        Do While Not rngAtual Is Nothing
+            Call SubstituirEmRangeSeguro(rngAtual, localizar, substituirPor)
+            Set rngAtual = rngAtual.NextStoryRange
+        Loop
+    Next rngStory
+
+    ' Percorre cabecalhos e rodapes de cada secao
+    For Each secao In ActiveDocument.Sections
+
+        For Each cabecalho In secao.Headers
+            Call SubstituirEmRangeSeguro( _
+                cabecalho.Range, localizar, substituirPor)
+            For Each shp In cabecalho.Shapes
+                If shp.TextFrame.HasText Then
+                    Call SubstituirEmRangeSeguro( _
+                        shp.TextFrame.TextRange, localizar, substituirPor)
+                End If
+            Next shp
+        Next cabecalho
+
+        For Each rodape In secao.Footers
+            Call SubstituirEmRangeSeguro( _
+                rodape.Range, localizar, substituirPor)
+            For Each shp In rodape.Shapes
+                If shp.TextFrame.HasText Then
+                    Call SubstituirEmRangeSeguro( _
+                        shp.TextFrame.TextRange, localizar, substituirPor)
+                End If
+            Next shp
+        Next rodape
+
+    Next secao
+
+End Sub
+
+' =====================================================
+' SUBSTITUIR EM UM RANGE ESPECIFICO
+' =====================================================
+
+Sub SubstituirEmRangeSeguro( _
+    rngOrigem As Range, _
+    localizar As String, _
+    substituirPor As String)
+
+    Dim rngBusca As Range
+
+    Set rngBusca = rngOrigem.Duplicate
+
+    With rngBusca.Find
+        .ClearFormatting
+        .Text = localizar
+        .Forward = True
+        .Wrap = wdFindStop
+        .Format = False
+        .MatchCase = False
+        .MatchWholeWord = False
+    End With
+
+    Do While rngBusca.Find.Execute
+        rngBusca.Text = substituirPor
+        rngBusca.Collapse wdCollapseEnd
+    Loop
+
+End Sub
+
+' =====================================================
+' CRIAR PASTA SE NAO EXISTIR
+' =====================================================
+
+Sub CriarPastaSeNaoExistir(caminho As String)
+
+    Dim fso As Object
+
+    Set fso = CreateObject("Scripting.FileSystemObject")
+
+    If Not fso.FolderExists(caminho) Then
+        fso.CreateFolder caminho
+    End If
+
+End Sub

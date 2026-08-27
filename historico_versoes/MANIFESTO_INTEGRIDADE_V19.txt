@@ -1,0 +1,45 @@
+GESTÃO DE CONTRATOS ENGEMIL - MANIFESTO DA ATUALIZAÇÃO V19
+Data da validação: 30/07/2026
+
+Base:
+- versão 18 funcional recuperada e utilizada integralmente;
+- banco, anexos, usuários, permissões e históricos preservados.
+
+Banco: gestao_contratos.db
+SHA-256 anterior: d38e474f44e03008b9527d1e6188854f73648d43f09b04d9244c2ead3d6403c4
+SHA-256 atualizado: 864f1d4effd72e3dd8a7b3492ea51015aef3f58fc09a540307796cc75af2a017
+PRAGMA integrity_check: ok
+
+Quantidades preservadas:
+- contratos: 100
+- aditivos/instrumentos: 484
+- cargos: 10
+- ARTs: 10
+- documentos anexados: 2
+- usuários: 1
+- registros de auditoria: 85
+
+Alteração de dado autorizada:
+- contrato FNDE 337/2026, centro de custo 01.02.00320;
+- valor original: R$ 817.706,44;
+- valor atual anterior: R$ 0,00;
+- valor atual corrigido: R$ 817.706,44;
+- quantidade de aditivos: 0.
+- correção registrada no histórico de auditoria.
+
+Regra aplicada:
+- valor atual zerado ou nulo;
+- valor original positivo;
+- inexistência de aditivos;
+- nessas condições, o valor atual recebe o valor original.
+
+Backlog oficial:
+- seleção do signatário ativo, atualmente Matheus ou Regiton;
+- bloco de assinatura com nome, cargo, registro e CPF disponíveis;
+- ordenação por contratante, centro de custo, valor atual, remanescente total,
+  fim da vigência ou instrumento vigente;
+- coluna Item renumerada após a ordenação;
+- assinatura e ordenação registradas no histórico de geração.
+
+Nenhum contrato, aditivo, cargo, ART, documento, usuário ou registro de auditoria
+foi excluído.

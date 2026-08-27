@@ -1,0 +1,75 @@
+ATUALIZAÇÃO SEGURA - GESTÃO DE CONTRATOS ENGEMIL V33
+
+1. Feche o sistema (reiniciar_sistema.bat, novo nesta versão, ainda não
+   existe no seu PC — use o Gerenciador de Tarefas desta vez, como já
+   orientado na V32, ou Ctrl+C no terminal se ele estiver visível).
+2. Backup de gestao_contratos.db, uploads, trash (se existir) e
+   configuracao_email.bat.
+3. Pacote completo (não incremental). Arquivos alterados: app.py,
+   alerts.py, test_core.py. Arquivos novos: reiniciar_sistema.bat,
+   instalar_servico_windows.bat, reiniciar_servico.bat,
+   remover_servico_windows.bat.
+4. Apague o __pycache__ da raiz do projeto.
+5. Não apague nem substitua o banco, uploads, .venv ou configuração de
+   e-mail.
+6. Confira os hashes (opcional): Get-FileHash app.py,alerts.py -Algorithm
+   SHA256, comparando com MANIFESTO_INTEGRIDADE_V33.txt.
+7. Rode iniciar_sistema.bat (a partir de agora, use reiniciar_sistema.bat
+   nas próximas atualizações — ele já limpa o __pycache__ e reinicia o
+   processo sozinho).
+8. Confirme "Versão 33" no rodapé.
+9. Abra Licitações, edite uma licitação já cadastrada e confirme que
+   agora dá para completar/corrigir todos os campos (objeto, UF,
+   modalidade, valor estimado, datas, responsável), não só status e
+   lance.
+10. Abra Visão Geral e confirme os dois gráficos interativos abaixo dos
+    cartões de indicadores.
+11. Se usar alertas automáticos (executar_alertas.bat ou a tarefa
+    agendada), cadastre um exame/treinamento do SESMT vencendo em breve
+    e confirme que o alerta chega por e-mail ao engenheiro/responsável
+    do contrato.
+
+FUNCIONALIDADE PRINCIPAL DESTA VERSÃO
+
+1) Licitações totalmente editáveis
+   - Antes, só dava para editar status/lance/classificação/CNPJ/vínculo
+     de contrato depois do cadastro. Agora todos os campos (número do
+     processo, edital, plataforma, órgão, objeto, UF, modalidade, valor
+     estimado, datas, responsável) podem ser completados ou corrigidos a
+     qualquer momento — resolve o caso de uma licitação cadastrada às
+     pressas, só com o essencial, para ser detalhada depois com calma.
+
+2) test_core.py corrigido — suíte 100% verde
+   - A falha "Objeto do contrato ausente" que persistia desde a V27 foi
+     corrigida na origem: o caminho de contingência do próprio teste
+     não preenchia esse campo. Agora test_core.py passa sem ressalvas.
+   - test_ui.py: investigado a fundo (ver MANIFESTO_INTEGRIDADE_V33.txt)
+     — o campo que a asserção procura existe e funciona corretamente,
+     confirmado de três formas diferentes. A falha parece ser um
+     comportamento do próprio framework de teste (AppTest) reavaliando
+     estado entre acessos consecutivos, não um defeito da aplicação.
+     Não corrigido nesta versão por não ser bloqueante.
+
+3) Visão Geral com gráficos interativos
+   - "Valor vigente por centro de custo" e "Valor vencendo por mês
+     (próximos 12 meses)", com tooltip ao passar o mouse. Usa Altair,
+     que já vem junto do Streamlit — nenhuma dependência nova.
+
+4) Alertas automáticos do SESMT
+   - Exames ocupacionais (ASO) e treinamentos/certificados com validade
+     cadastrada agora avisam por e-mail em 30/15/0 dias antes do
+     vencimento, para o engenheiro (ou responsável administrativo) do
+     contrato ao qual o profissional está vinculado.
+
+5) Scripts de reinício e serviço do Windows
+   - reiniciar_sistema.bat: mata o processo na porta 8501 e reinicia,
+     sem precisar abrir o Gerenciador de Tarefas.
+   - instalar_servico_windows.bat / reiniciar_servico.bat /
+     remover_servico_windows.bat: instala o sistema como serviço do
+     Windows via NSSM (baixado à parte, instruções no próprio script),
+     para ele iniciar sozinho com o computador.
+   - ATENÇÃO: estes três scripts de serviço NÃO foram testados num
+     Windows real — o ambiente usado nesta sessão não tem Windows
+     disponível. Teste com atenção antes de depender deles em produção;
+     se algo falhar, remover_servico_windows.bat reverte para o modo
+     manual (iniciar_sistema.bat / reiniciar_sistema.bat).

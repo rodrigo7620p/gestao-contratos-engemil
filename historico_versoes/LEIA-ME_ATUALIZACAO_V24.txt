@@ -1,0 +1,32 @@
+ATUALIZAÇÃO INCREMENTAL — GESTÃO DE CONTRATOS ENGEMIL V24
+
+1. Por segurança, redefina no painel da KingHost a senha que foi compartilhada.
+2. Encerre o sistema com Ctrl+C e faça backup de gestao_contratos.db, uploads,
+   trash e configuracao_email.bat.
+3. Extraia ATUALIZACAO_GESTAO_CONTRATOS_ENGEMIL_V24_SEM_BANCO.zip diretamente
+   sobre a pasta atual GESTÃO_CONTRATOS_ENGEMIL e confirme a substituição.
+4. O pacote incremental não contém banco, anexos, lixeira, ambiente virtual nem
+   configuracao_email.bat; seus registros e sua configuração local são mantidos.
+5. Abra configuracao_email.bat e mantenha:
+      SMTP_HOST=smtp.kinghost.net
+      SMTP_PORT=587
+      SMTP_USE_SSL=0
+      SMTP_USER=licitacao@engemil.com.br
+      SMTP_PASSWORD=SUA_NOVA_SENHA_DA_KINGHOST
+      SMTP_FROM=licitacao@engemil.com.br
+6. Execute testar_email.bat. Antes de pedir o destinatário, ele deve mostrar:
+      Servidor: smtp.kinghost.net:587 (STARTTLS)
+      Usuario: licitacao@engemil.com.br
+      Remetente: licitacao@engemil.com.br
+7. Inicie com iniciar_sistema.bat e confirme no menu lateral: Versão 24.
+8. Na Ficha do contrato > Prazos e obrigações, abra Configuração e teste dos
+   alertas. A tela deve exibir o mesmo remetente e servidor.
+9. Execute configurar_alertas_automaticos.bat como administrador do Windows se
+   a tarefa ENGEMIL - Alertas Contratuais ainda não estiver criada.
+
+IMPORTANTE
+- A senha nunca aparece no diagnóstico nem integra o pacote de atualização.
+- O configuracao_email.bat é relido a cada tela, teste e envio. Não é necessário
+  reiniciar o Streamlit depois de corrigir esse arquivo; use F5 para atualizar.
+- Obrigações, repactuações, avisos de 30/15 dias e testes usam o mesmo canal.
+- O envio automático depende do computador ligado e da tarefa do Windows ativa.

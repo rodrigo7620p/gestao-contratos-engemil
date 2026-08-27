@@ -1,0 +1,63 @@
+ATUALIZAÇÃO SEGURA - GESTÃO DE CONTRATOS ENGEMIL V28
+
+1. Feche o sistema com Ctrl+C.
+2. Faça uma cópia de segurança de:
+   - gestao_contratos.db
+   - uploads
+   - trash, se existir
+   - configuracao_email.bat
+3. Este pacote foi entregue como projeto completo (não incremental). Substitua
+   apenas os arquivos de código pelos desta versão dentro da pasta atual:
+   C:\Users\RODRIGO_NOT\OneDrive\Documentos\003 - CONTROLE\GESTÃO_CONTRATOS_ENGEMIL
+   Os únicos arquivos de código alterados nesta versão foram:
+   - app.py
+   - db.py
+   - reports.py
+   - requirements.txt
+4. Não apague nem substitua o banco, uploads, ambiente .venv ou configuração
+   de e-mail.
+5. Se atualizar o .venv com o novo requirements.txt, execute:
+   .venv\Scripts\python.exe -m pip install -r requirements.txt
+6. Execute iniciar_sistema.bat. A migração aditiva do banco (nova coluna
+   process_number) será aplicada automaticamente, como em toda atualização
+   anterior.
+7. Confirme no rodapé a indicação Versão 28.
+8. Em qualquer Ficha do Contrato, aba Editar, confira o novo campo
+   "Número do processo" ao lado de "Edital/licitação".
+9. Gere um Ofício de teste para um contrato com processo preenchido e
+   confirme que o campo PROCESSO já vem preenchido automaticamente.
+
+FUNCIONALIDADE PRINCIPAL
+
+- Novo campo "Número do processo" no cadastro (Novo contrato) e na edição
+  (Ficha do contrato > Editar), independente do número do edital/licitação
+  já existente.
+- O campo aparece no cartão de resumo da Ficha do Contrato e na ficha
+  completa exportada em Word.
+- Correção do auto-preenchimento: o placeholder {{PROCESSO}} usado no
+  Ofício, na Carta de Preposto e na Procuração estava puxando o número do
+  edital por engano. Agora usa o número do processo corretamente, no único
+  ponto do código responsável por esse preenchimento — a correção vale para
+  os três modelos ao mesmo tempo.
+- A busca textual da tela Visão Geral já considerava todos os campos do
+  contrato internamente; o rótulo do campo de busca foi atualizado para
+  deixar isso explícito.
+- Contratos já cadastrados ficam com o número do processo em branco até
+  serem revisados manualmente; nenhum dado existente foi alterado.
+
+ACHADOS DA REVISÃO GERAL (não corrigidos automaticamente — decisão sua)
+
+- requirements.txt não declarava o pacote pypdf, usado pelos testes de
+  regressão test_v19.py, test_v22.py e test_v25.py para conferir o PDF
+  gerado. Sem ele, esses três testes falhavam por dependência ausente, não
+  por erro de funcionalidade. Corrigido nesta versão.
+- test_core.py tem dois caminhos: um que importa uma planilha legada real
+  (fora deste pacote) e outro, de contingência, que cria um contrato mínimo
+  sem o campo "object" preenchido. Como o restante do script assume que o
+  campo objeto sempre existe, o caminho de contingência derruba a asserção
+  "Objeto do contrato" ao gerar o dossiê — reproduzido também na versão 27
+  original, sem relação com esta atualização. Vale ajustar o teste para
+  preencher "object" também no caminho de contingência.
+- A pasta vendor/ (contém o .whl do extra-streamlit-components) precisa
+  continuar sendo distribuída junto com o código; test_v20.py já cobre essa
+  checagem.

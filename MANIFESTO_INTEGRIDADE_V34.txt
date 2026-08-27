@@ -1,0 +1,74 @@
+MANIFESTO DE INTEGRIDADE — GESTÃO DE CONTRATOS ENGEMIL V34
+Data: 21/08/2026
+Gerado por: sessão de revisão de código (Claude), a pedido de Rodrigo.
+
+INCIDENTE DESTA SESSÃO E CORREÇÃO (transparência total)
+
+Durante os testes desta sessão, dois comandos de diagnóstico da função
+`parse_pasted_ranking` foram executados sem apontar a variável de
+ambiente GESTAO_DB_PATH para um banco de teste isolado, atingindo por
+engano o gestao_contratos.db real do projeto. O efeito concreto foi a
+criação de 2 registros técnicos na tabela user_sessions (tokens de sessão
+de login, já expirados, sem qualquer dado de contrato, licitação, ART ou
+outro dado de negócio). Identificado o problema, foi feita uma
+comparação tabela por tabela entre o arquivo afetado e o arquivo
+originalmente recebido de Rodrigo: TODAS as demais tabelas bateram
+exatamente (mesma contagem de linhas). Por segurança, em vez de apenas
+remover as 2 linhas, o arquivo gestao_contratos.db entregue neste pacote
+foi substituído pelo arquivo original recebido de Rodrigo, byte a byte —
+hash SHA-256 conferido idêntico:
+  6cb1d3be34f4147e21a418dfb3f02a6d60ffa55c1107f74ddcb85dd2804309a1
+
+Verificação adicional: comparação `diff -rq` entre a pasta completa do
+zip original recebido nesta sessão e a pasta entregue nesta versão,
+confirmando que absolutamente nenhum outro arquivo (uploads/, assets/,
+templates/, vendor/, .streamlit/, test_v16.py a test_v27.py, test_ui.py
+etc.) foi alterado além dos listados abaixo e dos arquivos novos
+intencionais.
+
+Arquivos alterados nesta versão (SHA-256):
+- app.py: 43774186d174785089c803c99cb0c1bf2fa6f434c97c36d61e207696c50b02f1
+- db.py: b9b99e0d6248b8203e63dd6dfcda3e7042e68158428de497174223c2029b5ba4
+- reports.py: 3a12cb7a41bf3f6485ab2a4fec6f9c381613c0bbd647aa4ffcf4f2578bb06a9e
+- bids.py: 3a10a2be975f9a6f500926025c290cbfab39dc5366aac81db971fbe6543e142e
+- GESTAO_LICITACOES.md: e71a4b729993c656581a416798ca6c3ffbb9e7ed3e6a96be80cb683151a73197
+
+alerts.py, test_core.py, README.md e VERSAO.txt também mudaram nesta
+sessão em relação ao zip original recebido, mas isso já é esperado: são
+as alterações da V33 (entregue antes, na mesma sessão) preservadas.
+Nenhuma alteração nova neles nesta V34, além do bump de versão em
+VERSAO.txt.
+
+Hash do banco entregue (idêntico ao recebido de Rodrigo):
+- gestao_contratos.db: 6cb1d3be34f4147e21a418dfb3f02a6d60ffa55c1107f74ddcb85dd2804309a1
+
+Validações concluídas nesta sessão:
+- compilação (py_compile) de app.py, db.py, reports.py, bids.py: OK;
+- migração testada em cópia isolada do banco real: coluna uasg em
+  bid_processes, colunas company_cnpj e situation em bid_rankings,
+  criadas com sucesso; 101 contratos e a licitação já cadastrada
+  preservados;
+- parser de colar do portal (parse_pasted_ranking) testado com o texto
+  exato do exemplo enviado por Rodrigo (formato SEQ/EMPRESA/LANCE
+  FINAL/DESCONTO separado por tabulação) e com variações (CNPJ incluído,
+  separação por espaços) — reconhecimento correto em todos os casos;
+- imagem de classificação (generate_ranking_image) testada com CNPJ e
+  situação "DESCLASSIFICADA" — conferida visualmente (nome riscado,
+  linha esmaecida, CNPJ exibido);
+- relatório de licitações vigentes em PDF (generate_bid_processes_pdf)
+  testado com dados reais e sintéticos — ajuste automático de página
+  única confirmado, conferido visualmente;
+- página completa de Licitações testada via streamlit.testing.v1.AppTest
+  (login, navegação, todos os elementos), sem exceções;
+- Backlog PDF: reconfirmado que o texto das tabelas "Maiores contratos"
+  e "Vencendo em 90 dias" já renderiza em branco sobre o fundo escuro
+  com o código atual — corrigido um bug real encontrado na mesma
+  revisão (cabeçalho dessas tabelas sem negrito);
+- suíte de regressão completa (test_core.py e test_v16.py a test_v24.py)
+  executada em ambiente Linux equivalente: 100% aprovada.
+
+Este manifesto documenta o que foi executado nesta sessão de revisão,
+incluindo o incidente acima e sua correção. Como nos manifestos
+anteriores, os hashes de "banco antes/depois da migração" não se aplicam
+aqui porque a migração roda no computador de Rodrigo, não neste ambiente
+de revisão.

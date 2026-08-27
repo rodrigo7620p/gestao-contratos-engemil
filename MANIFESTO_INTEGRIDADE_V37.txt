@@ -1,0 +1,63 @@
+MANIFESTO DE INTEGRIDADE — GESTÃO DE CONTRATOS ENGEMIL V37
+Data: 21/08/2026
+Gerado por: sessão de revisão de código (Claude), a pedido de Rodrigo.
+
+Origem preservada:
+- base: versão 36 consolidada (entregue por esta mesma sessão);
+- gestao_contratos.db entregue SEM alteração — hash SHA-256 idêntico ao
+  arquivo original recebido de Rodrigo:
+  6cb1d3be34f4147e21a418dfb3f02a6d60ffa55c1107f74ddcb85dd2804309a1;
+- conferido repetidas vezes ao longo desta sessão (não só ao final),
+  sem nenhuma divergência desta vez — disciplina de isolamento de testes
+  (GESTAO_DB_PATH sempre apontado para arquivo temporário) mantida em
+  100% dos comandos que importaram app.py nesta sessão;
+- mudança de schema desta versão é estritamente aditiva: nova tabela
+  bid_lots, nova coluna estimated_unit_value em bid_processes, nova
+  coluna bid_lot_id em bid_rankings — nenhuma tabela ou coluna existente
+  foi alterada ou removida, nenhum registro precisou ser migrado/movido;
+- migração testada em cópia isolada do banco real: 101 contratos e a
+  licitação já cadastrada preservados integralmente.
+
+Arquivos alterados nesta versão (SHA-256):
+- app.py: ace5c6176220dff83aacf0476f6db4229ccbc57a9f6dc62f095c1ad97b36af99
+- db.py: 080a730b056fa64a1fcab8a5365b44a6e2ad29faa013ba07b532565a3e474c59
+
+Arquivo novo nesta versão (SHA-256):
+- COMO_ATUALIZAR.txt: 35820bbc14aab6b31364f978dec891a5f8611af2eb4c35ed4e128d98e40ef61c
+
+Documentação atualizada (SHA-256):
+- GESTAO_LICITACOES.md: bd712fec3ef64541682b9114e792d44389152903839e73a2086f29f117b516cd
+
+bids.py, reports.py, alerts.py, test_core.py e README.md permanecem
+idênticos aos entregues nas versões anteriores (V33-V36). Nenhum outro
+arquivo do projeto foi tocado.
+
+Validações concluídas nesta sessão:
+- compilação (py_compile) de app.py, db.py, bids.py, reports.py: OK;
+- migração testada em cópia isolada do gestao_contratos.db real: tabela
+  bid_lots criada, colunas novas criadas em bid_processes e
+  bid_rankings, 101 contratos e 1 licitação preservados sem alteração
+  de nenhum outro campo;
+- fluxo completo de Grupos/Itens testado em banco isolado: dois grupos
+  cadastrados (Grupo 1: 3.750 unidades × R$322,03 = R$1.207.612,50;
+  Grupo 2: 1.000 unidades × R$150,00 = R$150.000,00), classificação
+  independente para cada grupo confirmada (load_bid_rankings com
+  bid_lot_id específico não retorna linhas de outro grupo nem do nível
+  geral da licitação), apply_engemil_ranking_to_process testado e
+  confirmado gravando no grupo correto (bid_lots, não bid_processes,
+  quando escopado a um grupo);
+- geração de imagem de classificação por grupo testada e conferida
+  visualmente — título e objeto mostram corretamente o nome do grupo
+  ("Grupo 1 — ...") e o valor estimado usado é o do grupo, não o da
+  licitação inteira;
+- página completa de Licitações testada via streamlit.testing.v1.AppTest
+  com uma licitação, um grupo e uma classificação já cadastrados —
+  as três abas (Resumo e edição, Grupos/Itens, Classificação) carregam
+  sem exceções;
+- suíte de regressão completa (test_core.py e test_v16.py a test_v24.py)
+  executada em ambiente Linux equivalente: 100% aprovada.
+
+Este manifesto documenta o que foi executado nesta sessão de revisão.
+Como nos manifestos anteriores, os hashes de "banco antes/depois da
+migração" não se aplicam aqui porque a migração roda no computador de
+Rodrigo, não neste ambiente de revisão.

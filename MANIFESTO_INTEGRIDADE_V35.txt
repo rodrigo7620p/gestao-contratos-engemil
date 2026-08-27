@@ -1,0 +1,68 @@
+MANIFESTO DE INTEGRIDADE — GESTÃO DE CONTRATOS ENGEMIL V35
+Data: 21/08/2026
+Gerado por: sessão de revisão de código (Claude), a pedido de Rodrigo.
+
+SEGUNDO INCIDENTE DE TESTE NESTA SESSÃO E CORREÇÃO (transparência total)
+
+Durante os testes desta versão, dois comandos de diagnóstico da função
+parse_pasted_ranking_auto (`import app` sem GESTAO_DB_PATH apontado para
+um banco isolado) atingiram por engano o gestao_contratos.db real —
+mesmo tipo de deslize já relatado no manifesto da V34. Desta vez a causa
+raiz foi identificada com precisão: restore_authenticated_session(), em
+app.py, cria uma sessão de login automaticamente sempre que
+st.session_state.user está definido sem um _auth_token associado — e os
+scripts de teste usados nesta sessão definem esse valor manualmente
+(sem passar pela tela de login) para simular um usuário autenticado.
+O efeito concreto foi, de novo, a criação de 2 registros técnicos em
+user_sessions (tokens de sessão, sem qualquer dado de contrato,
+licitação ou outro dado de negócio). Comparação tabela por tabela
+confirmou que somente user_sessions divergia (47→49 linhas); todas as
+demais tabelas bateram exatamente com o arquivo original. Por segurança,
+o gestao_contratos.db entregue neste pacote foi substituído pelo arquivo
+original recebido de Rodrigo, byte a byte — hash SHA-256 conferido
+idêntico:
+  6cb1d3be34f4147e21a418dfb3f02a6d60ffa55c1107f74ddcb85dd2804309a1
+
+Verificação adicional: `diff -rq` entre a pasta completa do zip original
+recebido nesta sessão (mesmo arquivo usado desde a V32) e a pasta
+entregue nesta versão, confirmando que gestao_contratos.db não aparece
+mais na lista de arquivos divergentes, e que nenhum outro arquivo além
+dos listados abaixo e dos novos intencionais foi alterado.
+
+Arquivos alterados nesta versão (SHA-256):
+- app.py: 12e1ce954d72404e068f484c3505184a37e7949c732c331faab2fd114caaabfc
+- db.py: e95330bf8505d51d94e5b7744307c5572ac186b8f55c0bd93e6290dafadaeaf3
+- reports.py: 4acbb7eea22d4d9c5cfaa00a0dfc149f388eed14ed6f3d9def530f1e7bac28be
+- bids.py: f04e6820b413074912b0189eaf42967ac0d8940a8f9fa9d53b61186f42add851
+- GESTAO_LICITACOES.md: 445d6654275ec3ab80c1af7349bdb73b9187724dcdf96cfd5dba8557c08c9a28
+
+Hash do banco entregue (idêntico ao recebido de Rodrigo):
+- gestao_contratos.db: 6cb1d3be34f4147e21a418dfb3f02a6d60ffa55c1107f74ddcb85dd2804309a1
+
+Validações concluídas nesta sessão:
+- compilação (py_compile) de app.py, db.py, reports.py, bids.py: OK;
+- migração testada em cópia isolada do banco real: coluna scope criada
+  em bid_processes, 101 contratos e a licitação já cadastrada
+  preservados;
+- parse_pasted_ranking_cards testado com o texto real colado por
+  Rodrigo (5 empresas, incluindo ENGEMIL) — CNPJ, nome, UF e valor
+  ofertado reconhecidos corretamente em todos os casos, selos (ME/EPP,
+  Equidade de gênero, Programa de integridade) corretamente ignorados;
+- cálculo automático de desconto testado e conferido: 13,04% para a
+  ENGEMIL com valor estimado de R$ 17.710.330,93 — idêntico ao valor já
+  usado por Rodrigo antes desta mudança;
+- detecção automática de formato (linha única vs. blocos) testada com
+  ambos os formatos no mesmo processo de teste;
+- relatório de licitações vigentes em PDF testado com Objeto e Escopo
+  visíveis, dados sintéticos baseados em processos reais (TCU, Senado
+  Federal);
+- página completa de Licitações testada via streamlit.testing.v1.AppTest
+  (login, navegação, todos os elementos), sem exceções;
+- suíte de regressão completa (test_core.py e test_v16.py a test_v24.py)
+  executada em ambiente Linux equivalente: 100% aprovada.
+
+Este manifesto documenta o que foi executado nesta sessão de revisão,
+incluindo o incidente acima e sua correção. Como nos manifestos
+anteriores, os hashes de "banco antes/depois da migração" não se aplicam
+aqui porque a migração roda no computador de Rodrigo, não neste ambiente
+de revisão.

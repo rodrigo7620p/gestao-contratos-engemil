@@ -1,0 +1,80 @@
+ATUALIZAÇÃO SEGURA - GESTÃO DE CONTRATOS ENGEMIL V34
+
+1. Use reiniciar_sistema.bat (ou o Gerenciador de Tarefas + iniciar_sistema.bat).
+2. Backup de gestao_contratos.db, uploads, trash (se existir) e
+   configuracao_email.bat.
+3. Pacote completo. Arquivos alterados: app.py, db.py, reports.py, bids.py.
+4. Apague o __pycache__ da raiz do projeto — ESSENCIAL nesta versão, ver
+   nota abaixo sobre o Backlog.
+5. Não apague nem substitua o banco, uploads, .venv ou configuração de
+   e-mail.
+6. Execute iniciar_sistema.bat. A migração aditiva do banco (UASG em
+   Licitações; CNPJ e situação na classificação) roda sozinha.
+7. Confirme "Versão 34" no rodapé.
+
+SOBRE O QUE VOCÊ REPORTOU NO BACKLOG (texto escuro sobre fundo escuro)
+
+Investiguei a fundo — gerei o PDF de novo com o código atual e com os
+seus próprios dados reais, e as tabelas "MAIORES CONTRATOS" e "VENCENDO
+NOS PRÓXIMOS 90 DIAS" já saem com texto BRANCO sobre o fundo escuro,
+correto. Não encontrei nenhum outro ponto do arquivo com esse problema
+(revisei todas as combinações de cor do reports.py). A explicação mais
+provável é a mesma de sempre: __pycache__ desatualizado guardando uma
+versão anterior do código compilado. Corrigi de qualquer forma um
+problema real que encontrei nessa mesma área: os cabeçalhos dessas duas
+tabelas não estavam em negrito (um parâmetro que faltava) — já corrigido.
+
+Depois de aplicar esta atualização E apagar o __pycache__, gere um novo
+Backlog e confirme visualmente. Se AINDA aparecer texto escuro sobre
+fundo escuro depois disso, me avise com um print — nesse caso passa a
+ser uma pista muito mais específica (pode ser algo do seu navegador/
+leitor de PDF, ou algo que meu ambiente de teste não reproduz) e vamos
+investigar juntos com mais detalhe.
+
+FUNCIONALIDADE PRINCIPAL DESTA VERSÃO — MENU LICITAÇÕES
+
+1) Campo UASG
+   - Novo campo no cadastro, na edição e na listagem de licitações.
+
+2) Colar classificação do portal
+   - Na aba Classificação, expanda "Colar classificação copiada do
+     portal", cole a tabela copiada do Compras.gov.br/PNCP/outro portal
+     e clique em "Processar texto colado". O sistema reconhece
+     sequência, empresa, CNPJ (se vier), lance final e desconto
+     automaticamente. Testado com o mesmo formato do exemplo que vocês
+     já usam (SEQ / EMPRESAS / LANCE FINAL / DESCONTO).
+
+3) CNPJ e situação por empresa na classificação
+   - Novas colunas na tabela editável: CNPJ e Situação (Classificada /
+     Desclassificada / Inabilitada / Desistente) — para registrar
+     desclassificações ao longo do certame.
+   - A imagem gerada para os gestores já reflete isso: empresas
+     desclassificadas aparecem com o nome riscado, linha esmaecida e a
+     situação indicada. O CNPJ aparece abaixo do nome de cada empresa.
+
+4) Relatório "Licitações vigentes" em PDF
+   - Botão no final da lista de licitações. A4 horizontal, ajuste
+     automático para uma página só, colunas escolhidas por você antes
+     de gerar, respeitando os filtros (status/plataforma/texto) já
+     aplicados na tela.
+
+5) Pesquisa sobre automação total via Compras.gov.br
+   - Encontrei uma página real do Comprasnet que devolve resultado por
+     fornecedor a partir de UASG + número do pregão — confirma que a
+     automação completa é tecnicamente possível. NÃO implementei a
+     automação completa nesta versão: falta descobrir um código interno
+     do pregão que essa página exige, e é uma página HTML legada, não
+     uma API estável. Detalhes completos, incluindo a URL exata testada,
+     em GESTAO_LICITACOES.md — deixei documentado para retomar quando
+     fizer sentido priorizar.
+
+ARQUIVO ANALISADO NESTA SESSÃO
+
+Analisei o 01_CONTROLE_DE_EDITAIS.xlsx que vocês enviaram (32 abas,
+mensais, desde jun/2024) para desenhar o relatório de "Licitações
+vigentes" no mesmo espírito das colunas que vocês já usam (ÓRGÃO, Nº
+PROCESSO, UASG, MODALIDADE, PORTAL, OBJETO, ESTIMATIVA, CLASSIFICAÇÃO,
+DESCONTO VENCEDOR etc.). Não importei os dados dessa planilha para o
+sistema — ela tem um histórico extenso (32 abas) que mereceria uma
+conversa à parte sobre se/como trazer esse histórico para dentro do
+módulo Licitações, caso seja do interesse de vocês.

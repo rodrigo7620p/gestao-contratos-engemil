@@ -1,0 +1,63 @@
+MANIFESTO DE INTEGRIDADE — GESTÃO DE CONTRATOS ENGEMIL V31
+Data: 12/08/2026
+Gerado por: sessão de revisão de código (Claude), a pedido de Rodrigo.
+
+Origem preservada:
+- base: versão 30 consolidada (entregue por esta mesma sessão);
+- gestao_contratos.db entregue SEM alteração nesta versão. As tabelas
+  sesmt_professionals/sesmt_exams/sesmt_trainings e as novas colunas em
+  documents são criadas pela migração aditiva automática de init_db() no
+  primeiro início do sistema;
+- hash do banco entregue (idêntico às V28/V29/V30, não tocado):
+  e03b4f7ac1a3e2807bf2a22eed8aafa41ab16b3a29554ea1d108bfe6962fb57c;
+- migração testada em cópia isolada do gestao_contratos.db real: 3 novas
+  tabelas + 3 novas colunas criadas, 100 contratos preservados, nenhum
+  outro campo alterado. Fluxo completo simulado direto no banco (cadastro
+  de profissional, exame, treinamento e documento vinculado) executado
+  sem erros.
+
+Arquivos alterados nesta versão (SHA-256):
+- app.py: 0de33a2d4565999f46827a621c175e4816629220d81e211d61fda114423563ff
+- db.py: 5ca0d45c13d7a1b099e3761681105823abb76e57dd5446ae69ffa62ac150a528
+- reports.py: 29e5019d62b3c66665644b3cda58698fdfc76bf087b8c05a863c34b3a9cada6a
+
+Arquivo novo nesta versão (SHA-256):
+- GESTAO_SESMT.md: 768ad461907e970b9b77a41c1ad44f4f3639cff24e79a7e1a89462c7eff35a63
+
+ADENDO (mesmo dia, antes da entrega ao usuário): revisão do
+iniciar_sistema.bat a pedido do usuário, ao perguntar como reiniciar o
+sistema após migrar os arquivos. Encontrado bug real: a checagem de
+dependências (linha "import streamlit,reportlab,extra_streamlit_components")
+não incluía "requests", adicionado como dependência na V29. Em um
+ambiente com .venv já existente de antes da V29, essa checagem passaria
+sem instalar "requests", causando ModuleNotFoundError no próximo início.
+Corrigido para checar também requests e PIL antes de decidir se reinstala
+as dependências.
+- iniciar_sistema.bat: c131ddd75c596ed637ff5cf9c531530a2b2a69ecb5a3169613ca8def3dd87a8f
+
+bids.py e requirements.txt permanecem idênticos aos entregues na V29/V30.
+Nenhum outro arquivo do projeto foi tocado.
+
+Validações concluídas nesta sessão:
+- compilação (py_compile) de app.py, db.py, reports.py e bids.py: OK;
+- Backlog PDF: testado com 63 contratos reais (coube em página única,
+  legível) e com 200 contratos sintéticos (acionou corretamente a
+  paginação normal, 3 páginas) — conferido visualmente após conversão
+  para imagem;
+- dashboard da página 2 do Backlog: testado com dados reais (63
+  contratos), conferido visualmente — indicadores e gráficos corretos,
+  paleta monocromática aplicada;
+- migração e fluxo do SESMT testados em cópia isolada do banco real,
+  incluindo upload de documento vinculado a exame;
+- suíte de regressão completa (test_core.py e test_v16.py a test_v27.py)
+  executada em ambiente Linux equivalente: todas as versões passaram,
+  exceto as falhas pré-existentes já descritas nos manifestos anteriores
+  (test_core.py — objeto do contrato no caminho de contingência sem
+  planilha legada; test_v26.py/test_v27.py — asserções de string de
+  versão desatualizadas pela própria numeração, comportamento esperado a
+  cada bump de versão, não é defeito).
+
+Este manifesto documenta apenas o que foi executado nesta sessão de
+revisão. Como nos manifestos V16 a V30, os hashes de banco
+"antes/depois da migração" não se aplicam aqui porque a migração roda no
+computador de Rodrigo, não neste ambiente de revisão.

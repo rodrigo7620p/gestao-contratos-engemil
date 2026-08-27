@@ -1,0 +1,28 @@
+ATUALIZAÇÃO V19 - GESTÃO DE CONTRATOS ENGEMIL
+
+1. Encerre o Streamlit com Ctrl + C.
+2. Faça backup de gestao_contratos.db, uploads, trash e configuracao_email.bat.
+3. Abra ATUALIZACAO_GESTAO_CONTRATOS_ENGEMIL_V19_SEM_BANCO.zip.
+4. Extraia TODOS os arquivos diretamente na pasta onde estão app.py e
+   gestao_contratos.db.
+5. Confirme "Substituir os arquivos no destino".
+6. Execute iniciar_sistema.bat.
+7. Na tela de login, confirme a identificação "Versão 19".
+
+BACKLOG OFICIAL
+
+- Escolha o responsável pela assinatura: Matheus ou Regiton.
+- Escolha a ordenação antes de gerar.
+- O PDF será renumerado conforme a classificação selecionada.
+- Se alterar a assinatura ou a ordenação, gere o PDF novamente.
+
+VALOR ATUAL INICIAL
+
+- Novo contrato sem aditivo: valor atual = valor original.
+- Contrato decorrente de ATA sem aditivo: valor atual = valor original.
+- O FNDE 337/2026 será ajustado automaticamente para R$ 817.706,44.
+- Contratos que já possuem aditivos não serão alterados por essa correção.
+
+ATENÇÃO
+
+O pacote incremental não contém banco, uploads, trash ou .venv.

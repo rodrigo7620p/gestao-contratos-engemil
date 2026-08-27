@@ -1,0 +1,64 @@
+ATUALIZAÇÃO SEGURA - GESTÃO DE CONTRATOS ENGEMIL V35
+
+1. Use reiniciar_sistema.bat (ou Gerenciador de Tarefas + iniciar_sistema.bat).
+2. Backup de gestao_contratos.db, uploads, trash (se existir) e
+   configuracao_email.bat.
+3. Pacote completo. Arquivos alterados: app.py, db.py, reports.py, bids.py.
+4. Apague o __pycache__ da raiz do projeto.
+5. Não apague nem substitua o banco, uploads, .venv ou configuração de
+   e-mail.
+6. Execute iniciar_sistema.bat. A migração aditiva (campo scope em
+   Licitações) roda sozinha.
+7. Confirme "Versão 35" no rodapé.
+
+FUNCIONALIDADE PRINCIPAL DESTA VERSÃO
+
+1) Colar classificação — reconhece o formato "em blocos" do Compras.gov.br
+   Cole o texto exatamente como copiado do painel de propostas (CNPJ em
+   uma linha, selos como "ME/EPP" ou "Programa de integridade", nome da
+   empresa, UF, "Valor ofertado (unitário)", "Valor negociado
+   (unitário)" e os valores). O sistema detecta esse formato
+   automaticamente — não precisa avisar qual formato é. Testado com o
+   texto real que vocês colaram (5 empresas, incluindo a ENGEMIL) e
+   reconheceu tudo corretamente: CNPJ, nome, UF e valor ofertado.
+
+   IMPORTANTE: preencha o "Valor estimado" da licitação (aba Resumo e
+   edição) ANTES de colar a classificação — o desconto de cada empresa é
+   sempre calculado a partir dele, não é mais lido do texto colado.
+   Testei e o desconto da ENGEMIL bateu exatamente com o que vocês já
+   tinham (13,04% no exemplo do MPDFT).
+
+2) Campo Escopo em Licitações
+   Novo campo (Obra / Manutenção / Reforma / Terceirização / ATA /
+   Consórcio / Outro) no cadastro, edição, listagem, filtro e no
+   relatório em PDF — mesma lista já usada na categoria dos contratos.
+
+3) Relatório "Licitações vigentes" em PDF — Objeto por padrão
+   As colunas Objeto e Escopo agora vêm pré-marcadas ao abrir a tela de
+   exportação, para identificar do que trata cada certame sem precisar
+   escolher manualmente.
+
+4) Revisão da planilha de controle de editais
+   Identifiquei (mas não implementei, por não terem sido pedidas
+   explicitamente) duas colunas que a planilha 01_CONTROLE_DE_EDITAIS.xlsx
+   tem e o sistema ainda não tem: HORA da disputa (separada da data) e
+   MODO DE DISPUTA (Aberto/Fechado/Randômico — diferente de Modalidade).
+   Documentado em GESTAO_LICITACOES.md — avisem se quiserem que eu inclua.
+
+TRANSPARÊNCIA SOBRE UM SEGUNDO INCIDENTE DE TESTE NESTA SESSÃO
+
+Durante os testes desta versão, cometi de novo o mesmo tipo de deslize já
+relatado na V34: dois comandos de teste do parser de colagem (`import
+app` para testar `parse_pasted_ranking_auto`) rodaram sem apontar
+GESTAO_DB_PATH para um banco isolado, atingindo por engano o
+gestao_contratos.db real. Desta vez também identifiquei a causa raiz
+exata: a função restore_authenticated_session() do próprio app.py cria
+uma sessão de login automaticamente sempre que st.session_state.user está
+definido sem um token de sessão associado — e meus scripts de teste
+definem esse valor manualmente para simular um usuário logado. O efeito
+concreto foi, de novo, só 2 registros técnicos de sessão (token de
+login, sem qualquer dado de contrato ou licitação) — identificados,
+removidos, e o arquivo entregue neste pacote foi conferido byte a byte
+contra o gestao_contratos.db original que vocês enviaram (mesmo hash
+SHA-256, ver MANIFESTO_INTEGRIDADE_V35.txt). Registro isso para manter o
+mesmo padrão de transparência das versões anteriores.

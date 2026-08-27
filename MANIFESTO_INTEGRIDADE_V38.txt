@@ -1,0 +1,49 @@
+MANIFESTO DE INTEGRIDADE — GESTÃO DE CONTRATOS ENGEMIL V38
+Data: 21/08/2026
+Gerado por: sessão de revisão de código (Claude), a pedido de Rodrigo.
+
+Origem preservada:
+- base: versão 37 consolidada (entregue por esta mesma sessão);
+- gestao_contratos.db entregue SEM alteração — hash SHA-256 idêntico ao
+  arquivo original recebido de Rodrigo:
+  6cb1d3be34f4147e21a418dfb3f02a6d60ffa55c1107f74ddcb85dd2804309a1;
+- conferido antes e depois de cada bateria de testes desta sessão, sem
+  nenhuma divergência;
+- nenhuma alteração de schema de banco nesta versão (correção é
+  puramente de interface).
+
+Arquivo alterado nesta versão (SHA-256):
+- app.py: 9aa21e9909dc77eee34ce25734a28e8ee576520c63e0203e5ae4b11c65b2abf0
+
+db.py, bids.py, reports.py, alerts.py, test_core.py, README.md,
+GESTAO_LICITACOES.md e COMO_ATUALIZAR.txt permanecem idênticos aos
+entregues na V37. Nenhum outro arquivo do projeto foi tocado.
+
+Validações concluídas nesta sessão:
+- compilação (py_compile) de app.py: OK;
+- causa raiz do bug identificada com precisão: os campos de quantidade,
+  valor unitário e valor total ficavam dentro de um st.form, que só
+  recalcula ao ser enviado — corrigido movendo quantidade e valor
+  unitário para fora do formulário nos quatro pontos onde esse padrão é
+  usado (cadastro de licitação, edição de licitação, cadastro de
+  grupo/item, edição de grupo/item);
+- um segundo problema foi descoberto durante a correção do primeiro: um
+  number_input desabilitado com key fixa também não atualizava o valor
+  exibido entre execuções (o Streamlit prioriza o valor já salvo em
+  sessão para aquela key, mesmo estando desabilitado) — corrigido
+  trocando por st.metric(), que não tem esse problema por não ser um
+  widget de entrada;
+- testado via streamlit.testing.v1.AppTest, passo a passo, sem clicar em
+  nenhum botão de envio: preenchido quantidade=3750 e valor
+  unitário=322,03, confirmado que o indicador de total exibia
+  corretamente R$ 1.207.612,50 antes de qualquer submissão — reproduz
+  exatamente o exemplo do print enviado por Rodrigo;
+- testado o fluxo completo com envio do formulário: confirmado que
+  quantity=3750.0, estimated_unit_value=322.03 e
+  estimated_value=1207612.5 são gravados corretamente no banco;
+- suíte de regressão completa (test_core.py e test_v16.py a test_v24.py)
+  executada em ambiente Linux equivalente: 100% aprovada.
+
+Este manifesto documenta o que foi executado nesta sessão de revisão.
+Como nos manifestos anteriores, os hashes de "banco antes/depois da
+migração" não se aplicam aqui porque não houve migração nesta versão.

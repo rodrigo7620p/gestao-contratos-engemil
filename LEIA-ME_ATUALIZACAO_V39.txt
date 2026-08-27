@@ -1,0 +1,126 @@
+ATUALIZAÇÃO SEGURA - GESTÃO DE CONTRATOS ENGEMIL V39
+
+Siga o COMO_ATUALIZAR.txt: extraia numa pasta separada, copie manualmente
+só os arquivos abaixo, nunca a pasta inteira por cima do sistema em uso.
+
+1. Use reiniciar_sistema.bat.
+2. Backup de gestao_contratos.db, uploads, trash (se existir) e
+   configuracao_email.bat.
+3. Copie manualmente para a pasta do sistema: app.py, db.py, reports.py.
+4. Apague o __pycache__ da raiz do projeto.
+5. Execute iniciar_sistema.bat. A migração aditiva (tabela
+   contract_employees) roda sozinha e preserva tudo que já está
+   cadastrado.
+6. Confirme "Versão 39" no rodapé.
+7. Teste os itens abaixo, na ordem que fizer mais sentido pra você.
+
+FUNCIONALIDADE PRINCIPAL DESTA VERSÃO
+
+1) Licitações — excluir, filtrar por período, Grupos/Itens no cadastro
+   - Aba "Resumo e edição" de uma licitação → expansor "Excluir esta
+     licitação" (com confirmação).
+   - Na carteira de licitações, filtros novos "Data da disputa — de" e
+     "— até".
+   - Ao cadastrar uma nova licitação, ela já aparece selecionada logo
+     abaixo, com aviso apontando para a aba Grupos/Itens.
+
+2) Preenchimento automático Resumo ↔ Classificação
+   - Reconfirmado: sempre que a ENGEMIL aparece na classificação (colada
+     ou editada), os campos "Nosso Lance", "Desconto aplicado" e
+     "Classificação" da aba Resumo e edição são preenchidos sozinhos.
+     Já funcionava desde a V37 — testado de novo nesta versão para ter
+     certeza.
+
+3) Relatório "Licitações vigentes" em PDF — mais legível
+   - ÓRGÃO mostra a sigla (CONAB) em vez do nome completo.
+   - OBJETO quebra em até 3 linhas em vez de espremer a fonte — a linha
+     da tabela cresce em altura conforme necessário.
+   - Continua sempre A4 horizontal; pagina automaticamente só quando o
+     volume de licitações realmente não cabe numa página só.
+
+4) Funcionários nominais + importação de planilha do RH
+   - Ficha do contrato → aba "Equipe e cargos" → nova seção
+     "Funcionários nominais".
+   - Cadastro manual ou importação de planilha (.xlsx/.csv): envie como
+     o RH exportar, confirme o mapeamento de colunas sugerido
+     automaticamente, confira a prévia, e só então confirme a
+     importação. A planilha em si não é salva no sistema.
+   - Se a planilha tiver coluna de centro de custo, só as linhas do
+     centro de custo do contrato aberto são importadas.
+
+5) SESMT reconhece a equipe nominal
+   - Ao cadastrar um profissional do SESMT, se o contrato já tiver
+     funcionários nominais cadastrados, aparece a opção de importar
+     nome e cargo de quem já está na lista, em vez de redigitar.
+
+UM BUG ENCONTRADO E CORRIGIDO NO PRÓPRIO DESENVOLVIMENTO DESTA VERSÃO
+
+Ao mexer no relatório de Licitações vigentes, adicionei um novo detalhe
+técnico ao catálogo de colunas e esqueci de atualizar um trecho do
+app.py que lia esse catálogo — isso quebraria a tela de Licitações e
+qualquer outra tela que reaproveita esse catálogo. Peguei isso rodando
+os testes automatizados antes de fechar a versão (exatamente para isso
+que servem) e corrigi antes de esta versão chegar até você.
+
+TESTES REALIZADOS NESTA SESSÃO
+
+- Migração testada em cópia isolada do banco real: tabela
+  contract_employees criada, 101 contratos preservados.
+- Reconhecimento automático de colunas da planilha testado com dados
+  sintéticos (3 funcionários, 2 centros de custo): mapeamento correto,
+  filtro por centro de custo funcionando (2 linhas importadas, 1
+  ignorada por ser de outro centro de custo).
+- PDF de licitações vigentes testado com sigla reconhecida (CONAB), sem
+  sigla reconhecida (nome completo em 3 linhas) e com 25 licitações
+  simultâneas (paginação automática em 2 páginas, mantendo a fonte
+  legível em ambas).
+- Preenchimento automático Resumo ↔ Classificação retestado e
+  confirmado (Nosso lance R$ 750.000,00, Desconto 37,89%, Classificação
+  2ª posição).
+- Página completa de Licitações e Ficha do contrato testadas via
+  streamlit.testing.v1.AppTest, com licitação + grupo + classificação +
+  funcionário nominal já cadastrados — sem exceções.
+- Suíte de regressão completa (test_core.py e test_v16.py a test_v24.py):
+  100% aprovada.
+- gestao_contratos.db entregue idêntico (mesmo hash SHA-256) ao que
+  vocês enviaram — conferido repetidas vezes ao longo da sessão. Ver
+  MANIFESTO_INTEGRIDADE_V39.txt.
+
+PASSO A PASSO: COMO IMPORTAR OS FUNCIONÁRIOS DA PLANILHA DO RH
+
+1. Abra o sistema e vá em "Ficha do contrato".
+2. Selecione o contrato/centro de custo para o qual o RH te passou a
+   relação de funcionários.
+3. Abra a aba "Equipe e cargos" e role até "Funcionários nominais".
+4. Clique em "Importar planilha do RH (Excel)" para abrir a seção.
+5. Envie o arquivo .xlsx (ou .csv) exatamente como o RH te mandou — não
+   precisa reformatar nada antes.
+6. O sistema vai sugerir sozinho qual coluna da planilha é qual campo
+   (nome, cargo, centro de custo, CPF, admissão, salário). Confira os
+   seis seletores que aparecem — se algum estiver errado ou faltando,
+   ajuste manualmente escolhendo a coluna certa (ou "(não usar)" se a
+   planilha não tiver aquela informação). Só o campo "nome" é
+   obrigatório.
+7. Assim que a coluna do nome estiver definida, aparece uma prévia das
+   linhas que serão importadas — e, se a planilha tiver mais de um
+   centro de custo, quantas linhas de outros centros foram ignoradas
+   automaticamente.
+8. Confira a prévia com calma. Se estiver tudo certo, clique em
+   "Confirmar importação".
+9. Repita os passos 2 a 8 para cada contrato/centro de custo que você
+   for importar — a importação é sempre por contrato, um de cada vez.
+10. Depois de importado, os nomes já aparecem na lista "Funcionários
+    nominais" desse contrato, e ficam disponíveis também no cadastro de
+    profissionais do SESMT daquele mesmo contrato (menu SESMT →
+    Cadastrar novo profissional → escolha o contrato → vai aparecer a
+    opção de importar da equipe).
+11. Se algum dado vier errado da planilha (ex.: uma data em formato
+    estranho), você pode ajustar depois abrindo "Excluir funcionário" e
+    recadastrando manualmente esse caso específico — a importação em
+    lote não tem edição em massa nesta versão, só exclusão individual.
+
+Sobre a "análise minuciosa" que você mencionou: como pedido, a
+importação só traz os dados para dentro do sistema — não faz nenhuma
+comparação automática contra o que já está contratado. Essa conferência
+continua sendo manual, olhando a lista "Funcionários nominais" ao lado
+do que está pactuado na planilha de custo do contrato.

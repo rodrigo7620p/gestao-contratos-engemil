@@ -1,0 +1,50 @@
+MANIFESTO DE INTEGRIDADE — GESTÃO DE CONTRATOS ENGEMIL V27
+Data: 07/08/2026
+
+Origem preservada:
+- base: versão 26 consolidada;
+- banco antes da migração: SHA-256 b636aba63b42c09af18b5d0b2218f1b43cf0a092219e8f72955000abcebe5c00;
+- banco após migração V27: SHA-256 c1656a83a61d3f0e6a6ac79f37c57ef42c23afd7a172cc2ab184f47009c24b1c;
+- PRAGMA integrity_check: ok;
+- PRAGMA foreign_key_check: sem inconsistências;
+- contratos: 100 antes / 100 depois;
+- aditivos: 395 antes / 395 depois;
+- ARTs: 17 antes / 17 depois;
+- garantias: 0 antes / 0 depois;
+- documentos: 2 antes / 2 depois;
+- usuários: 1 antes / 1 depois;
+- anexos: 14 arquivos, 1.131.659 bytes;
+- datas do orçamento: nova tabela criada vazia, sem registros artificiais.
+
+Arquivos principais após a atualização:
+- app.py: 939f71783730da80bd093890197089a075f8ce72523032437e0160bd0c4f12f3
+- alerts.py: ff5b4e34897a4ddbe6f276289d9deaf70089643a66cb2482b3b33adb4b14a957
+- db.py: 32363c65281aa2e404dd2dda34283a738d165f5ee9c5affc7745b2543f2aee3e
+- reports.py: 9f1a4b357ee57c2bf48191c14c427c3c862d6fdf6c6c98507b918d55f7f13db5
+- guarantees.py: 82340e781313142f239b10b08b87d4bf8374dd6ca11d85fb59de40134223492b
+- art_management.py: 2c26f9cd17f4f079e7d6096cd7028e5bfd0d47d2507886f772a0a82e0e621f0c
+- verificar_integridade.py: b3ba8c69507a8f1f09a508fac5ef0c63b0c4f81e3a0adebeb050510e60b5b028
+- .streamlit/config.toml: 47c76f7a9439514f0efc3ffc987a528ed199ddb32133057abe83eed7ad4167a6
+
+Validações concluídas:
+- compilação dos módulos alterados;
+- testes específicos da V27;
+- testes de regressão das versões 26 e 24;
+- agrupamento de ARTs por profissional, inclusive nomes com e sem acento;
+- ordem histórica do primeiro profissional e ordem de cadastro das ARTs do grupo;
+- consolidação dos perfis para autopreenchimento;
+- normalização de número de ART para prevenção de duplicidade;
+- criação, edição, exclusão e exportação de múltiplas datas de orçamento;
+- relatório Word com datas do orçamento;
+- remoção de orçamento estimado, valor da proposta e LMG das telas e relatórios;
+- preservação das colunas antigas sem sobrescrita;
+- migração aditiva em cópia do banco consolidado;
+- integridade SQLite, chaves estrangeiras e anexos preservados.
+
+Limitação da validação neste ambiente:
+- a interface Streamlit não foi iniciada porque o runtime Linux de validação não
+  possui o pacote Streamlit; compilação, regras, banco e geração Word passaram.
+
+O pacote incremental V27 não contém banco, uploads, trash, ambiente virtual nem
+configuracao_email.bat. Ele deve ser aplicado sobre a instalação em uso para
+preservar os lançamentos realizados após o último pacote completo.

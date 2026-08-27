@@ -1,0 +1,23 @@
+ATUALIZAÇÃO SEGURA - GESTÃO DE CONTRATOS ENGEMIL V27
+
+1. Feche o sistema com Ctrl+C.
+2. Faça uma cópia de segurança de:
+   - gestao_contratos.db
+   - uploads
+   - trash, se existir
+   - configuracao_email.bat
+3. Extraia ATUALIZACAO_GESTAO_CONTRATOS_ENGEMIL_V27_SEM_BANCO.zip diretamente
+   dentro da pasta atual:
+   C:\Users\RODRIGO_NOT\OneDrive\Documentos\003 - CONTROLE\GESTÃO_CONTRATOS_ENGEMIL
+4. Confirme a substituição dos arquivos de código.
+5. Não apague nem substitua o banco, uploads, ambiente .venv ou configuração de e-mail.
+6. Execute iniciar_sistema.bat. A migração aditiva será aplicada automaticamente.
+7. Confirme no menu lateral a indicação Versão 27.
+8. Na Ficha do contrato, confira:
+   - Garantias e seguros com formulário simplificado;
+   - ARTs agrupadas por profissional e autopreenchimento;
+   - Editar > Datas do orçamento.
+
+O pacote incremental não contém banco, uploads, .venv nem senha de e-mail.
+Os campos antigos de garantia e reajuste permanecem no banco apenas para
+compatibilidade, mas deixam de ser exibidos ou sobrescritos.

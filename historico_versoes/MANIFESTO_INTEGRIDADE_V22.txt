@@ -1,0 +1,40 @@
+MANIFESTO DE INTEGRIDADE — GESTÃO DE CONTRATOS ENGEMIL V22
+Data: 31/07/2026
+
+Origem preservada:
+- base: versão 21 recebida e em uso;
+- banco anterior: SHA-256 851bed1af84d13aebda78ce826b3954a254eb766410386f7d52155944e228c6c;
+- banco após migração V22: SHA-256 807093f3fba01b543b06174c849c76dabea30b6d81cbab3250acbcd47217c3bc;
+- PRAGMA integrity_check: ok;
+- contratos: 100 antes / 100 depois;
+- aditivos: 385 antes / 385 depois;
+- documentos: 2 antes / 2 depois;
+- usuários: 1 antes / 1 depois;
+- cargos: 10 antes / 10 depois;
+- obrigações: 2 antes / 2 depois;
+- ARTs: 10 antes / 10 depois;
+- CNOs: 0 antes / 0 depois;
+- anexos: 7 arquivos, 772.668 bytes.
+
+Arquivos principais após a atualização:
+- app.py: 564aac2e2566ad0e5899c6d247a5bf624d8bf74fa46198141a1a27d07d67387a
+- db.py: 977607e0e871fc2c5b882b10b29f302df5b406c0c8862f7fa6d0da75c0f5c342
+- reports.py: 5a8e975f9171d3a3f733292005fd870d1610e4294efae71c87284638755b55d9
+- .streamlit/config.toml: 47c76f7a9439514f0efc3ffc987a528ed199ddb32133057abe83eed7ad4167a6
+
+Validações concluídas:
+- test_core.py;
+- test_ui.py;
+- test_v16.py;
+- test_v18.py;
+- test_v19.py;
+- test_v20.py;
+- test_v21.py;
+- test_v22.py;
+- Backlog real com 65 contratos, uma página A4 vertical;
+- logotipo completo, assinatura no rodapé e espaço para assinatura eletrônica;
+- migração aditiva sem perda de cadastros ou anexos.
+
+O pacote incremental V22 não contém banco, uploads, trash, ambiente virtual ou
+configuracao_email.bat. O pacote completo contém uma cópia integral da instalação
+recebida, com o banco migrado e os anexos preservados.

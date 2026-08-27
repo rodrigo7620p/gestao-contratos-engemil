@@ -1,0 +1,51 @@
+ATUALIZAÇÃO SEGURA - GESTÃO DE CONTRATOS ENGEMIL V41
+
+Siga o COMO_ATUALIZAR.txt: extraia numa pasta separada, copie manualmente
+só os arquivos abaixo, nunca a pasta inteira por cima do sistema em uso.
+
+1. Use reiniciar_sistema.bat.
+2. Backup de gestao_contratos.db, uploads, trash (se existir) e
+   configuracao_email.bat.
+3. Copie manualmente para a pasta do sistema: app.py, bids.py, reports.py.
+4. Apague o __pycache__ da raiz do projeto.
+5. Execute iniciar_sistema.bat. Não há migração de banco nesta versão.
+6. Confirme "Versão 41" no rodapé.
+
+FUNCIONALIDADE PRINCIPAL DESTA VERSÃO
+
+1) Seta ▲ para lances acima do valor estimado
+   No seu print da licitação do TCU, os últimos colocados (que ofertaram
+   acima de R$ 17.710.330,93) apareciam com "0,00%" — o que escondia a
+   informação real. Corrigido: agora aparece o percentual de quanto
+   ficou ACIMA do estimado, em laranja, com uma seta ▲ na frente (ex.:
+   "▲ 1,10%"), bem diferente visualmente do desconto normal (vermelho).
+   Aplicado tanto na imagem de classificação quanto no relatório
+   "Licitações vigentes" em PDF.
+
+2) Nome do arquivo da imagem de classificação
+   Ao clicar em "Baixar imagem para enviar aos gestores", o arquivo
+   agora se chama, por exemplo, "CLASS_TCU_53-2026_30001.png" — sigla
+   do órgão, número do certame e UASG, exatamente como pedido. Quando a
+   classificação é de um grupo/item específico, o nome do grupo é
+   acrescentado no final (ex.:
+   "CLASS_TCU_53-2026_30001_Grupo_1.png").
+
+TESTES REALIZADOS NESTA SESSÃO
+
+- Testado com os valores exatos do seu print (TCU, Pregão 53/2026, UASG
+  30001): os três últimos colocados (Interativa Facilities, Covam
+  Construções, VRL Manutenções) mostraram corretamente "▲ 1,10%",
+  "▲ 1,58%" e "▲ 9,26%" em laranja, com os primeiros colocados
+  continuando em vermelho normalmente.
+- Confirmado que a fonte usada no PDF (Helvetica) renderiza o caractere
+  ▲ corretamente — gerei e converti um PDF de teste para imagem para
+  conferir visualmente antes de fechar esta versão.
+- Nome de arquivo testado com os dados do seu exemplo: gerou
+  exatamente "CLASS_TCU_53-2026_30001.png".
+- Página completa de Licitações testada via streamlit.testing.v1.AppTest
+  com uma classificação incluindo lance acima do estimado — sem
+  exceções.
+- Suíte de regressão completa (test_core.py e test_v16.py a test_v24.py):
+  100% aprovada.
+- gestao_contratos.db entregue idêntico (mesmo hash SHA-256) ao que
+  vocês enviaram. Ver MANIFESTO_INTEGRIDADE_V41.txt.

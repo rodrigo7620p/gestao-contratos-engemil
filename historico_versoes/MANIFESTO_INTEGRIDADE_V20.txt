@@ -1,0 +1,40 @@
+GESTÃO DE CONTRATOS ENGEMIL - MANIFESTO DA ATUALIZAÇÃO V20
+Data da validação: 30/07/2026
+
+Base:
+- versão 19 funcional utilizada integralmente;
+- banco, anexos, usuários, permissões e históricos preservados.
+
+Banco: gestao_contratos.db
+SHA-256 anterior: 864f1d4effd72e3dd8a7b3492ea51015aef3f58fc09a540307796cc75af2a017
+SHA-256 atualizado: a5aa48862e442171361940299613d023246af98d1f5b4514cf29d55b0ea29c3e
+PRAGMA integrity_check: ok
+
+Quantidades preservadas:
+- contratos: 100
+- aditivos/instrumentos: 484
+- usuários: 1
+- registros de auditoria: 85
+
+Migração aditiva:
+- nova tabela user_sessions para sessões revogáveis;
+- nova preferência last_page nos usuários;
+- nenhuma senha ou token original armazenado;
+- nenhum contrato, instrumento, documento, usuário ou histórico excluído.
+
+Segurança:
+- identificador aleatório de alta entropia;
+- somente SHA-256 do identificador armazenado no banco;
+- vínculo com o navegador;
+- cookie SameSite Strict e Secure quando o acesso utilizar HTTPS;
+- expiração deslizante após 30 minutos sem atividade;
+- revogação no logout, expiração, troca de navegador ou desativação do usuário.
+
+Interface:
+- F5 preserva autenticação e último menu;
+- aviso de conferência cadastral temporário, exibido somente após atualização;
+- ocultação visual automática após oito segundos.
+
+Dependência local:
+- extra_streamlit_components 0.1.81 incluído em vendor;
+- instalação automática pelo iniciar_sistema.bat sem exigir internet.

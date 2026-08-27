@@ -1,0 +1,66 @@
+ATUALIZAÇÃO SEGURA - GESTÃO DE CONTRATOS ENGEMIL V38
+
+Lembrete: siga o COMO_ATUALIZAR.txt (já entregue na V37) — extraia numa
+pasta separada e copie manualmente só os arquivos abaixo, nunca a pasta
+inteira por cima do sistema em uso.
+
+1. Use reiniciar_sistema.bat.
+2. Backup de gestao_contratos.db, uploads, trash (se existir) e
+   configuracao_email.bat.
+3. Copie manualmente para a pasta do sistema: app.py (único arquivo
+   alterado nesta versão).
+4. Apague o __pycache__ da raiz do projeto.
+5. Execute iniciar_sistema.bat. Não há migração de banco nesta versão.
+6. Confirme "Versão 38" no rodapé.
+7. Abra Licitações → Cadastrar nova licitação e confirme: ao digitar
+   Quantidade solicitada e Valor estimado (unitário), o "Valor estimado
+   (total)" já aparece calculado na hora, sem precisar clicar em
+   Cadastrar.
+
+O QUE FOI CORRIGIDO
+
+No print que você enviou, o total ficava em 0,00 mesmo com quantidade e
+valor unitário já preenchidos. Causa: esses três campos estavam dentro de
+um formulário do Streamlit (st.form) — e formulários do Streamlit só
+recalculam quando são enviados, nunca antes. Corrigido: quantidade e
+valor unitário agora ficam fora do formulário, então o total é recalculado
+a cada tecla digitada.
+
+Isso foi corrigido nos quatro lugares que têm esses campos:
+- Cadastro de nova licitação
+- Edição de licitação já cadastrada
+- Cadastro de novo grupo/item
+- Edição de grupo/item já cadastrado
+
+Também adicionei uma opção "Calcular o valor total automaticamente"
+(marcada por padrão): com ela marcada, o total é sempre quantidade ×
+unitário, mostrado como um indicador (não dá pra editar diretamente,
+para não ficar inconsistente com a conta). Se desmarcar, libera um campo
+para digitar o total manualmente — útil se você já sabe o valor total
+exato e não quer depender do cálculo.
+
+TESTES REALIZADOS NESTA SESSÃO
+
+- Testado via streamlit.testing.v1.AppTest: preenchi quantidade (3.750)
+  e valor unitário (322,03) sem clicar em nenhum botão, e confirmei que
+  o indicador de total já mostrava R$ 1.207.612,50 — o mesmo exemplo do
+  seu print.
+- Testado o cadastro completo (com envio do formulário): confirmado que
+  os três valores (quantidade, unitário e total calculado) são gravados
+  corretamente no banco.
+- Suíte de regressão completa (test_core.py e test_v16.py a test_v24.py):
+  100% aprovada.
+- gestao_contratos.db entregue idêntico (mesmo hash SHA-256) ao que
+  vocês enviaram — conferido antes e depois de todos os testes desta
+  sessão. Ver MANIFESTO_INTEGRIDADE_V38.txt.
+
+NOTA TÉCNICA (para quem for mexer no código depois)
+
+A causa raiz específica: mesmo usando um number_input desabilitado
+(disabled=True) com uma key fixa fora do formulário, o Streamlit ainda
+assim ignorava o parâmetro "value" novo a cada rerun, porque uma vez que
+uma key já tem um valor salvo em sessão, o Streamlit prioriza esse valor
+salvo em vez do "value" passado no código — mesmo widgets desabilitados
+não escapam dessa regra. A correção usou st.metric() para exibir o total
+calculado (não é um widget de entrada, então não tem esse problema de
+"memória" entre execuções).

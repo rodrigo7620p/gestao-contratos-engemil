@@ -1,0 +1,55 @@
+MANIFESTO DE INTEGRIDADE — GESTÃO DE CONTRATOS ENGEMIL V28
+Data: 08/08/2026
+Gerado por: sessão de revisão de código (Claude), a pedido de Rodrigo.
+
+Origem preservada:
+- base: versão 27 consolidada, enviada por Rodrigo em pacote .zip;
+- gestao_contratos.db entregue SEM alteração nesta versão (SHA-256 abaixo);
+  a nova coluna process_number é criada pela migração aditiva automática de
+  init_db() no primeiro início do sistema, exatamente como nas versões
+  anteriores — não há "banco após migração" nesta entrega porque a migração
+  ainda não foi executada em ambiente de produção;
+- contagens no banco entregue (idênticas antes/depois, pois o banco não foi
+  tocado): contratos 100, aditivos 395, equipe/cargos 10, ARTs 21,
+  CNOs 0, garantias 0, datas de orçamento 0, documentos 6, usuários 1,
+  trilha de auditoria 212 registros;
+- PRAGMA integrity_check: não reexecutado nesta sessão (banco inalterado
+  em relação ao que foi recebido).
+
+Hash do banco entregue (não alterado nesta versão):
+- gestao_contratos.db: e03b4f7ac1a3e2807bf2a22eed8aafa41ab16b3a29554ea1d108bfe6962fb57c
+
+Arquivos de código alterados nesta versão (SHA-256 calculado sobre os
+arquivos efetivamente entregues neste pacote):
+- app.py: 8892b77c1562c2ee38df2d333a26ce6a418c1f3af05414f24a1daa15f085a465
+- db.py: 73fefd4606b48ef2fa18f8d5c16e879e5bd2f9bc7c8e7ea3b5bb3f18249fe552
+- reports.py: f58cc268983ff85ffeeb00a75aac58623fd7cca4218ef1cb125a73124233520c
+- requirements.txt: 847ffd0bc53e50e647ade26a25db8a6a24d22875b84dc43be68224577c8e5038
+
+Todos os demais arquivos do projeto (alerts.py, art_management.py,
+backlog.py, bdi.py, contract_utils.py, data_quality.py, declaration.py,
+document_factory.py, guarantees.py, importer.py, notifications.py,
+portfolio.py, totp.py, verificar_integridade.py, templates/, assets/,
+.streamlit/config.toml, vendor/, uploads/) permanecem idênticos aos
+recebidos na versão 27 — nenhuma linha foi tocada fora dos quatro arquivos
+listados acima. Conferido com "diff -rq" contra o pacote original recebido.
+
+Validações concluídas nesta sessão:
+- compilação (py_compile) de app.py, db.py e reports.py: OK;
+- migração aditiva testada em cópia isolada do gestao_contratos.db real
+  (não no arquivo entregue): coluna process_number criada, 100 contratos
+  preservados sem alteração de nenhum outro campo;
+- suíte de regressão executada em ambiente Linux equivalente (test_core.py
+  e test_v16.py a test_v27.py): todas as versões passaram, exceto a
+  falha pré-existente de test_core.py descrita no LEIA-ME_ATUALIZACAO_V28,
+  reproduzida também na versão 27 original e não relacionada a esta
+  atualização;
+- teste manual de compilação/sintaxe não substitui teste funcional completo
+  no ambiente Windows real — recomenda-se rodar test_core.py e test_v16.py
+  a test_v27.py no .venv do servidor de produção antes de liberar aos
+  demais usuários, conforme já orientado no ANALISE_CIBERSEGURANCA_V22.md.
+
+Este manifesto documenta apenas o que foi executado nesta sessão de
+revisão. Diferente dos manifestos V16 a V27, os hashes de banco
+"antes/depois da migração" não se aplicam aqui porque a migração roda no
+computador de Rodrigo, não neste ambiente de revisão.

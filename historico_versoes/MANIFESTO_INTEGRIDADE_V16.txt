@@ -1,0 +1,34 @@
+GESTÃO DE CONTRATOS ENGEMIL — MANIFESTO DA ATUALIZAÇÃO V16
+Data da validação: 30/07/2026
+
+Pacote de origem recebido:
+SHA-256: b5fd647990c1f7a442be232fba3d472f24cbe50022e9211d6a4716c0b003f725
+
+Banco atualizado: gestao_contratos.db
+PRAGMA integrity_check: ok
+
+Quantidades preservadas antes e depois da migração:
+- contratos: 100
+- aditivos/instrumentos: 484
+- contratos decorrentes de ATA: 0
+- cargos: 10
+- ARTs: 10
+- documentos anexados: 2
+- documentos padronizados gerados: 5
+- usuários: 1
+- registros de auditoria: 84
+
+Novas estruturas:
+- tabela contract_cnos;
+- coluna arts.professional_title;
+- coluna documents.cno_id;
+- preenchimento automático da duração quando havia datas válidas e duração nula.
+
+Pendências identificadas, sem alteração automática:
+- 9 cargos do centro de custo 01.02.00320 possuem salário-base igual a zero;
+- 10 ARTs anteriores não possuem título profissional;
+- 19 contratantes não possuem sigla explícita no final do nome;
+- 1 aditivo antigo possui data inicial inválida.
+
+Nenhum contrato, aditivo, cargo, ART, documento, usuário ou registro de auditoria
+foi excluído durante a atualização.

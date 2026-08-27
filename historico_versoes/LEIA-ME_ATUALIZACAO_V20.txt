@@ -1,0 +1,31 @@
+ATUALIZAÇÃO V20 - GESTÃO DE CONTRATOS ENGEMIL
+
+1. Encerre o Streamlit com Ctrl + C.
+2. Faça backup de gestao_contratos.db, uploads, trash e configuracao_email.bat.
+3. Abra ATUALIZACAO_GESTAO_CONTRATOS_ENGEMIL_V20_SEM_BANCO.zip.
+4. Extraia TODOS os arquivos diretamente na pasta onde estão app.py e
+   gestao_contratos.db.
+5. Confirme "Substituir os arquivos no destino".
+6. Execute iniciar_sistema.bat.
+7. Aguarde a instalação local do componente de sessão segura. A biblioteca
+   necessária já está incluída na pasta vendor.
+8. Na tela de login, confirme a identificação "Versão 20".
+
+SESSÃO E SEGURANÇA
+
+- Pressionar F5 não encerra mais o login.
+- O último menu utilizado é restaurado.
+- A sessão expira após 30 minutos sem atividade.
+- O botão Sair revoga imediatamente a sessão do navegador.
+- A troca de senha encerra as demais sessões abertas da mesma conta.
+- Somente o hash do identificador da sessão é armazenado no banco.
+
+CONFERÊNCIA CADASTRAL
+
+- A mensagem de conferência não fica mais fixa na Visão geral.
+- Ela aparece depois da atualização dos dados quando não existirem pendências.
+- A confirmação desaparece visualmente após oito segundos.
+
+ATENÇÃO
+
+O pacote incremental não contém banco, uploads, trash ou .venv.

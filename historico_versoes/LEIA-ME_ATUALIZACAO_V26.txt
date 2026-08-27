@@ -1,0 +1,36 @@
+ATUALIZAÇÃO SEGURA - GESTÃO DE CONTRATOS ENGEMIL V26
+
+1. Feche o sistema com Ctrl+C.
+2. Faça uma cópia de segurança de:
+   - gestao_contratos.db
+   - uploads
+   - trash, se existir
+   - configuracao_email.bat
+3. Extraia ATUALIZACAO_GESTAO_CONTRATOS_ENGEMIL_V26_SEM_BANCO.zip diretamente
+   dentro da pasta atual:
+   C:\Users\RODRIGO_NOT\OneDrive\Documentos\003 - CONTROLE\GESTÃO_CONTRATOS_ENGEMIL
+4. Confirme a substituição dos arquivos de código.
+5. Não apague nem substitua o banco, uploads, ambiente .venv ou configuração de e-mail.
+6. Abra o Prompt de Comando na pasta e execute:
+   .venv\Scripts\python.exe -c "from db import init_db; init_db()"
+7. Inicie normalmente com iniciar_sistema.bat.
+8. Confirme no menu lateral a indicação Versão 26.
+9. Abra uma Ficha do contrato e confira a nova aba Garantias e seguros.
+
+O pacote de atualização não contém banco, uploads, .venv nem senha de e-mail.
+As novas tabelas são criadas de modo aditivo e preservam todos os cadastros atuais.
+
+FUNCIONALIDADE PRINCIPAL
+
+- Cadastre garantia contratual, garantia adicional, riscos de engenharia,
+  responsabilidade civil de obra, responsabilidade civil profissional, seguro
+  de vida/acidentes ou um tipo livre.
+- Vincule o registro ao contrato inicial, aditivo ou contrato decorrente de ATA.
+- Registre solicitação, recebimento, análise e aceite.
+- Informe valor exigido, valor garantido/LMG, apólice, SUSEP, vigência e prêmio.
+- Detalhe coberturas, LMI e franquias/POS.
+- Registre endossos e renovações sem perder o histórico.
+- Anexe a apólice ao registro principal ou ao endosso correspondente.
+- O sistema sinaliza valor insuficiente, ausência de documento, vencimento e
+  vigência inferior à vigência contratual.
+- O agendador diário também processa alertas de garantia em 60, 30 e 15 dias.
