@@ -100,12 +100,13 @@ from notifications import send_test_email, smtp_status
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
 APP_VERSION = "53"
+APP_STAGE = "Beta"
 APP_RELEASE_DATE = "26/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
 BURGUNDY_HEX = "5a1235"
 AUTH_COOKIE_MAX_AGE_SECONDS = 7 * 24 * 60 * 60
 st.set_page_config(
-    page_title=f"Gestão de Contratos | ENGEMIL V{APP_VERSION}",
+    page_title=f"Gestão de Contratos | ENGEMIL V{APP_VERSION} {APP_STAGE}",
     page_icon="📑",
     layout="wide",
 )
@@ -1655,7 +1656,7 @@ def professional_footer():
         f"""
         <footer class="app-footer">
             <strong>Sistema de Gestão Contratual ENGEMIL</strong><br>
-            Versão {APP_VERSION} · Atualização {APP_RELEASE_DATE}<br>
+            Versão {APP_VERSION} {APP_STAGE} · Atualização {APP_RELEASE_DATE}<br>
             Concepção e desenvolvimento por <strong>Rodrigo de Sousa da Silva</strong><br>
             <span class="developer-title">Engenheiro de Software</span> ·
             CREA-DF nº 36849/D-DF · RNP nº 0724248897<br>
@@ -1697,7 +1698,7 @@ def require_login():
             st.image(str(login_logo), width=280)
         st.title("Gestão de Contratos")
         st.caption(
-            f"Acesso restrito a usuários autorizados · Versão {APP_VERSION}"
+            f"Acesso restrito a usuários autorizados · Versão {APP_VERSION} {APP_STAGE}"
         )
         auth_notice = st.session_state.pop("auth_notice", None)
         if auth_notice:
@@ -10087,7 +10088,7 @@ st.sidebar.title("Gestão Contratual")
 if active_logo_path.exists():
     st.sidebar.image(str(active_logo_path), width="stretch")
 st.sidebar.caption(
-    f"{user['name']} · {user['role']} · Versão {APP_VERSION}"
+    f"{user['name']} · {user['role']} · Versão {APP_VERSION} {APP_STAGE}"
 )
 with st.sidebar.expander("Alterar minha senha"):
     current_password = st.text_input("Senha atual", type="password", key="pwd_current")
