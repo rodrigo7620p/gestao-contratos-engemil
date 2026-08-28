@@ -644,10 +644,18 @@ def password_policy_errors(password, *, name="", email=""):
     """Retorna regras de senha não atendidas sem registrar a credencial."""
     value = str(password or "")
     errors = []
-    if len(value) < 15:
-        errors.append("pelo menos 15 caracteres")
+    if len(value) < 8:
+        errors.append("pelo menos 8 caracteres")
+    if not re.search(r"[A-Z]", value):
+        errors.append("pelo menos uma letra maiúscula")
+    if not re.search(r"[a-z]", value):
+        errors.append("pelo menos uma letra minúscula")
+    if not re.search(r"[^A-Za-z0-9]", value):
+        errors.append("pelo menos um caractere especial")
     common_passwords = {
-        "123456789012345", "administrador", "admin1234567890",
+        "administrador", "alterar@123", "engemil123", "senha1234",
+        "password1", "qwerty123", "12345678", "admin1234",
+        "123456789012345", "admin1234567890",
         "alterar@1234567", "engemil12345678", "senha1234567890",
         "password123456", "qwerty123456789",
     }
@@ -9689,9 +9697,9 @@ def page_users():
             "Senha inicial",
             type="password",
             help=(
-                "Mínimo de 15 caracteres. Pode ser uma frase-senha longa, sem conter "
-                "nome, e-mail ou termos previsíveis. O usuário deverá alterá-la "
-                "no primeiro acesso."
+                "Mínimo de 8 caracteres, com letra maiúscula, minúscula e caractere "
+                "especial. Não pode conter nome, e-mail ou termos previsíveis. O "
+                "usuário deverá alterá-la no primeiro acesso."
             ),
         )
         role = st.selectbox(
