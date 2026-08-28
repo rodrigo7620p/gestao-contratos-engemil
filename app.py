@@ -89,7 +89,7 @@ from guarantees import (
     guarantee_issues,
     operational_status,
 )
-from portfolio import backlog_rows, remaining_value, workbook_bytes
+from portfolio import annual_allocation, backlog_rows, remaining_value, workbook_bytes
 from reports import (
     BID_PDF_COLUMN_CATALOG,
     build_contract_overview_summary,
@@ -101,9 +101,9 @@ from reports import (
 from notifications import send_test_email, smtp_status
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "53"
+APP_VERSION = "54"
 APP_STAGE = "Beta"
-APP_RELEASE_DATE = "26/08/2026"
+APP_RELEASE_DATE = "28/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
 AUTH_QUERY_PARAM = "sessao"
 BURGUNDY_HEX = "5a1235"
@@ -1365,6 +1365,50 @@ def load_ata_contracts(ata_id):
     return result
 
 
+def expand_backlog_with_ata_children(backlog_df, source_contracts, start_year, years=6):
+    """Insere, só nesta exportação em Excel, uma linha para cada contrato
+    decorrente de cada ATA presente no backlog — o PDF continua mostrando
+    apenas a ATA "mãe", sem os decorrentes.
+
+    O Item de cada decorrente usa o item da própria ATA como prefixo (ex.:
+    ATA no item 11 → decorrentes 11-1, 11-2, 11-3...) e herda o centro de
+    custo da ATA, já que decorrentes não têm centro de custo próprio — é
+    o mesmo processo/contrato-mãe. `source_contracts` precisa estar na
+    MESMA ordem usada para gerar `backlog_df` (backlog_rows já preserva a
+    ordem de entrada), para casar item a item com o contrato de origem."""
+    if backlog_df.empty:
+        return backlog_df
+    year_columns = [str(y) for y in range(start_year, start_year + years)]
+    expanded_rows = []
+    for source, (_, backlog_row) in zip(source_contracts, backlog_df.iterrows()):
+        expanded_rows.append(backlog_row.to_dict())
+        if not is_ata(source):
+            continue
+        children = load_ata_contracts(source["id"])
+        for index, child in enumerate(children, start=1):
+            child_value = float(child["current_value"] or 0)
+            child_start = child.get("start_date")
+            child_end = child.get("current_end_date")
+            child_row = {
+                "Item": f"{backlog_row['Item']}-{index}",
+                "Centro de custo": backlog_row["Centro de custo"],
+                "Contratante": child.get("client"),
+                "Contrato": child.get("contract_number"),
+                "Início": child_start,
+                "Fim": child_end,
+                "Valor atual": child_value,
+                "Instrumento vigente": child.get("current_instrument") or "Contrato Decorrente Da Ata",
+                "Status": child.get("status"),
+                "Modalidade": source.get("category"),
+                "Responsável": child.get("responsible_name") or source.get("manager_name"),
+            }
+            for year in year_columns:
+                child_row[year] = annual_allocation(child_start, child_end, child_value, int(year))
+            child_row["Remanescente total"] = remaining_value(child_start, child_end, child_value)
+            expanded_rows.append(child_row)
+    return pd.DataFrame(expanded_rows)
+
+
 def days_until(value):
     if not value:
         return None
@@ -2093,9 +2137,10 @@ def page_contracts():
             "green",
         ),
     ])
+    excel_backlog = expand_backlog_with_ata_children(backlog, rows, int(start_year))
     st.download_button(
         "Exportar backlog em Excel",
-        data=workbook_bytes({"Contratos": backlog}),
+        data=workbook_bytes({"Contratos": excel_backlog}),
         file_name=f"backlog_contratos_{date.today().isoformat()}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
@@ -9572,6 +9617,7 @@ def page_exports():
         if days_until(contract["end_date"]) is not None and days_until(contract["end_date"]) >= 0
     ]
     backlog = pd.DataFrame(backlog_rows(contracts, date.today().year, 6))
+    excel_backlog = expand_backlog_with_ata_children(backlog, contracts, date.today().year)
     summary = pd.DataFrame(
         vigent_contracts
     ).groupby("category", dropna=False).agg(
@@ -9596,7 +9642,7 @@ def page_exports():
     )
     st.download_button(
         "Exportar Contratos/Backlog",
-        workbook_bytes({"Contratos": backlog}),
+        workbook_bytes({"Contratos": excel_backlog}),
         f"contratos_backlog_{date.today().isoformat()}.xlsx",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
@@ -9627,7 +9673,7 @@ def page_exports():
     st.subheader("Arquivo consolidado")
     all_sheets = {
         "Visão Geral": summary,
-        "Contratos": backlog,
+        "Contratos": excel_backlog,
         "Índices": indices,
         "Documentos padronizados": document_history,
     }

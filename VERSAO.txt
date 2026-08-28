@@ -1,21 +1,28 @@
 GESTÃO DE CONTRATOS ENGEMIL
-Versão: 42
-Data: 24/08/2026
+Versão: 54 Beta
+Data: 28/08/2026
 
 Principais alterações:
-- Licitações: a escolha "Como este certame será cadastrado?" agora tem
-  3 opções explícitas — Individual, Vários itens individuais (sem
-  agrupamento), ou Grupo(s) com itens (classificação pelo valor total
-  do grupo) — em vez das 2 opções anteriores, que não distinguiam
-  claramente "vários itens soltos" de "um grupo com vários itens";
-- ao escolher "Grupo(s) com itens" ou "Vários itens individuais", o
-  cadastro do primeiro grupo/item já vem com o Tipo certo pré-marcado,
-  sem precisar trocar manualmente;
-- novo atalho "Gerar linhas" na aba Grupos/Itens: informe quantos itens
-  o grupo tem e o sistema já cria as linhas "Item 1", "Item 2"... para
-  você só preencher quantidade e valores — no mesmo formato usado no
-  Compras.gov.br;
-- testado com os 3 grupos completos de um exemplo real do TJDF (Pregão
-  15/2026): Grupo 1 com 5 itens somou exatamente R$ 592.810,56, igual
-  ao valor mostrado no portal;
-- nenhuma alteração de schema de banco nesta versão.
+- Sistema publicado on-line (Streamlit Community Cloud), com banco de
+  dados hospedado (Turso) para os dados sobreviverem a reinícios do
+  servidor — acesso direto pelo link, sem exigir login de terceiro
+  (Google/Streamlit) antes da tela do próprio sistema;
+- corrigido logout indevido ao atualizar a página (F5): a sessão agora
+  persiste de forma confiável mesmo na hospedagem na nuvem;
+- política de senha relaxada para 8 caracteres com maiúscula, minúscula
+  e caractere especial (antes exigia 15 caracteres);
+- envio de e-mail (SMTP) configurado e testado, usado tanto pelos
+  alertas de prazos quanto pela nova notificação diária de licitações;
+- novo: notificação diária por e-mail das licitações do dia (segunda a
+  sexta, 06h50) — quadro com dia, hora, UASG, nº da licitação, escopo,
+  estrutura, objeto e valor estimado, para os e-mails cadastrados na
+  própria tela de Licitações;
+- Licitações: coluna "Disputa" movida para a primeira posição na
+  Carteira de licitações, para facilitar a visualização por data;
+- Backlog em Excel agora inclui também os contratos decorrentes de cada
+  ATA, logo abaixo da própria ATA, numerados como decorrentes dela (ex.:
+  ATA no item 11 → decorrentes 11-1, 11-2, 11-3...) e com o mesmo centro
+  de custo da ATA. O Backlog em PDF continua mostrando somente as
+  ATAs/contratos originais, sem os decorrentes;
+- nenhuma alteração destrutiva de schema de banco nesta versão (só uma
+  tabela nova, para os e-mails da notificação diária de licitações).
