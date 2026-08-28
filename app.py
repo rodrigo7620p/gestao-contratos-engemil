@@ -8,7 +8,7 @@ import shutil
 import uuid
 from html import escape
 from io import BytesIO
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
 import altair as alt
@@ -16,7 +16,7 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-from alerts import process_repactuation_alerts, send_obligation_alert
+from alerts import process_repactuation_alerts, send_daily_bid_schedule, send_obligation_alert
 from art_management import art_number_key, organize_art_rows, professional_profiles
 from backlog import BACKLOG_SORT_OPTIONS, sort_backlog_rows
 from bdi import calculate_bdi, composed_indirect_total, tax_total
@@ -31,6 +31,9 @@ from bids import (
     RANKING_SITUATIONS,
     SCOPE_OPTIONS as BID_SCOPE_OPTIONS,
     STATUSES as BID_STATUSES,
+    bid_process_aggregate_values,
+    bid_process_structure_label,
+    format_estimated_value_display,
     generate_ranking_image,
     pncp_check_awarded_contracts,
     pncp_search_contratacoes,
@@ -7457,63 +7460,6 @@ def load_bid_lots_by_process():
     return by_process
 
 
-def bid_process_structure_label(lots):
-    """Descreve resumidamente a estrutura de grupos/itens cadastrados para
-    um processo, sem detalhar cada um — só uma noção geral no resumo (ex.:
-    "3 grupo(s) · 20 itens no total", "5 item(ns) avulso(s)")."""
-    if not lots:
-        return "Individual (item único)"
-    groups = [lot for lot in lots if (lot.get("lot_type") or "ITEM") == "GRUPO"]
-    standalone_items = [lot for lot in lots if (lot.get("lot_type") or "ITEM") != "GRUPO"]
-    total_sub_items = sum(int(lot.get("item_count") or 0) for lot in lots)
-    parts = []
-    if groups:
-        parts.append(f"{len(groups)} grupo(s)")
-    if standalone_items:
-        parts.append(f"{len(standalone_items)} item(ns) avulso(s)")
-    label = " + ".join(parts) if parts else f"{len(lots)} grupo(s)/item(ns)"
-    if total_sub_items:
-        label += f" · {total_sub_items} itens no total"
-    return label
-
-
-def bid_process_aggregate_values(process, lots):
-    """Quando a licitação usa Grupos/Itens, o valor estimado (e o nosso
-    lance/desconto) deixam de viver só no processo — cada grupo/item tem
-    o seu próprio. Esta função soma tudo automaticamente para dar a visão
-    geral do certame inteiro (usada no Resumo, na listagem geral e no
-    PDF), sem afetar o detalhamento por grupo/item, que continua intacto
-    na aba própria. Se a licitação não usa Grupos/Itens, devolve os
-    valores do próprio processo, sem alteração de comportamento. Quando a
-    licitação é sigilosa, o desconto nunca é exibido — o valor cadastrado
-    é só uma referência interna, não uma comparação oficial válida."""
-    is_confidential = bool(process.get("is_confidential"))
-    if not lots:
-        return {
-            "estimated_value": process.get("estimated_value"),
-            "our_bid_value": process.get("our_bid_value"),
-            "our_discount_percent": None if is_confidential else process.get("our_discount_percent"),
-            "structure_label": "Individual (item único)",
-            "is_confidential": is_confidential,
-        }
-    total_estimated = sum(float(lot.get("estimated_value") or 0) for lot in lots)
-    lots_with_offer = [lot for lot in lots if lot.get("our_bid_value") is not None]
-    total_offered = (
-        sum(float(lot["our_bid_value"] or 0) for lot in lots_with_offer)
-        if lots_with_offer else None
-    )
-    discount = None
-    if total_offered and total_estimated and not is_confidential:
-        discount = (1 - total_offered / total_estimated) * 100
-    return {
-        "estimated_value": total_estimated,
-        "our_bid_value": total_offered,
-        "our_discount_percent": discount,
-        "structure_label": bid_process_structure_label(lots),
-        "is_confidential": is_confidential,
-    }
-
-
 def load_bid_lot_items(bid_lot_id):
     return [
         dict(row) for row in query(
@@ -7572,19 +7518,6 @@ def format_discount_display(value):
     if value < 0:
         return f"▲ {abs(value):.2f}%".replace(".", ",")
     return f"{value:.2f}%".replace(".", ",")
-
-
-def format_estimated_value_display(aggregate):
-    """Mostra o valor estimado normalmente — ou, quando a licitação é
-    sigilosa, sinaliza isso claramente ('🔒 Sigiloso') com o valor
-    cadastrado logo abaixo, para não passar a falsa impressão de que é o
-    valor oficial divulgado pelo órgão."""
-    if aggregate.get("is_confidential"):
-        registered_value = aggregate.get("estimated_value")
-        if registered_value:
-            return f"🔒 Sigiloso\n{brl(registered_value)} (cadastrado)"
-        return "🔒 Sigiloso — sem valor de referência cadastrado"
-    return brl(aggregate.get("estimated_value"))
 
 
 def format_estimated_value_for_pdf(aggregate):
@@ -8103,6 +8036,69 @@ def page_bids():
                     ])
                     modern_table(preview, max_height=360)
 
+    if can_edit():
+        with st.expander("Notificação diária de licitações do dia"):
+            st.caption(
+                "Todo dia útil às 6h50, o sistema envia um quadro com as licitações que têm "
+                "disputa marcada para o dia (dia, hora, UASG, nº da licitação, escopo, "
+                "estrutura, objeto e valor estimado) para os e-mails cadastrados abaixo. "
+                "Sem licitação marcada para o dia, nenhum e-mail é enviado."
+            )
+            recipients = [
+                dict(row) for row in query(
+                    "SELECT * FROM bid_schedule_recipients ORDER BY active DESC,email"
+                )
+            ]
+            if recipients:
+                modern_table(pd.DataFrame([{
+                    "E-mail": row["email"],
+                    "Status": "ATIVO" if row["active"] else "INATIVO",
+                } for row in recipients]))
+                remove_options = {row["email"]: row["id"] for row in recipients}
+                rc1, rc2 = st.columns([3, 1])
+                remove_label = rc1.selectbox(
+                    "E-mail para remover ou reativar/pausar", remove_options,
+                    key="bid_schedule_recipient_target",
+                )
+                target_id = remove_options[remove_label]
+                target_row = next(row for row in recipients if row["id"] == target_id)
+                with rc2:
+                    st.write("")
+                    st.write("")
+                    if st.button(
+                        "Pausar" if target_row["active"] else "Reativar",
+                        key="toggle_bid_schedule_recipient",
+                    ):
+                        execute(
+                            "UPDATE bid_schedule_recipients SET active=? WHERE id=?",
+                            (0 if target_row["active"] else 1, target_id),
+                        )
+                        rerun()
+                if st.button("Remover este e-mail definitivamente", key="delete_bid_schedule_recipient"):
+                    execute("DELETE FROM bid_schedule_recipients WHERE id=?", (target_id,))
+                    log_action(user["id"], "REMOVER", "destinatário licitações do dia", target_id, remove_label)
+                    st.success("E-mail removido.")
+                    rerun()
+            else:
+                st.info("Nenhum e-mail cadastrado ainda para receber a notificação diária.")
+            with st.form("new_bid_schedule_recipient", clear_on_submit=True):
+                new_recipient_email = st.text_input("Adicionar e-mail")
+                if st.form_submit_button("Adicionar"):
+                    normalized = new_recipient_email.strip().lower()
+                    if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", normalized):
+                        st.error("Informe um endereço de e-mail válido.")
+                    else:
+                        try:
+                            execute(
+                                "INSERT INTO bid_schedule_recipients(email) VALUES(?)",
+                                (normalized,),
+                            )
+                            log_action(user["id"], "CADASTRAR", "destinatário licitações do dia", None, normalized)
+                            st.success("E-mail cadastrado.")
+                            rerun()
+                        except Exception:
+                            st.error("Este e-mail já está cadastrado.")
+
     st.divider()
     st.subheader("Carteira de licitações")
     f1, f2, f3, f4 = st.columns(4)
@@ -8176,6 +8172,7 @@ def page_bids():
             process_lots = lots_by_process.get(p["id"], [])
             aggregate = bid_process_aggregate_values(p, process_lots)
             listing_rows.append({
+                "Disputa": fmt_date(p["dispute_date"]) + (f" {p['dispute_time']}" if p.get("dispute_time") else ""),
                 "Nº da licitação": p.get("edital_number") or p["process_number"],
                 "UASG": p.get("uasg") or "—",
                 "Órgão": p["agency"],
@@ -8187,7 +8184,6 @@ def page_bids():
                 "Nosso lance": brl(aggregate["our_bid_value"]) if aggregate["our_bid_value"] else "—",
                 "Desconto": format_discount_display(aggregate["our_discount_percent"]),
                 "Classificação": p["our_ranking"] or "—",
-                "Disputa": fmt_date(p["dispute_date"]) + (f" {p['dispute_time']}" if p.get("dispute_time") else ""),
             })
         listing = pd.DataFrame(listing_rows)
         modern_table(listing, max_height=420)
@@ -10074,6 +10070,14 @@ if current_user["require_2fa"] and not current_user["totp_enabled"]:
     st.stop()
 if "alerts_processed" not in st.session_state:
     st.session_state.alerts_processed = process_repactuation_alerts()
+if "bid_schedule_checked" not in st.session_state:
+    st.session_state.bid_schedule_checked = True
+    # Rede de segurança: a tarefa agendada local dispara às 6h50, mas se por
+    # algum motivo não rodar (computador desligado, etc.), o primeiro acesso
+    # ao sistema depois desse horário num dia útil também aciona o envio —
+    # o notification_log garante que isso nunca duplica e-mail.
+    if datetime.now().time() >= time(6, 50):
+        send_daily_bid_schedule()
 selected_theme = st.sidebar.radio(
     "Aparência",
     ["Escuro", "Claro"],

@@ -6,4 +6,5 @@ gestao_contratos.db-*
 uploads/
 trash/
 configuracao_email.bat
+configuracao_turso.bat
 .streamlit/secrets.toml

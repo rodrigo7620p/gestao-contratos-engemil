@@ -146,6 +146,77 @@ class PncpError(RuntimeError):
     """Erro de comunicação ou de resposta inesperada da API do PNCP."""
 
 
+def bid_process_structure_label(lots):
+    """Descreve resumidamente a estrutura de grupos/itens cadastrados para
+    um processo, sem detalhar cada um — só uma noção geral no resumo (ex.:
+    "3 grupo(s) · 20 itens no total", "5 item(ns) avulso(s)")."""
+    if not lots:
+        return "Individual (item único)"
+    groups = [lot for lot in lots if (lot.get("lot_type") or "ITEM") == "GRUPO"]
+    standalone_items = [lot for lot in lots if (lot.get("lot_type") or "ITEM") != "GRUPO"]
+    total_sub_items = sum(int(lot.get("item_count") or 0) for lot in lots)
+    parts = []
+    if groups:
+        parts.append(f"{len(groups)} grupo(s)")
+    if standalone_items:
+        parts.append(f"{len(standalone_items)} item(ns) avulso(s)")
+    label = " + ".join(parts) if parts else f"{len(lots)} grupo(s)/item(ns)"
+    if total_sub_items:
+        label += f" · {total_sub_items} itens no total"
+    return label
+
+
+def bid_process_aggregate_values(process, lots):
+    """Quando a licitação usa Grupos/Itens, o valor estimado (e o nosso
+    lance/desconto) deixam de viver só no processo — cada grupo/item tem
+    o seu próprio. Esta função soma tudo automaticamente para dar a visão
+    geral do certame inteiro (usada no Resumo, na listagem geral, no PDF
+    e no e-mail diário de licitações do dia), sem afetar o detalhamento
+    por grupo/item, que continua intacto na aba própria. Se a licitação
+    não usa Grupos/Itens, devolve os valores do próprio processo, sem
+    alteração de comportamento. Quando a licitação é sigilosa, o desconto
+    nunca é exibido — o valor cadastrado é só uma referência interna, não
+    uma comparação oficial válida."""
+    is_confidential = bool(process.get("is_confidential"))
+    if not lots:
+        return {
+            "estimated_value": process.get("estimated_value"),
+            "our_bid_value": process.get("our_bid_value"),
+            "our_discount_percent": None if is_confidential else process.get("our_discount_percent"),
+            "structure_label": "Individual (item único)",
+            "is_confidential": is_confidential,
+        }
+    total_estimated = sum(float(lot.get("estimated_value") or 0) for lot in lots)
+    lots_with_offer = [lot for lot in lots if lot.get("our_bid_value") is not None]
+    total_offered = (
+        sum(float(lot["our_bid_value"] or 0) for lot in lots_with_offer)
+        if lots_with_offer else None
+    )
+    discount = None
+    if total_offered and total_estimated and not is_confidential:
+        discount = (1 - total_offered / total_estimated) * 100
+    return {
+        "estimated_value": total_estimated,
+        "our_bid_value": total_offered,
+        "our_discount_percent": discount,
+        "structure_label": bid_process_structure_label(lots),
+        "is_confidential": is_confidential,
+    }
+
+
+def format_estimated_value_display(aggregate):
+    """Mostra o valor estimado normalmente — ou, quando a licitação é
+    sigilosa, sinaliza isso claramente ('🔒 Sigiloso') com o valor
+    cadastrado logo abaixo, para não passar a falsa impressão de que é o
+    valor oficial divulgado pelo órgão."""
+    if aggregate.get("is_confidential"):
+        registered_value = aggregate.get("estimated_value")
+        if registered_value:
+            return f"🔒 Sigiloso\n{brl(registered_value)} (cadastrado)"
+        return "🔒 Sigiloso — sem valor de referência cadastrado"
+    return brl(aggregate.get("estimated_value"))
+
+
 def pncp_search_contratacoes(
     data_inicial: date,
     data_final: date,

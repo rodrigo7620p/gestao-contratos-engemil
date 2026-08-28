@@ -769,6 +769,12 @@ CREATE TABLE IF NOT EXISTS blob_store (
     data BLOB NOT NULL,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS bid_schedule_recipients (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 CREATE INDEX IF NOT EXISTS idx_contract_end ON contracts(end_date);
 CREATE INDEX IF NOT EXISTS idx_obligation_due ON obligations(due_date);
 CREATE INDEX IF NOT EXISTS idx_amendment_contract ON amendments(contract_id);

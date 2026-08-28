@@ -1,11 +1,19 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
+from html import escape
 import re
 
+from bids import (
+    bid_process_aggregate_values,
+    bid_process_structure_label,
+    format_estimated_value_display,
+)
 from contract_utils import extract_agency_acronym, humanize_remaining
 from db import archive_expired_contracts, execute, init_db, query
 from notifications import send_email, send_test_email, smtp_status
+
+BID_SCHEDULE_EXCLUDED_STATUSES = {"REVOGADA / CANCELADA", "DESERTA / FRACASSADA"}
 
 
 FINAL_STATUSES = {"CONCLUÍDA", "CONCLUIDA", "CANCELADA", "CANCELADO"}
@@ -657,6 +665,136 @@ def process_repactuation_alerts():
     return result
 
 
+def todays_bid_schedule_rows(today=None):
+    """Monta as linhas de licitações com disputa marcada para hoje, na
+    ordem: dia, hora, uasg, nº da licitação, escopo, estrutura, objeto,
+    valor estimado. Reaproveita o mesmo cálculo de valor agregado e
+    estrutura (grupos/itens) usado na tela de Licitações, para os números
+    do e-mail nunca divergirem dos exibidos no sistema."""
+    today = today or date.today()
+    processes = [
+        dict(row) for row in query(
+            """SELECT * FROM bid_processes WHERE dispute_date=? ORDER BY dispute_time""",
+            (today.isoformat(),),
+        )
+        if str(row["status"] or "").strip().upper() not in BID_SCHEDULE_EXCLUDED_STATUSES
+    ]
+    rows = []
+    for process in processes:
+        lots = [
+            dict(row) for row in query(
+                "SELECT * FROM bid_lots WHERE bid_process_id=? ORDER BY id",
+                (process["id"],),
+            )
+        ]
+        aggregate = bid_process_aggregate_values(process, lots)
+        rows.append({
+            "dia": today.strftime("%d/%m/%Y"),
+            "hora": process.get("dispute_time") or "—",
+            "uasg": process.get("uasg") or "—",
+            "numero": process.get("edital_number") or process.get("process_number") or "—",
+            "escopo": process.get("scope") or "—",
+            "estrutura": bid_process_structure_label(lots),
+            "objeto": process.get("object") or "—",
+            "valor_estimado": format_estimated_value_display(aggregate),
+        })
+    return rows
+
+
+def _bid_schedule_email_content(rows, today):
+    date_label = today.strftime("%d/%m/%Y")
+    headers = [
+        "Dia", "Hora", "UASG", "Nº da licitação", "Escopo", "Estrutura",
+        "Objeto", "Valor estimado",
+    ]
+    plain_lines = [f"LICITAÇÕES DO DIA — {date_label}", ""]
+    html_rows = []
+    for row in rows:
+        values = [
+            row["dia"], row["hora"], row["uasg"], row["numero"], row["escopo"],
+            row["estrutura"], row["objeto"], row["valor_estimado"].replace("\n", " — "),
+        ]
+        plain_lines.append(" | ".join(f"{h}: {v}" for h, v in zip(headers, values)))
+        plain_lines.append("")
+        html_rows.append(
+            "<tr>" + "".join(
+                f'<td style="padding:8px 12px;border:1px solid #ddd;">{escape(str(v)).replace(chr(10), "<br>")}</td>'
+                for v in values
+            ) + "</tr>"
+        )
+    plain_lines.append(
+        "Mensagem automática do Sistema de Gestão Contratual ENGEMIL — "
+        "não é necessário responder."
+    )
+    plain_body = "\n".join(plain_lines)
+    header_html = "".join(
+        f'<th style="padding:8px 12px;border:1px solid #ddd;background:#5a1235;'
+        f'color:#fff;text-align:left;">{escape(h)}</th>'
+        for h in headers
+    )
+    html_body = f"""
+    <div style="font-family:Arial,Helvetica,sans-serif;color:#1f1b1d;">
+        <h2 style="color:#5a1235;">Licitações do dia — {escape(date_label)}</h2>
+        <table style="border-collapse:collapse;width:100%;font-size:14px;">
+            <thead><tr>{header_html}</tr></thead>
+            <tbody>{"".join(html_rows)}</tbody>
+        </table>
+        <p style="color:#6b7280;font-size:12px;margin-top:16px;">
+            Mensagem automática do Sistema de Gestão Contratual ENGEMIL —
+            não é necessário responder.
+        </p>
+    </div>
+    """
+    subject = f"LICITAÇÕES DO DIA — {date_label} ({len(rows)})"
+    return subject, plain_body, html_body
+
+
+def send_daily_bid_schedule(today=None, force=False):
+    """Envia, para os e-mails cadastrados em bid_schedule_recipients, o
+    quadro das licitações com disputa marcada para hoje. Roda de
+    segunda a sexta (parado nos fins de semana, quando não há pregão) e
+    só dispara uma vez por dia por destinatário — resultado idempotente
+    graças ao notification_log, então rodar de novo no mesmo dia (pela
+    tarefa agendada ou por alguém abrindo o sistema) não duplica e-mail."""
+    init_db()
+    today = today or date.today()
+    result = {"sent": 0, "skipped_weekend": False, "recipients": 0, "bids_today": 0}
+    if not force and today.weekday() >= 5:
+        result["skipped_weekend"] = True
+        return result
+    recipients = [
+        row["email"] for row in query(
+            "SELECT email FROM bid_schedule_recipients WHERE active=1 ORDER BY email"
+        )
+    ]
+    result["recipients"] = len(recipients)
+    if not recipients:
+        return result
+    rows = todays_bid_schedule_rows(today)
+    result["bids_today"] = len(rows)
+    if not rows:
+        return result
+    subject, plain_body, html_body = _bid_schedule_email_content(rows, today)
+    for recipient in recipients:
+        already_sent = query(
+            """SELECT id FROM notification_log WHERE event_type='LICITACOES_DIA'
+            AND reference_id=0 AND event_date=? AND recipient=?""",
+            (today.isoformat(), recipient),
+        )
+        if already_sent and not force:
+            continue
+        ok, _ = send_email(recipient, subject, plain_body, html_body=html_body)
+        if ok:
+            execute(
+                """INSERT OR IGNORE INTO notification_log(
+                event_type,reference_id,event_date,recipient)
+                VALUES('LICITACOES_DIA',0,?,?)""",
+                (today.isoformat(), recipient),
+            )
+            result["sent"] += 1
+    return result
+
+
 if __name__ == "__main__":
     import argparse
 
@@ -672,8 +810,24 @@ if __name__ == "__main__":
         action="store_true",
         help="Exibe a configuração SMTP efetiva sem revelar a senha.",
     )
+    parser.add_argument(
+        "--bid-schedule",
+        action="store_true",
+        help=(
+            "Envia o quadro de licitações do dia aos e-mails cadastrados "
+            "(segunda a sexta; use --force para ignorar o filtro de dia útil "
+            "e o controle de envio único do dia)."
+        ),
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Usado com --bid-schedule para reenviar mesmo já tendo sido enviado hoje.",
+    )
     args = parser.parse_args()
-    if args.smtp_status:
+    if args.bid_schedule:
+        print(send_daily_bid_schedule(force=args.force))
+    elif args.smtp_status:
         status = smtp_status()
         print("SMTP configurado: " + ("SIM" if status["configured"] else "NAO"))
         print(f"Origem: {status['source']}")

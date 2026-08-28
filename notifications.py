@@ -75,8 +75,22 @@ def _read_batch_config(path: Path) -> dict[str, str]:
     return values
 
 
+def _secret(name: str) -> str:
+    value = os.getenv(name, "").strip()
+    if value:
+        return value
+    try:
+        import streamlit as st
+        return str(st.secrets.get(name, "") or "").strip()
+    except Exception:
+        return ""
+
+
 def _environment_config() -> dict[str, str]:
-    return {name: os.getenv(name, "").strip() for name in SMTP_FIELDS}
+    # Lê de variável de ambiente primeiro e, se ausente, dos "Secrets" do
+    # Streamlit Cloud — é assim que o app publicado (sem acesso ao .bat
+    # local) recebe a configuração de SMTP.
+    return {name: _secret(name) for name in SMTP_FIELDS}
 
 
 def _is_placeholder(value: str) -> bool:
@@ -171,7 +185,7 @@ def smtp_status() -> dict:
     }
 
 
-def send_email(recipient: str, subject: str, body: str, cc=None) -> tuple[bool, str]:
+def send_email(recipient: str, subject: str, body: str, cc=None, html_body: str = None) -> tuple[bool, str]:
     config = _smtp_config()
     if not config["configured"]:
         return False, "SMTP não configurado. A obrigação continua registrada no painel."
@@ -191,6 +205,8 @@ def send_email(recipient: str, subject: str, body: str, cc=None) -> tuple[bool, 
     if copies:
         msg["Cc"] = ", ".join(copies)
     msg.set_content(body)
+    if html_body:
+        msg.add_alternative(html_body, subtype="html")
 
     try:
         context = ssl.create_default_context()
