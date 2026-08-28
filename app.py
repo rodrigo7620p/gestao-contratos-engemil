@@ -15,7 +15,6 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
-import extra_streamlit_components as stx
 
 from alerts import process_repactuation_alerts, send_obligation_alert
 from art_management import art_number_key, organize_art_rows, professional_profiles
@@ -525,44 +524,48 @@ def browser_uses_https():
         return False
 
 
-def auth_cookie_manager():
-    if "_auth_cookie_manager" not in st.session_state:
-        st.session_state["_auth_cookie_manager"] = stx.CookieManager(
-            key="engemil_auth_cookie_manager"
-        )
-    return st.session_state["_auth_cookie_manager"]
-
-
 def browser_auth_token():
     # st.context.cookies chega junto com a requisição e, por isso, está
-    # disponível já na primeira execução após F5. O componente permanece
-    # como compatibilidade para instalações antigas.
+    # disponível já na primeira execução após F5.
     try:
         request_token = st.context.cookies.get(AUTH_COOKIE_NAME)
     except Exception:
         request_token = None
-    if request_token:
-        return str(request_token).strip()
-    return str(auth_cookie_manager().get(AUTH_COOKIE_NAME) or "").strip()
+    return str(request_token or "").strip()
+
+
+def _write_browser_cookie(cookie_attributes: str):
+    """Grava um cookie via <script>, sem depender de componentes de terceiros.
+
+    O componente `extra_streamlit_components.CookieManager` recarrega seu
+    próprio bundle JS a cada rerun do Streamlit; em produção (latência maior
+    por causa do banco remoto) essas recargas às vezes eram interrompidas a
+    meio caminho e o cookie nunca chegava a ser gravado — por isso o F5
+    sempre deslogava. Um <script> simples via components.html() executa uma
+    única vez e não depende de nenhum carregamento assíncrono adicional.
+    """
+    script = f"""
+    <script>
+    document.cookie = {cookie_attributes};
+    try {{ window.parent.document.cookie = {cookie_attributes}; }} catch (e) {{}}
+    </script>
+    """
+    components.html(script, height=0, width=0)
 
 
 def set_auth_cookie(token):
-    auth_cookie_manager().set(
-        AUTH_COOKIE_NAME,
-        token,
-        key="engemil_set_auth_cookie",
-        path="/",
-        max_age=AUTH_COOKIE_MAX_AGE_SECONDS,
-        secure=browser_uses_https(),
-        same_site="strict",
+    secure_flag = "; Secure" if browser_uses_https() else ""
+    attributes = json.dumps(
+        f"{AUTH_COOKIE_NAME}={token}; path=/; max-age={AUTH_COOKIE_MAX_AGE_SECONDS}; "
+        f"SameSite=Strict{secure_flag}"
     )
+    _write_browser_cookie(attributes)
     st.session_state["_auth_cookie_refreshed_at"] = datetime.now().timestamp()
 
 
 def delete_auth_cookie():
-    manager = auth_cookie_manager()
-    if manager.get(AUTH_COOKIE_NAME) is not None:
-        manager.delete(AUTH_COOKIE_NAME, key="engemil_delete_auth_cookie")
+    attributes = json.dumps(f"{AUTH_COOKIE_NAME}=; path=/; max-age=0; SameSite=Strict")
+    _write_browser_cookie(attributes)
 
 
 def start_authenticated_session(authenticated_user):
