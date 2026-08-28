@@ -102,6 +102,7 @@ APP_VERSION = "53"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "26/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
+AUTH_QUERY_PARAM = "_auth_relay"
 BURGUNDY_HEX = "5a1235"
 AUTH_COOKIE_MAX_AGE_SECONDS = 7 * 24 * 60 * 60
 st.set_page_config(
@@ -525,13 +526,59 @@ def browser_uses_https():
 
 
 def browser_auth_token():
-    # st.context.cookies chega junto com a requisição e, por isso, está
-    # disponível já na primeira execução após F5.
+    # st.context.cookies funciona em instalações locais/próprias, mas o
+    # proxy do Streamlit Community Cloud não repassa o cabeçalho Cookie ao
+    # backend Python (confirmado: vem sempre vazio lá). Por isso o cookie
+    # é lido no NAVEGADOR e retransmitido via query param — ver
+    # relay_cookie_via_query_param() e AUTH_QUERY_PARAM.
     try:
         request_token = st.context.cookies.get(AUTH_COOKIE_NAME)
     except Exception:
         request_token = None
-    return str(request_token or "").strip()
+    if request_token:
+        return str(request_token).strip()
+    try:
+        relayed = st.query_params.get(AUTH_QUERY_PARAM)
+    except Exception:
+        relayed = None
+    return str(relayed or "").strip()
+
+
+def _clear_auth_relay_param():
+    try:
+        if AUTH_QUERY_PARAM in st.query_params:
+            del st.query_params[AUTH_QUERY_PARAM]
+    except Exception:
+        pass
+
+
+def relay_cookie_via_query_param():
+    """Pede ao navegador o cookie de sessão e recarrega com ele na URL.
+
+    Só roda quando nenhuma sessão foi encontrada nem em session_state, nem
+    em st.context.cookies, nem já na URL — ou seja, no máximo uma vez por
+    carregamento de página. Se o navegador não tiver o cookie, o script não
+    faz nada e a tela de login aparece normalmente.
+    """
+    components.html(
+        f"""
+        <script>
+        (function() {{
+            var match = document.cookie.match(
+                new RegExp('(?:^|; ){AUTH_COOKIE_NAME}=([^;]*)')
+            );
+            if (!match) return;
+            var token = decodeURIComponent(match[1] || "");
+            if (!token) return;
+            var url = new URL(window.parent.location.href);
+            url.searchParams.set({json.dumps(AUTH_QUERY_PARAM)}, token);
+            window.parent.location.replace(url.toString());
+        }})();
+        </script>
+        """,
+        height=0,
+        width=0,
+    )
 
 
 def _write_browser_cookie(cookie_attributes: str):
@@ -587,6 +634,9 @@ def restore_authenticated_session():
     if "pending_2fa_user_id" in st.session_state and "user" not in st.session_state:
         return
     token = st.session_state.get("_auth_token") or browser_auth_token()
+    came_from_relay = AUTH_QUERY_PARAM in st.query_params
+    if came_from_relay:
+        _clear_auth_relay_param()
     session_user = st.session_state.get("user")
     if session_user and not token:
         current_user = get_user(session_user["id"])
@@ -596,6 +646,11 @@ def restore_authenticated_session():
             st.session_state.clear()
         return
     if not token:
+        # Ainda não tentamos perguntar ao navegador se existe um cookie
+        # salvo (e esta requisição não veio dessa tentativa) — marca para
+        # require_login() acionar o relay antes de mostrar a tela de login.
+        if not session_user and not came_from_relay:
+            st.session_state["_needs_cookie_relay"] = True
         return
     restored_user = validate_user_session(
         token,
@@ -1705,6 +1760,8 @@ def require_login():
         professional_footer()
         st.stop()
     if "user" not in st.session_state:
+        if st.session_state.pop("_needs_cookie_relay", False):
+            relay_cookie_via_query_param()
         if login_logo.exists():
             st.image(str(login_logo), width=280)
         st.title("Gestão de Contratos")
@@ -1714,15 +1771,6 @@ def require_login():
         auth_notice = st.session_state.pop("auth_notice", None)
         if auth_notice:
             st.warning(auth_notice)
-        with st.expander("DIAGNOSTICO_TEMP_COOKIE"):
-            try:
-                st.write("st.context.cookies:", dict(st.context.cookies))
-            except Exception as diag_exc:
-                st.write("st.context.cookies ERRO:", repr(diag_exc))
-            try:
-                st.write("Cookie header:", st.context.headers.get("Cookie"))
-            except Exception as diag_exc:
-                st.write("headers ERRO:", repr(diag_exc))
         with st.form("login"):
             email = st.text_input("E-mail")
             password = st.text_input("Senha", type="password")
