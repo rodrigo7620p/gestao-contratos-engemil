@@ -102,9 +102,8 @@ APP_VERSION = "53"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "26/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
-AUTH_QUERY_PARAM = "_auth_relay"
+AUTH_QUERY_PARAM = "sessao"
 BURGUNDY_HEX = "5a1235"
-AUTH_COOKIE_MAX_AGE_SECONDS = 7 * 24 * 60 * 60
 st.set_page_config(
     page_title=f"Gestão de Contratos | ENGEMIL V{APP_VERSION} {APP_STAGE}",
     page_icon="📑",
@@ -526,11 +525,14 @@ def browser_uses_https():
 
 
 def browser_auth_token():
-    # st.context.cookies funciona em instalações locais/próprias, mas o
+    # st.context.cookies funcionaria em instalações locais/próprias, mas o
     # proxy do Streamlit Community Cloud não repassa o cabeçalho Cookie ao
-    # backend Python (confirmado: vem sempre vazio lá). Por isso o cookie
-    # é lido no NAVEGADOR e retransmitido via query param — ver
-    # relay_cookie_via_query_param() e AUTH_QUERY_PARAM.
+    # backend Python (confirmado via diagnóstico: chega sempre vazio lá) —
+    # e um <script> não consegue navegar a página pai para "devolver" o
+    # cookie, pois o iframe de components.html() é sandboxed sem
+    # allow-top-navigation. Por isso o parâmetro de URL é a fonte
+    # confiável: ele viaja com o navegador em qualquer F5, sem depender de
+    # cookie nenhum.
     try:
         request_token = st.context.cookies.get(AUTH_COOKIE_NAME)
     except Exception:
@@ -544,75 +546,19 @@ def browser_auth_token():
     return str(relayed or "").strip()
 
 
-def _clear_auth_relay_param():
+def _set_auth_query_param(token):
+    try:
+        st.query_params[AUTH_QUERY_PARAM] = token
+    except Exception:
+        pass
+
+
+def _clear_auth_query_param():
     try:
         if AUTH_QUERY_PARAM in st.query_params:
             del st.query_params[AUTH_QUERY_PARAM]
     except Exception:
         pass
-
-
-def relay_cookie_via_query_param():
-    """Pede ao navegador o cookie de sessão e recarrega com ele na URL.
-
-    Só roda quando nenhuma sessão foi encontrada nem em session_state, nem
-    em st.context.cookies, nem já na URL — ou seja, no máximo uma vez por
-    carregamento de página. Se o navegador não tiver o cookie, o script não
-    faz nada e a tela de login aparece normalmente.
-    """
-    components.html(
-        f"""
-        <script>
-        (function() {{
-            var match = document.cookie.match(
-                new RegExp('(?:^|; ){AUTH_COOKIE_NAME}=([^;]*)')
-            );
-            if (!match) return;
-            var token = decodeURIComponent(match[1] || "");
-            if (!token) return;
-            var url = new URL(window.parent.location.href);
-            url.searchParams.set({json.dumps(AUTH_QUERY_PARAM)}, token);
-            window.parent.location.replace(url.toString());
-        }})();
-        </script>
-        """,
-        height=0,
-        width=0,
-    )
-
-
-def _write_browser_cookie(cookie_attributes: str):
-    """Grava um cookie via <script>, sem depender de componentes de terceiros.
-
-    O componente `extra_streamlit_components.CookieManager` recarrega seu
-    próprio bundle JS a cada rerun do Streamlit; em produção (latência maior
-    por causa do banco remoto) essas recargas às vezes eram interrompidas a
-    meio caminho e o cookie nunca chegava a ser gravado — por isso o F5
-    sempre deslogava. Um <script> simples via components.html() executa uma
-    única vez e não depende de nenhum carregamento assíncrono adicional.
-    """
-    script = f"""
-    <script>
-    document.cookie = {cookie_attributes};
-    try {{ window.parent.document.cookie = {cookie_attributes}; }} catch (e) {{}}
-    </script>
-    """
-    components.html(script, height=0, width=0)
-
-
-def set_auth_cookie(token):
-    secure_flag = "; Secure" if browser_uses_https() else ""
-    attributes = json.dumps(
-        f"{AUTH_COOKIE_NAME}={token}; path=/; max-age={AUTH_COOKIE_MAX_AGE_SECONDS}; "
-        f"SameSite=Strict{secure_flag}"
-    )
-    _write_browser_cookie(attributes)
-    st.session_state["_auth_cookie_refreshed_at"] = datetime.now().timestamp()
-
-
-def delete_auth_cookie():
-    attributes = json.dumps(f"{AUTH_COOKIE_NAME}=; path=/; max-age=0; SameSite=Strict")
-    _write_browser_cookie(attributes)
 
 
 def start_authenticated_session(authenticated_user):
@@ -626,7 +572,7 @@ def start_authenticated_session(authenticated_user):
     st.session_state.navigation_page = (
         authenticated_user["last_page"] or "Visão geral"
     )
-    set_auth_cookie(token)
+    _set_auth_query_param(token)
 
 
 def restore_authenticated_session():
@@ -634,9 +580,6 @@ def restore_authenticated_session():
     if "pending_2fa_user_id" in st.session_state and "user" not in st.session_state:
         return
     token = st.session_state.get("_auth_token") or browser_auth_token()
-    came_from_relay = AUTH_QUERY_PARAM in st.query_params
-    if came_from_relay:
-        _clear_auth_relay_param()
     session_user = st.session_state.get("user")
     if session_user and not token:
         current_user = get_user(session_user["id"])
@@ -646,11 +589,6 @@ def restore_authenticated_session():
             st.session_state.clear()
         return
     if not token:
-        # Ainda não tentamos perguntar ao navegador se existe um cookie
-        # salvo (e esta requisição não veio dessa tentativa) — marca para
-        # require_login() acionar o relay antes de mostrar a tela de login.
-        if not session_user and not came_from_relay:
-            st.session_state["_needs_cookie_relay"] = True
         return
     restored_user = validate_user_session(
         token,
@@ -659,7 +597,7 @@ def restore_authenticated_session():
     )
     if not restored_user:
         revoke_user_session(token)
-        delete_auth_cookie()
+        _clear_auth_query_param()
         st.session_state.pop("_auth_token", None)
         st.session_state.pop("user", None)
         st.session_state["auth_notice"] = (
@@ -672,9 +610,7 @@ def restore_authenticated_session():
     st.session_state.ui_theme = restored_user["preferred_theme"] or "Escuro"
     if "navigation_page" not in st.session_state:
         st.session_state.navigation_page = restored_user["last_page"] or "Visão geral"
-    last_refresh = float(st.session_state.get("_auth_cookie_refreshed_at", 0))
-    if datetime.now().timestamp() - last_refresh >= 120:
-        set_auth_cookie(token)
+    _set_auth_query_param(token)
 
 
 def finish_authenticated_session(reason="LOGOUT"):
@@ -694,7 +630,7 @@ def finish_authenticated_session(reason="LOGOUT"):
             current_user["id"],
             f"Sessão encerrada. Limite de inatividade: {SESSION_IDLE_MINUTES} minutos.",
         )
-    delete_auth_cookie()
+    _clear_auth_query_param()
     st.session_state.clear()
 
 
@@ -1754,14 +1690,12 @@ def require_login():
                     rerun()
                 st.error("Código inválido ou expirado.")
         if st.button("Voltar"):
-            delete_auth_cookie()
+            _clear_auth_query_param()
             st.session_state.clear()
             rerun()
         professional_footer()
         st.stop()
     if "user" not in st.session_state:
-        if st.session_state.pop("_needs_cookie_relay", False):
-            relay_cookie_via_query_param()
         if login_logo.exists():
             st.image(str(login_logo), width=280)
         st.title("Gestão de Contratos")
