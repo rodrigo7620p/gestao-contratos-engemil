@@ -1714,6 +1714,15 @@ def require_login():
         auth_notice = st.session_state.pop("auth_notice", None)
         if auth_notice:
             st.warning(auth_notice)
+        with st.expander("DIAGNOSTICO_TEMP_COOKIE"):
+            try:
+                st.write("st.context.cookies:", dict(st.context.cookies))
+            except Exception as diag_exc:
+                st.write("st.context.cookies ERRO:", repr(diag_exc))
+            try:
+                st.write("Cookie header:", st.context.headers.get("Cookie"))
+            except Exception as diag_exc:
+                st.write("headers ERRO:", repr(diag_exc))
         with st.form("login"):
             email = st.text_input("E-mail")
             password = st.text_input("Senha", type="password")
