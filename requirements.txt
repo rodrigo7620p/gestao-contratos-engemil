@@ -8,7 +8,6 @@ python-docx>=1.1,<2
 lxml>=5,<7
 reportlab>=4.2,<5
 requests>=2.31,<3
-anthropic>=1.0,<2
 
 # Somente para rodar a suíte de testes (test_v19.py, test_v22.py, test_v25.py
 # leem o PDF gerado para conferir o conteúdo). Não é usado pelo app em si.

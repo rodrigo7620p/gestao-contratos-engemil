@@ -1,27 +1,19 @@
 GESTÃO DE CONTRATOS ENGEMIL
-Versão: 55 Beta
+Versão: 56 Beta
 Data: 28/08/2026
 
 Principais alterações:
-- Nova análise de viabilidade de licitações por IA (Nota Técnica de
-  Análise de Viabilidade), na aba "Nota Técnica (IA)" de cada licitação:
-  a partir do Número de controle PNCP já cadastrado, o sistema busca
-  sozinho os documentos do edital publicados no PNCP (edital, termo de
-  referência, caderno de encargos, anexos de composição de custos,
-  minuta de contrato), envia para análise por IA (Claude/Anthropic)
-  junto com os dados já cadastrados no sistema (nossa proposta,
-  classificação/mapa de lances quando já lançado) e gera um relatório
-  Word com a identidade visual da ENGEMIL: conclusão executiva,
-  recomendação, decomposição do desconto aparente vs. real, cenários de
-  ponto de equilíbrio por composição de equipe, pontos favoráveis,
-  riscos e encaminhamentos propostos;
-- exige configuração da chave da API da Anthropic (ANTHROPIC_API_KEY) —
-  tem custo real por análise gerada, cobrado na conta da Anthropic de
-  quem configurar a chave. Antes de gerar, o sistema mostra o custo
-  estimado em dólar para confirmação explícita — nunca dispara sozinho;
-- o mapa de lances por empresa continua vindo do que já está cadastrado
-  manualmente na aba Classificação (isso não vem do PNCP, é dado da
-  plataforma do pregão) — quando não há nada cadastrado, a análise é
-  instruída a declarar essa limitação em vez de supor concorrentes;
-- nova tabela bid_viability_analyses, guardando o histórico de análises
-  geradas por licitação (status, custo, recomendação, documento gerado).
+- Revisão da V55: a análise de licitações passa a ser 100% sem custo.
+  Removida a integração paga com a API da Anthropic (exigia chave própria
+  e cobrança por análise gerada). No lugar, a aba "Documentos do PNCP" de
+  cada licitação faz a busca automática e gratuita dos documentos do
+  edital publicados no PNCP (edital, termo de referência, anexos, minuta)
+  a partir do Número de controle PNCP já cadastrado, e oferece tudo
+  compactado num único .zip para baixar — sem precisar navegar no portal
+  do PNCP manualmente;
+- para uma análise de viabilidade sobre esses documentos, o caminho
+  passa a ser pedir diretamente ao Claude na conversa, informando a
+  licitação — sem nenhuma integração ou custo adicional dentro do
+  sistema;
+- removida a dependência da biblioteca "anthropic" e a tabela
+  bid_viability_analyses, que não chegaram a ser usadas em produção.

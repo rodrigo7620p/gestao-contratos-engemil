@@ -775,23 +775,6 @@ CREATE TABLE IF NOT EXISTS bid_schedule_recipients (
     active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-CREATE TABLE IF NOT EXISTS bid_viability_analyses (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    bid_process_id INTEGER NOT NULL REFERENCES bid_processes(id) ON DELETE CASCADE,
-    status TEXT NOT NULL DEFAULT 'PROCESSANDO',
-    recommendation TEXT,
-    report_json TEXT,
-    docx_filename TEXT,
-    docx_path TEXT,
-    source_documents TEXT,
-    input_tokens INTEGER,
-    output_tokens INTEGER,
-    estimated_cost_usd REAL,
-    error_message TEXT,
-    requested_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    completed_at TEXT
-);
 CREATE INDEX IF NOT EXISTS idx_contract_end ON contracts(end_date);
 CREATE INDEX IF NOT EXISTS idx_obligation_due ON obligations(due_date);
 CREATE INDEX IF NOT EXISTS idx_amendment_contract ON amendments(contract_id);
@@ -816,7 +799,6 @@ CREATE INDEX IF NOT EXISTS idx_user_session_user ON user_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_session_expiry ON user_sessions(expires_at);
 CREATE INDEX IF NOT EXISTS idx_generated_company_contract ON generated_company_documents(contract_id);
 CREATE INDEX IF NOT EXISTS idx_generated_company_status ON generated_company_documents(status);
-CREATE INDEX IF NOT EXISTS idx_bid_viability_process ON bid_viability_analyses(bid_process_id);
 """
 
 
