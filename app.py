@@ -38,6 +38,15 @@ from bids import (
     pncp_check_awarded_contracts,
     pncp_search_contratacoes,
 )
+from bid_viability import (
+    analysis_history,
+    anthropic_api_key_configured,
+    estimate_analysis_cost,
+    download_pncp_pdfs,
+    generate_bid_viability_report,
+    latest_analysis,
+    parse_pncp_control_number,
+)
 from contract_utils import (
     agency_document_fields,
     contract_duration_months,
@@ -101,7 +110,7 @@ from reports import (
 from notifications import send_test_email, smtp_status
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "54"
+APP_VERSION = "55"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "28/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -8499,7 +8508,7 @@ def page_bids():
             "logo abaixo — senão, pode ir direto para a aba **Classificação**."
         )
 
-    detail_tabs = st.tabs(["Resumo e edição", "Grupos/Itens", "Classificação"])
+    detail_tabs = st.tabs(["Resumo e edição", "Grupos/Itens", "Classificação", "Nota Técnica (IA)"])
     lots = load_bid_lots(bid_id)
     with detail_tabs[0]:
         st.write(f"**Objeto:** {process['object'] or 'Não informado'}")
@@ -9235,6 +9244,120 @@ def page_bids():
             )
         else:
             st.info("Cadastre a classificação para poder gerar a imagem.")
+
+    with detail_tabs[3]:
+        st.caption(
+            "Busca automática dos documentos do edital publicados no PNCP (a partir do "
+            "Número de controle PNCP cadastrado) e análise de viabilidade por IA — "
+            "cita cláusulas específicas do edital, separa desconto aparente de desconto "
+            "real e aponta riscos operacionais e de caixa, no mesmo padrão de uma nota "
+            "técnica profissional."
+        )
+        pncp_number = str(process.get("pncp_control_number") or "").strip()
+        if not pncp_number:
+            st.warning(
+                "Esta licitação ainda não tem **Número de controle PNCP** cadastrado. "
+                "Preencha-o na aba **Resumo e edição** (mais abaixo, ao editar o "
+                "processo) e salve — sem ele não é possível buscar os documentos "
+                "automaticamente."
+            )
+        elif not parse_pncp_control_number(pncp_number):
+            st.error(
+                f"O Número de controle PNCP cadastrado (\"{pncp_number}\") não está no "
+                "formato esperado (00000000000000-1-000000/0000). Corrija-o na aba "
+                "Resumo e edição."
+            )
+        elif not anthropic_api_key_configured():
+            st.info(
+                "A análise por IA ainda não está configurada neste sistema — falta a "
+                "chave da API da Anthropic (ANTHROPIC_API_KEY)."
+            )
+            with st.expander("Como configurar (para o administrador)"):
+                st.markdown(
+                    "1. Crie uma conta em **console.anthropic.com** e gere uma chave de API\n"
+                    "2. No Streamlit Cloud, adicione `ANTHROPIC_API_KEY = \"sua-chave\"` "
+                    "em Settings → Secrets do app\n"
+                    "3. Localmente, adicione a mesma linha no `.streamlit/secrets.toml` "
+                    "ou defina a variável de ambiente `ANTHROPIC_API_KEY`"
+                )
+        else:
+            history = analysis_history(bid_id)
+            latest = history[0] if history else None
+            if latest and latest["status"] == "CONCLUIDA":
+                st.success(
+                    f"Última análise gerada em {fmt_datetime(latest['created_at'])} · "
+                    f"custo estimado ${latest['estimated_cost_usd']:.2f}."
+                )
+                if latest.get("recommendation"):
+                    st.write(f"**Recomendação:** {latest['recommendation']}")
+                if latest.get("docx_path") and Path(latest["docx_path"]).exists():
+                    st.download_button(
+                        "Baixar Nota Técnica (Word)",
+                        Path(latest["docx_path"]).read_bytes(),
+                        file_name=latest.get("docx_filename") or "nota_tecnica_viabilidade.docx",
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        key=f"download_viability_{latest['id']}",
+                    )
+            elif latest and latest["status"] == "ERRO":
+                st.error(f"A última tentativa falhou: {latest.get('error_message')}")
+            elif latest and latest["status"] == "PROCESSANDO":
+                st.warning(
+                    "Há uma análise marcada como em processamento — se ela travou "
+                    "(ex.: erro inesperado), gerar uma nova substitui essa pendência."
+                )
+
+            estimate_key = f"viability_estimate_{bid_id}"
+            if st.button("Ver custo estimado antes de gerar", key=f"viability_estimate_btn_{bid_id}"):
+                with st.spinner("Buscando documentos no PNCP e estimando custo..."):
+                    try:
+                        pdf_documents = download_pncp_pdfs(pncp_number)
+                        estimate = estimate_analysis_cost(process, lots, load_bid_rankings(bid_id), pdf_documents)
+                        st.session_state[estimate_key] = {
+                            "documents": [name for name, _ in pdf_documents],
+                            "estimate": estimate,
+                        }
+                    except Exception as error:
+                        st.session_state.pop(estimate_key, None)
+                        st.error(f"Não foi possível buscar os documentos: {error}")
+            cached_estimate = st.session_state.get(estimate_key)
+            if cached_estimate:
+                st.write(
+                    "Documentos encontrados no PNCP: " +
+                    ", ".join(cached_estimate["documents"])
+                )
+                est = cached_estimate["estimate"]
+                st.info(
+                    f"Custo estimado desta análise: **US$ {est['min_cost_usd']:.2f} a "
+                    f"US$ {est['max_cost_usd']:.2f}** (cobrado na sua conta da Anthropic, "
+                    f"não no Claude Code) — {est['input_tokens']:,} tokens de entrada."
+                )
+                if can_edit() and st.button(
+                    "Gerar Nota Técnica agora (confirma o custo acima)",
+                    key=f"viability_generate_btn_{bid_id}",
+                ):
+                    with st.spinner(
+                        "Analisando os documentos do edital — isso pode levar alguns minutos..."
+                    ):
+                        try:
+                            generate_bid_viability_report(bid_id, requested_by=user["id"])
+                            log_action(
+                                user["id"], "GERAR", "nota técnica de viabilidade (IA)",
+                                bid_id, pncp_number,
+                            )
+                            st.session_state.pop(estimate_key, None)
+                            st.success("Nota técnica gerada com sucesso.")
+                            rerun()
+                        except Exception as error:
+                            st.error(f"Falha ao gerar a análise: {error}")
+
+            if len(history) > 1:
+                with st.expander(f"Histórico de análises anteriores ({len(history) - 1})"):
+                    modern_table(pd.DataFrame([{
+                        "Data": fmt_datetime(row["created_at"]),
+                        "Status": row["status"],
+                        "Custo (US$)": row["estimated_cost_usd"],
+                        "Recomendação": (row.get("recommendation") or "—")[:120],
+                    } for row in history[1:]]))
 
 
 SESMT_EXAM_TYPES = [
