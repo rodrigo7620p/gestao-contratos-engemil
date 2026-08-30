@@ -39,6 +39,7 @@ from bids import (
     pncp_search_contratacoes,
 )
 from bid_viability import build_pncp_documents_zip, parse_pncp_control_number
+from contract_tasks import notify_contract_task_needs
 from contract_utils import (
     agency_document_fields,
     contract_duration_months,
@@ -102,9 +103,9 @@ from reports import (
 from notifications import send_test_email, smtp_status
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "56"
+APP_VERSION = "57"
 APP_STAGE = "Beta"
-APP_RELEASE_DATE = "28/08/2026"
+APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
 AUTH_QUERY_PARAM = "sessao"
 BURGUNDY_HEX = "5a1235"
@@ -2097,6 +2098,79 @@ def page_contracts():
             f"{len(AUTO_ARCHIVED_IDS)} contrato(s) foram arquivados automaticamente nesta execução "
             "por permanecerem vencidos por 30 dias sem novo aditivo."
         )
+    if can_edit():
+        with st.expander("Responsáveis por providências iniciais (garantia e ART)"):
+            st.caption(
+                "Sempre que um contrato novo é cadastrado, ou um aditivo/apostilamento tem "
+                "seu documento anexado, o sistema confere se já existe garantia e ART "
+                "vinculadas — faltando alguma, avisa por e-mail quem estiver cadastrado "
+                "abaixo para aquela providência, mencionando o nome da pessoa na mensagem."
+            )
+            task_labels = {"GARANTIA": "Garantia contratual", "ART": "ART"}
+            responsibles = [
+                dict(row) for row in query(
+                    "SELECT * FROM contract_task_responsibles ORDER BY task_type,active DESC,responsible_name"
+                )
+            ]
+            if responsibles:
+                modern_table(pd.DataFrame([{
+                    "Providência": task_labels.get(row["task_type"], row["task_type"]),
+                    "Responsável": row["responsible_name"],
+                    "E-mail": row["responsible_email"],
+                    "Status": "ATIVO" if row["active"] else "INATIVO",
+                } for row in responsibles]))
+                remove_options = {
+                    f"{task_labels.get(r['task_type'], r['task_type'])} · {r['responsible_name']} · {r['responsible_email']}": r["id"]
+                    for r in responsibles
+                }
+                rc1, rc2 = st.columns([3, 1])
+                remove_label = rc1.selectbox(
+                    "Registro para pausar/reativar ou remover", remove_options,
+                    key="contract_task_responsible_target",
+                )
+                target_id = remove_options[remove_label]
+                target_row = next(r for r in responsibles if r["id"] == target_id)
+                with rc2:
+                    st.write("")
+                    st.write("")
+                    if st.button(
+                        "Pausar" if target_row["active"] else "Reativar",
+                        key="toggle_contract_task_responsible",
+                    ):
+                        execute(
+                            "UPDATE contract_task_responsibles SET active=? WHERE id=?",
+                            (0 if target_row["active"] else 1, target_id),
+                        )
+                        rerun()
+                if st.button("Remover definitivamente", key="delete_contract_task_responsible"):
+                    execute("DELETE FROM contract_task_responsibles WHERE id=?", (target_id,))
+                    log_action(user["id"], "REMOVER", "responsável de providência contratual", target_id, remove_label)
+                    st.success("Registro removido.")
+                    rerun()
+            else:
+                st.info("Nenhum responsável cadastrado ainda.")
+            with st.form("new_contract_task_responsible", clear_on_submit=True):
+                new_task_type = st.selectbox("Providência", list(task_labels), format_func=lambda k: task_labels[k])
+                new_responsible_name = st.text_input("Nome do responsável")
+                new_responsible_email = st.text_input("E-mail do responsável")
+                if st.form_submit_button("Adicionar"):
+                    normalized_email = new_responsible_email.strip().lower()
+                    if not new_responsible_name.strip():
+                        st.error("Informe o nome do responsável.")
+                    elif not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", normalized_email):
+                        st.error("Informe um endereço de e-mail válido.")
+                    else:
+                        execute(
+                            """INSERT INTO contract_task_responsibles(task_type,responsible_name,responsible_email)
+                            VALUES(?,?,?)""",
+                            (new_task_type, new_responsible_name.strip(), normalized_email),
+                        )
+                        log_action(
+                            user["id"], "CADASTRAR", "responsável de providência contratual",
+                            None, f"{new_task_type}: {new_responsible_name.strip()}",
+                        )
+                        st.success("Responsável cadastrado.")
+                        rerun()
     scope = st.radio("Exibir", ["Ativos", "Arquivados", "Todos"], horizontal=True)
     where = {"Ativos": "WHERE c.archived=0", "Arquivados": "WHERE c.archived=1", "Todos": ""}[scope]
     rows = load_contracts(where)
@@ -3323,12 +3397,30 @@ def page_contract_detail():
                 document_title = st.text_input("Título do documento")
                 amendment_upload = st.file_uploader("Documento do contrato/aditivo/apostilamento")
                 if st.form_submit_button("Anexar ao instrumento") and amendment_upload:
+                    selected_amendment_id = amendment_options[amendment_label]
                     did = save_document(
                         cid, amendment_upload, "INSTRUMENTO CONTRATUAL", document_title,
-                        amendment_id=amendment_options[amendment_label],
+                        amendment_id=selected_amendment_id,
                     )
                     log_action(user["id"], "ANEXAR", "documento", did, amendment_upload.name)
-                    st.success("Documento vinculado ao instrumento.")
+                    selected_amendment = next(
+                        a for a in amendments if a["id"] == selected_amendment_id
+                    )
+                    notified = notify_contract_task_needs(
+                        contract_id=cid, amendment_id=selected_amendment_id,
+                        kind_label=selected_amendment.get("kind"),
+                        ordinal=selected_amendment.get("ordinal"),
+                        cost_center=contract["cost_center"], client=contract["client"],
+                        contract_number=contract["contract_number"],
+                        document_bytes=amendment_upload.getvalue(),
+                        document_filename=amendment_upload.name,
+                    )
+                    success_message = "Documento vinculado ao instrumento."
+                    if notified:
+                        success_message += (
+                            f" Aviso de providências enviado para {len(notified)} responsável(is)."
+                        )
+                    st.success(success_message)
                     rerun()
         if can_delete() and amendments:
             with st.expander("Excluir instrumento contratual"):
@@ -6151,6 +6243,12 @@ def page_new_contract():
             },
         )
         observations = st.text_area("Observações")
+        contract_document_upload = st.file_uploader(
+            "Documento do contrato assinado (opcional)",
+            help="Se anexado agora, já fica salvo na ficha do contrato e é enviado por "
+            "e-mail junto com o aviso de providências iniciais (garantia contratual e "
+            "ART), quando houver responsável cadastrado para isso.",
+        )
         if st.form_submit_button("Cadastrar contrato", width="stretch"):
             if not cost_center.strip() or not contract_number.strip() or not client.strip():
                 st.error("Preencha centro de custo, número e contratante.")
@@ -6217,6 +6315,20 @@ def page_new_contract():
                              int(numeric("Ano-base insalubridade", date.today().year)), union_id),
                         )
                     log_action(user["id"], "CRIAR", "contrato", cid, cost_center)
+                    document_bytes = document_filename = None
+                    if contract_document_upload:
+                        save_document(
+                            cid, contract_document_upload, "CONTRATO",
+                            "Contrato assinado",
+                        )
+                        document_bytes = contract_document_upload.getvalue()
+                        document_filename = contract_document_upload.name
+                    notified = notify_contract_task_needs(
+                        contract_id=cid, amendment_id=None, kind_label="CONTRATO",
+                        ordinal=None, cost_center=cost_center.strip(),
+                        client=normalize_agency_name(client), contract_number=contract_number.strip(),
+                        document_bytes=document_bytes, document_filename=document_filename,
+                    )
                     for reset_key in (
                         "new_contract_engineer_pick", "new_contract_manager_pick",
                         "new_contract_engineer_applied", "new_contract_manager_applied",
@@ -6226,7 +6338,13 @@ def page_new_contract():
                         "new_contract_procurement_method_select", "new_contract_procurement_method_custom",
                     ):
                         st.session_state.pop(reset_key, None)
-                    st.success("Contrato, sindicatos e equipe cadastrados. Complete os demais dados na Ficha do Contrato.")
+                    success_message = "Contrato, sindicatos e equipe cadastrados. Complete os demais dados na Ficha do Contrato."
+                    if notified:
+                        success_message += (
+                            f" Aviso de providências iniciais enviado para "
+                            f"{len(notified)} responsável(is)."
+                        )
+                    st.success(success_message)
                 except Exception:
                     st.error("Não foi possível cadastrar. Verifique se o centro de custo já existe.")
 

@@ -185,7 +185,10 @@ def smtp_status() -> dict:
     }
 
 
-def send_email(recipient: str, subject: str, body: str, cc=None, html_body: str = None) -> tuple[bool, str]:
+def send_email(
+    recipient: str, subject: str, body: str, cc=None, html_body: str = None,
+    attachments=None,
+) -> tuple[bool, str]:
     config = _smtp_config()
     if not config["configured"]:
         return False, "SMTP não configurado. A obrigação continua registrada no painel."
@@ -207,6 +210,10 @@ def send_email(recipient: str, subject: str, body: str, cc=None, html_body: str 
     msg.set_content(body)
     if html_body:
         msg.add_alternative(html_body, subtype="html")
+    for filename, content in (attachments or []):
+        msg.add_attachment(
+            content, maintype="application", subtype="octet-stream", filename=filename,
+        )
 
     try:
         context = ssl.create_default_context()

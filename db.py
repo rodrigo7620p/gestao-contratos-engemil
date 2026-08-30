@@ -775,6 +775,15 @@ CREATE TABLE IF NOT EXISTS bid_schedule_recipients (
     active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS contract_task_responsibles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_type TEXT NOT NULL,
+    responsible_name TEXT NOT NULL,
+    responsible_email TEXT NOT NULL,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_contract_task_type ON contract_task_responsibles(task_type);
 CREATE INDEX IF NOT EXISTS idx_contract_end ON contracts(end_date);
 CREATE INDEX IF NOT EXISTS idx_obligation_due ON obligations(due_date);
 CREATE INDEX IF NOT EXISTS idx_amendment_contract ON amendments(contract_id);

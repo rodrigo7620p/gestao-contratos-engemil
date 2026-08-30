@@ -1,19 +1,26 @@
 GESTÃO DE CONTRATOS ENGEMIL
-Versão: 56 Beta
-Data: 28/08/2026
+Versão: 57 Beta
+Data: 30/08/2026
 
 Principais alterações:
-- Revisão da V55: a análise de licitações passa a ser 100% sem custo.
-  Removida a integração paga com a API da Anthropic (exigia chave própria
-  e cobrança por análise gerada). No lugar, a aba "Documentos do PNCP" de
-  cada licitação faz a busca automática e gratuita dos documentos do
-  edital publicados no PNCP (edital, termo de referência, anexos, minuta)
-  a partir do Número de controle PNCP já cadastrado, e oferece tudo
-  compactado num único .zip para baixar — sem precisar navegar no portal
-  do PNCP manualmente;
-- para uma análise de viabilidade sobre esses documentos, o caminho
-  passa a ser pedir diretamente ao Claude na conversa, informando a
-  licitação — sem nenhuma integração ou custo adicional dentro do
-  sistema;
-- removida a dependência da biblioteca "anthropic" e a tabela
-  bid_viability_analyses, que não chegaram a ser usadas em produção.
+- Aviso automático das providências iniciais de contrato/aditivo
+  (garantia contratual e ART): ao cadastrar um contrato novo, ou anexar o
+  documento de um aditivo/apostilamento, o sistema confere se já existe
+  garantia e ART vinculadas àquele instrumento especificamente — faltando
+  alguma, avisa por e-mail quem estiver cadastrado como responsável por
+  aquela providência, mencionando o nome da pessoa na própria mensagem
+  (ex.: "Rodrigo, conforme aditivo, providenciar a atualização das ARTs
+  correspondente"), com o documento anexado quando disponível;
+- nova seção "Responsáveis por providências iniciais (garantia e ART)" na
+  página Contratos — Backlog, para cadastrar/pausar/remover quem recebe
+  cada tipo de aviso (permite mais de um responsável por providência);
+- assunto do e-mail padronizado para facilitar a comunicação entre
+  departamentos: {centro_de_custo}_{código_do_instrumento}_
+  {sigla_do_órgão}_{número_do_contrato}_NOVO — ex.:
+  "01_01_00001_CTR_ANA_25-2026_NOVO" para um contrato novo,
+  "01_01_00001_1ºTA_ANA_25-2026_NOVO" para o 1º termo aditivo,
+  "01_01_00001_1ºTAP_ANA_25-2026_NOVO" para o 1º termo de apostilamento;
+- novo campo opcional de upload do contrato assinado direto no formulário
+  de "Novo contrato" — já salva o documento na ficha e anexa no aviso;
+- nova tabela contract_task_responsibles; notifications.send_email()
+  passa a aceitar anexos.
