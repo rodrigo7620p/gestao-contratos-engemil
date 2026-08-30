@@ -1,5 +1,5 @@
 GESTÃO DE CONTRATOS ENGEMIL
-Versão: 57 Beta
+Versão: 58 Beta
 Data: 30/08/2026
 
 Principais alterações:
@@ -11,6 +11,13 @@ Principais alterações:
   aquela providência, mencionando o nome da pessoa na própria mensagem
   (ex.: "Rodrigo, conforme aditivo, providenciar a atualização das ARTs
   correspondente"), com o documento anexado quando disponível;
+- essa mesma verificação agora também vale para os contratos decorrentes
+  de ATA: ao cadastrar um novo contrato decorrente ou lançar um
+  aditivo/apostilamento dele, o sistema confere garantia e ART daquele
+  contrato/aditivo decorrente especificamente e avisa os responsáveis
+  cadastrados; os formulários de "Cadastrar novo contrato decorrente" e
+  "Adicionar aditivo ao contrato decorrente" ganharam upload opcional do
+  documento assinado, que já fica salvo na ficha e segue anexado no aviso;
 - nova seção "Responsáveis por providências iniciais (garantia e ART)" na
   página Contratos — Backlog, para cadastrar/pausar/remover quem recebe
   cada tipo de aviso (permite mais de um responsável por providência);

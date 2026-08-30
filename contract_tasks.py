@@ -62,8 +62,22 @@ def active_task_responsibles(task_type: str) -> list[dict]:
     ]
 
 
-def _missing_tasks(contract_id: int, amendment_id: int | None) -> list[str]:
-    if amendment_id:
+def _missing_tasks(
+    contract_id: int | None,
+    amendment_id: int | None,
+    ata_contract_id: int | None = None,
+    ata_amendment_id: int | None = None,
+) -> list[str]:
+    if ata_contract_id is not None:
+        if ata_amendment_id:
+            guarantee_filter, art_filter, param = (
+                "ata_amendment_id=?", "ata_amendment_id=?", ata_amendment_id,
+            )
+        else:
+            guarantee_filter = "ata_contract_id=? AND ata_amendment_id IS NULL"
+            art_filter = "ata_contract_id=? AND ata_amendment_id IS NULL"
+            param = ata_contract_id
+    elif amendment_id:
         guarantee_filter, art_filter, param = "amendment_id=?", "amendment_id=?", amendment_id
     else:
         guarantee_filter = "contract_id=? AND amendment_id IS NULL"
@@ -85,8 +99,10 @@ def _missing_tasks(contract_id: int, amendment_id: int | None) -> list[str]:
 
 def notify_contract_task_needs(
     *,
-    contract_id: int,
-    amendment_id: int | None,
+    contract_id: int | None = None,
+    amendment_id: int | None = None,
+    ata_contract_id: int | None = None,
+    ata_amendment_id: int | None = None,
     kind_label: str,
     ordinal: str | None,
     cost_center: str,
@@ -99,12 +115,17 @@ def notify_contract_task_needs(
     """Verifica garantia/ART pendentes para o instrumento recém-lançado e
     notifica os responsáveis cadastrados. Devolve a lista de (tipo, e-mail)
     efetivamente notificados — vazia quando nada está pendente ou quando
-    não há responsável cadastrado para o tipo pendente."""
-    missing = _missing_tasks(contract_id, amendment_id)
+    não há responsável cadastrado para o tipo pendente.
+
+    Aceita tanto contratos/aditivos regulares (contract_id/amendment_id)
+    quanto contratos decorrentes de ATA e seus aditivos
+    (ata_contract_id/ata_amendment_id)."""
+    missing = _missing_tasks(contract_id, amendment_id, ata_contract_id, ata_amendment_id)
     if not missing:
         return []
+    is_amendment = bool(amendment_id or ata_amendment_id)
     instrument_label = (
-        f"{ordinal} {kind_label}".strip().title() if amendment_id else "novo contrato"
+        f"{ordinal} {kind_label}".strip().title() if is_amendment else "novo contrato"
     )
     subject = build_task_email_subject(
         cost_center, kind_label, ordinal, client, contract_number, action_tag,

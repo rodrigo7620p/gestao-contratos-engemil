@@ -103,7 +103,7 @@ from reports import (
 from notifications import send_test_email, smtp_status
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "57"
+APP_VERSION = "58"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -4028,6 +4028,14 @@ def page_contract_detail():
                             )
                         ata_description = st.text_area("Objeto e alterações relevantes")
                         ata_amendment_notes = st.text_area("Observações do aditivo")
+                        ata_amendment_upload = st.file_uploader(
+                            "Documento do aditivo/apostilamento (opcional)",
+                            help="Se anexado agora, já fica salvo na ficha do contrato "
+                            "decorrente e é enviado por e-mail junto com o aviso de "
+                            "providências (garantia contratual e ART), quando houver "
+                            "responsável cadastrado para isso.",
+                            key=f"ata_amendment_upload_{ata_contract_id}",
+                        )
                         if st.form_submit_button("Adicionar aditivo ao contrato decorrente"):
                             resolved_ata_kind = (
                                 ata_custom_kind.strip()
@@ -4064,7 +4072,33 @@ def page_contract_detail():
                                     user["id"], "CRIAR", "aditivo de contrato da ATA",
                                     new_ata_amendment_id, ata_ordinal,
                                 )
-                                st.success("Instrumento do contrato decorrente registrado.")
+                                ata_amendment_doc_bytes = ata_amendment_doc_filename = None
+                                if ata_amendment_upload:
+                                    save_document(
+                                        cid, ata_amendment_upload, "INSTRUMENTO CONTRATUAL",
+                                        f"{ata_ordinal} {resolved_ata_kind}".strip(),
+                                        ata_contract_id=ata_contract_id,
+                                        ata_amendment_id=new_ata_amendment_id,
+                                    )
+                                    ata_amendment_doc_bytes = ata_amendment_upload.getvalue()
+                                    ata_amendment_doc_filename = ata_amendment_upload.name
+                                notified = notify_contract_task_needs(
+                                    ata_contract_id=ata_contract_id,
+                                    ata_amendment_id=new_ata_amendment_id,
+                                    kind_label=resolved_ata_kind, ordinal=ata_ordinal,
+                                    cost_center=contract["cost_center"],
+                                    client=ata_contract["client"] or contract["client"],
+                                    contract_number=ata_contract["contract_number"],
+                                    document_bytes=ata_amendment_doc_bytes,
+                                    document_filename=ata_amendment_doc_filename,
+                                )
+                                success_message = "Instrumento do contrato decorrente registrado."
+                                if notified:
+                                    success_message += (
+                                        f" Aviso de providências enviado para "
+                                        f"{len(notified)} responsável(is)."
+                                    )
+                                st.success(success_message)
                                 rerun()
                 st.markdown("##### Documentos do contrato decorrente e de seus aditivos")
                 ata_contract_docs = [dict(row) for row in query(
@@ -4232,6 +4266,13 @@ def page_contract_detail():
                         new_ata_responsible = c1.text_input("Responsável")
                         new_ata_email = c2.text_input("E-mail do responsável")
                         new_ata_notes = st.text_area("Observações")
+                        new_ata_document_upload = st.file_uploader(
+                            "Documento do contrato decorrente assinado (opcional)",
+                            help="Se anexado agora, já fica salvo na ficha do contrato "
+                            "decorrente e é enviado por e-mail junto com o aviso de "
+                            "providências iniciais (garantia contratual e ART), quando "
+                            "houver responsável cadastrado para isso.",
+                        )
                         if st.form_submit_button("Cadastrar contrato decorrente", width="stretch"):
                             if not new_ata_number.strip():
                                 st.error("Informe o número do contrato decorrente.")
@@ -4256,7 +4297,31 @@ def page_contract_detail():
                                     user["id"], "CRIAR", "contrato decorrente de ATA",
                                     new_ata_contract_id, new_ata_number,
                                 )
-                                st.success("Contrato decorrente cadastrado.")
+                                ata_document_bytes = ata_document_filename = None
+                                if new_ata_document_upload:
+                                    save_document(
+                                        cid, new_ata_document_upload, "CONTRATO",
+                                        "Contrato decorrente assinado",
+                                        ata_contract_id=new_ata_contract_id,
+                                    )
+                                    ata_document_bytes = new_ata_document_upload.getvalue()
+                                    ata_document_filename = new_ata_document_upload.name
+                                notified = notify_contract_task_needs(
+                                    ata_contract_id=new_ata_contract_id, ata_amendment_id=None,
+                                    kind_label="CONTRATO", ordinal=None,
+                                    cost_center=contract["cost_center"],
+                                    client=normalize_agency_name(new_ata_client),
+                                    contract_number=new_ata_number.strip(),
+                                    document_bytes=ata_document_bytes,
+                                    document_filename=ata_document_filename,
+                                )
+                                success_message = "Contrato decorrente cadastrado."
+                                if notified:
+                                    success_message += (
+                                        f" Aviso de providências iniciais enviado para "
+                                        f"{len(notified)} responsável(is)."
+                                    )
+                                st.success(success_message)
                                 rerun()
     with tabs["Sindicatos e datas-base"]:
         unions = [dict(r) for r in query(
