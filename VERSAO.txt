@@ -1,4 +1,15 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 59 Beta
+Data: 30/08/2026
+
+Principais alterações:
+- assunto do e-mail de providências iniciais (garantia/ART) passa a
+  terminar em "ASSINADO" em vez de "NOVO" — ex.:
+  "01_01_00001_CTR_ANA_25-2026_ASSINADO".
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 58 Beta
 Data: 30/08/2026
 

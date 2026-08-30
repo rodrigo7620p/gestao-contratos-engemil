@@ -12,7 +12,7 @@ endereçada a si, com o documento em anexo quando disponível.
 
 O assunto do e-mail segue um padrão fixo para facilitar a comunicação entre
 departamentos: {centro_de_custo}_{código_do_instrumento}_{sigla_do_órgão}_
-{número_do_contrato}_{ação}, ex.: "01_01_00001_1ºTA_ANA_25-2026_NOVO"."""
+{número_do_contrato}_{ação}, ex.: "01_01_00001_1ºTA_ANA_25-2026_ASSINADO"."""
 
 import re
 
@@ -41,7 +41,7 @@ def _instrument_code(kind_label: str, ordinal: str | None) -> str:
 
 
 def build_task_email_subject(
-    cost_center, kind_label, ordinal, agency, contract_number, action_tag="NOVO",
+    cost_center, kind_label, ordinal, agency, contract_number, action_tag="ASSINADO",
 ) -> str:
     cost_center_part = re.sub(r"[.\s]+", "_", str(cost_center or "").strip()).strip("_")
     instrument_code = _instrument_code(kind_label, ordinal)
@@ -110,7 +110,7 @@ def notify_contract_task_needs(
     contract_number: str,
     document_bytes: bytes | None = None,
     document_filename: str | None = None,
-    action_tag: str = "NOVO",
+    action_tag: str = "ASSINADO",
 ) -> list[tuple[str, str]]:
     """Verifica garantia/ART pendentes para o instrumento recém-lançado e
     notifica os responsáveis cadastrados. Devolve a lista de (tipo, e-mail)
