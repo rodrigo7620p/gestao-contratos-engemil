@@ -781,9 +781,16 @@ CREATE TABLE IF NOT EXISTS contract_task_responsibles (
     responsible_name TEXT NOT NULL,
     responsible_email TEXT NOT NULL,
     active INTEGER NOT NULL DEFAULT 1,
+    notify_individually INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_contract_task_type ON contract_task_responsibles(task_type);
+CREATE TABLE IF NOT EXISTS contract_task_group_recipients (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 CREATE INDEX IF NOT EXISTS idx_contract_end ON contracts(end_date);
 CREATE INDEX IF NOT EXISTS idx_obligation_due ON obligations(due_date);
 CREATE INDEX IF NOT EXISTS idx_amendment_contract ON amendments(contract_id);
@@ -1006,6 +1013,14 @@ def init_db() -> None:
         for name, definition in obligation_additions.items():
             if name not in obligation_columns:
                 conn.execute(f"ALTER TABLE obligations ADD COLUMN {name} {definition}")
+        task_responsible_columns = {
+            row["name"] for row in conn.execute("PRAGMA table_info(contract_task_responsibles)")
+        }
+        if "notify_individually" not in task_responsible_columns:
+            conn.execute(
+                "ALTER TABLE contract_task_responsibles ADD COLUMN "
+                "notify_individually INTEGER NOT NULL DEFAULT 0"
+            )
         initial_instruments = conn.execute(
             """SELECT id,contract_id,start_date,end_date
             FROM amendments

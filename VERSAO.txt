@@ -1,4 +1,26 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 60 Beta
+Data: 30/08/2026
+
+Principais alterações:
+- o aviso de garantia/ART passa a ser um único e-mail consolidado (em vez
+  de um e-mail por providência), listando cada tarefa pendente e o
+  responsável correspondente em uma lista numerada — ex.: "01 - Tayrine,
+  conforme 6º Termo Aditivo do contrato..., favor providenciar a garantia
+  contratual correspondente."; esse e-mail vai para o(s) e-mail(is) de
+  grupo cadastrados (nova seção "E-mail(is) de grupo para providências
+  iniciais"), e cada responsável pode também ser marcado para receber uma
+  cópia individual;
+- assunto do e-mail: a sigla do órgão passa a considerar só o trecho após
+  o último traço do nome do contratante (incluindo eventual identificação
+  de unidade entre parênteses), em vez do nome completo — ex.:
+  "01_04_00277_6ºTA_SESC/GO-(CALDAS-NOVAS)_230023CC001_ASSINADO";
+- e-mail diário de licitações do dia ganhou a coluna "Órgão" no quadro,
+  para facilitar a identificação pelos gestores.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 59 Beta
 Data: 30/08/2026
 

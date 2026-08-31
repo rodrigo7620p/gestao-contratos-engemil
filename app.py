@@ -103,7 +103,7 @@ from reports import (
 from notifications import send_test_email, smtp_status
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "59"
+APP_VERSION = "60"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -2103,8 +2103,11 @@ def page_contracts():
             st.caption(
                 "Sempre que um contrato novo é cadastrado, ou um aditivo/apostilamento tem "
                 "seu documento anexado, o sistema confere se já existe garantia e ART "
-                "vinculadas — faltando alguma, avisa por e-mail quem estiver cadastrado "
-                "abaixo para aquela providência, mencionando o nome da pessoa na mensagem."
+                "vinculadas — faltando alguma, envia um único e-mail listando todas as "
+                "providências pendentes (mencionando o nome de cada responsável na "
+                "mensagem) para o(s) e-mail(is) de grupo cadastrados abaixo. Um "
+                "responsável marcado para \"envio individual\" também recebe cópia no "
+                "próprio e-mail."
             )
             task_labels = {"GARANTIA": "Garantia contratual", "ART": "ART"}
             responsibles = [
@@ -2117,15 +2120,16 @@ def page_contracts():
                     "Providência": task_labels.get(row["task_type"], row["task_type"]),
                     "Responsável": row["responsible_name"],
                     "E-mail": row["responsible_email"],
+                    "Envio individual": "SIM" if row["notify_individually"] else "NÃO",
                     "Status": "ATIVO" if row["active"] else "INATIVO",
                 } for row in responsibles]))
                 remove_options = {
                     f"{task_labels.get(r['task_type'], r['task_type'])} · {r['responsible_name']} · {r['responsible_email']}": r["id"]
                     for r in responsibles
                 }
-                rc1, rc2 = st.columns([3, 1])
+                rc1, rc2, rc3 = st.columns([3, 1, 1])
                 remove_label = rc1.selectbox(
-                    "Registro para pausar/reativar ou remover", remove_options,
+                    "Registro para ajustar", remove_options,
                     key="contract_task_responsible_target",
                 )
                 target_id = remove_options[remove_label]
@@ -2142,6 +2146,18 @@ def page_contracts():
                             (0 if target_row["active"] else 1, target_id),
                         )
                         rerun()
+                with rc3:
+                    st.write("")
+                    st.write("")
+                    if st.button(
+                        "Não enviar individual" if target_row["notify_individually"] else "Enviar individual",
+                        key="toggle_contract_task_individual",
+                    ):
+                        execute(
+                            "UPDATE contract_task_responsibles SET notify_individually=? WHERE id=?",
+                            (0 if target_row["notify_individually"] else 1, target_id),
+                        )
+                        rerun()
                 if st.button("Remover definitivamente", key="delete_contract_task_responsible"):
                     execute("DELETE FROM contract_task_responsibles WHERE id=?", (target_id,))
                     log_action(user["id"], "REMOVER", "responsável de providência contratual", target_id, remove_label)
@@ -2153,6 +2169,10 @@ def page_contracts():
                 new_task_type = st.selectbox("Providência", list(task_labels), format_func=lambda k: task_labels[k])
                 new_responsible_name = st.text_input("Nome do responsável")
                 new_responsible_email = st.text_input("E-mail do responsável")
+                new_notify_individually = st.checkbox(
+                    "Também enviar uma cópia individual do e-mail para este responsável",
+                    value=False,
+                )
                 if st.form_submit_button("Adicionar"):
                     normalized_email = new_responsible_email.strip().lower()
                     if not new_responsible_name.strip():
@@ -2161,9 +2181,13 @@ def page_contracts():
                         st.error("Informe um endereço de e-mail válido.")
                     else:
                         execute(
-                            """INSERT INTO contract_task_responsibles(task_type,responsible_name,responsible_email)
-                            VALUES(?,?,?)""",
-                            (new_task_type, new_responsible_name.strip(), normalized_email),
+                            """INSERT INTO contract_task_responsibles(
+                            task_type,responsible_name,responsible_email,notify_individually)
+                            VALUES(?,?,?,?)""",
+                            (
+                                new_task_type, new_responsible_name.strip(), normalized_email,
+                                1 if new_notify_individually else 0,
+                            ),
                         )
                         log_action(
                             user["id"], "CADASTRAR", "responsável de providência contratual",
@@ -2171,6 +2195,77 @@ def page_contracts():
                         )
                         st.success("Responsável cadastrado.")
                         rerun()
+            st.divider()
+            st.markdown("###### E-mail(is) de grupo para providências iniciais")
+            st.caption(
+                "É para este(s) e-mail(is) — normalmente uma caixa compartilhada com vários "
+                "gestores — que o aviso consolidado de garantia/ART é enviado."
+            )
+            group_recipients = [
+                dict(row) for row in query(
+                    "SELECT * FROM contract_task_group_recipients ORDER BY active DESC,email"
+                )
+            ]
+            if group_recipients:
+                modern_table(pd.DataFrame([{
+                    "E-mail": row["email"],
+                    "Status": "ATIVO" if row["active"] else "INATIVO",
+                } for row in group_recipients]))
+                group_remove_options = {row["email"]: row["id"] for row in group_recipients}
+                gc1, gc2 = st.columns([3, 1])
+                group_remove_label = gc1.selectbox(
+                    "E-mail de grupo para pausar/reativar ou remover", group_remove_options,
+                    key="contract_task_group_recipient_target",
+                )
+                group_target_id = group_remove_options[group_remove_label]
+                group_target_row = next(r for r in group_recipients if r["id"] == group_target_id)
+                with gc2:
+                    st.write("")
+                    st.write("")
+                    if st.button(
+                        "Pausar" if group_target_row["active"] else "Reativar",
+                        key="toggle_contract_task_group_recipient",
+                    ):
+                        execute(
+                            "UPDATE contract_task_group_recipients SET active=? WHERE id=?",
+                            (0 if group_target_row["active"] else 1, group_target_id),
+                        )
+                        rerun()
+                if st.button(
+                    "Remover este e-mail de grupo definitivamente",
+                    key="delete_contract_task_group_recipient",
+                ):
+                    execute(
+                        "DELETE FROM contract_task_group_recipients WHERE id=?", (group_target_id,)
+                    )
+                    log_action(
+                        user["id"], "REMOVER", "e-mail de grupo de providências contratuais",
+                        group_target_id, group_remove_label,
+                    )
+                    st.success("E-mail de grupo removido.")
+                    rerun()
+            else:
+                st.info("Nenhum e-mail de grupo cadastrado ainda.")
+            with st.form("new_contract_task_group_recipient", clear_on_submit=True):
+                new_group_email = st.text_input("Adicionar e-mail de grupo")
+                if st.form_submit_button("Adicionar e-mail de grupo"):
+                    normalized_group_email = new_group_email.strip().lower()
+                    if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", normalized_group_email):
+                        st.error("Informe um endereço de e-mail válido.")
+                    else:
+                        try:
+                            execute(
+                                "INSERT INTO contract_task_group_recipients(email) VALUES(?)",
+                                (normalized_group_email,),
+                            )
+                            log_action(
+                                user["id"], "CADASTRAR", "e-mail de grupo de providências contratuais",
+                                None, normalized_group_email,
+                            )
+                            st.success("E-mail de grupo cadastrado.")
+                            rerun()
+                        except Exception:
+                            st.error("Este e-mail já está cadastrado.")
     scope = st.radio("Exibir", ["Ativos", "Arquivados", "Todos"], horizontal=True)
     where = {"Ativos": "WHERE c.archived=0", "Arquivados": "WHERE c.archived=1", "Todos": ""}[scope]
     rows = load_contracts(where)
@@ -8269,9 +8364,9 @@ def page_bids():
         with st.expander("Notificação diária de licitações do dia"):
             st.caption(
                 "Todo dia útil às 6h50, o sistema envia um quadro com as licitações que têm "
-                "disputa marcada para o dia (dia, hora, UASG, nº da licitação, escopo, "
-                "estrutura, objeto e valor estimado) para os e-mails cadastrados abaixo. "
-                "Sem licitação marcada para o dia, nenhum e-mail é enviado."
+                "disputa marcada para o dia (dia, hora, UASG, nº da licitação, órgão, "
+                "escopo, estrutura, objeto e valor estimado) para os e-mails cadastrados "
+                "abaixo. Sem licitação marcada para o dia, nenhum e-mail é enviado."
             )
             recipients = [
                 dict(row) for row in query(

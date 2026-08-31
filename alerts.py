@@ -667,8 +667,8 @@ def process_repactuation_alerts():
 
 def todays_bid_schedule_rows(today=None):
     """Monta as linhas de licitações com disputa marcada para hoje, na
-    ordem: dia, hora, uasg, nº da licitação, escopo, estrutura, objeto,
-    valor estimado. Reaproveita o mesmo cálculo de valor agregado e
+    ordem: dia, hora, uasg, nº da licitação, órgão, escopo, estrutura,
+    objeto, valor estimado. Reaproveita o mesmo cálculo de valor agregado e
     estrutura (grupos/itens) usado na tela de Licitações, para os números
     do e-mail nunca divergirem dos exibidos no sistema."""
     today = today or date.today()
@@ -693,6 +693,7 @@ def todays_bid_schedule_rows(today=None):
             "hora": process.get("dispute_time") or "—",
             "uasg": process.get("uasg") or "—",
             "numero": process.get("edital_number") or process.get("process_number") or "—",
+            "orgao": process.get("agency") or "—",
             "escopo": process.get("scope") or "—",
             "estrutura": bid_process_structure_label(lots),
             "objeto": process.get("object") or "—",
@@ -704,15 +705,16 @@ def todays_bid_schedule_rows(today=None):
 def _bid_schedule_email_content(rows, today):
     date_label = today.strftime("%d/%m/%Y")
     headers = [
-        "Dia", "Hora", "UASG", "Nº da licitação", "Escopo", "Estrutura",
+        "Dia", "Hora", "UASG", "Nº da licitação", "Órgão", "Escopo", "Estrutura",
         "Objeto", "Valor estimado",
     ]
     plain_lines = [f"LICITAÇÕES DO DIA — {date_label}", ""]
     html_rows = []
     for row in rows:
         values = [
-            row["dia"], row["hora"], row["uasg"], row["numero"], row["escopo"],
-            row["estrutura"], row["objeto"], row["valor_estimado"].replace("\n", " — "),
+            row["dia"], row["hora"], row["uasg"], row["numero"], row["orgao"],
+            row["escopo"], row["estrutura"], row["objeto"],
+            row["valor_estimado"].replace("\n", " — "),
         ]
         plain_lines.append(" | ".join(f"{h}: {v}" for h, v in zip(headers, values)))
         plain_lines.append("")
