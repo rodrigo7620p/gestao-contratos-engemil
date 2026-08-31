@@ -1,4 +1,23 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 61 Beta
+Data: 30/08/2026
+
+Principais alterações:
+- a colagem de classificação (aba Classificação, dentro de uma licitação)
+  passa a reconhecer também o formato do Licitações-e do Banco do Brasil
+  (colunas de posição, participante, segmento/porte — OE/ME/EPP/MEI —,
+  situação, lance e data/hora do lance), ignorando corretamente o selo de
+  porte e a data/hora e lendo a situação de cada empresa (Classificado,
+  Arrematante, Desclassificado etc.);
+- a lista colada (em qualquer formato reconhecido) passa a ser sempre
+  reordenada pelo valor do lance, do menor para o maior, com as empresas
+  desclassificadas/inabilitadas/desistentes sempre ao final (também
+  ordenadas por valor entre si), em vez de depender da ordem em que vieram
+  no texto colado.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 60 Beta
 Data: 30/08/2026
 

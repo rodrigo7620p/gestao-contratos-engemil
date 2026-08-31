@@ -103,7 +103,7 @@ from reports import (
 from notifications import send_test_email, smtp_status
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "60"
+APP_VERSION = "61"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -7921,13 +7921,36 @@ def bid_status_color(status):
     }.get(status, "blue")
 
 
+_RANKING_SEGMENT_BADGE_PATTERN = re.compile(r"(OE|ME|EPP|MEI)\*?", re.IGNORECASE)
+_RANKING_DATETIME_PATTERN = re.compile(r"\d{2}/\d{2}/\d{4}\s+\d{2}:\d{2}:\d{2}(:\d{1,3})?")
+
+
+def _ranking_situation_from_token(token):
+    """Reconhece um token de situação dentro de uma coluna 'Situação' (ex.:
+    Licitações-e do Banco do Brasil: Classificado, Desclassificado,
+    Arrematante, Inabilitado, Desistente etc.), retornando a situação
+    padronizada — ou None se o token não for isso."""
+    cleaned = token.strip().upper()
+    if "DESCLASSIFICAD" in cleaned:
+        return "DESCLASSIFICADA"
+    if "INABILITAD" in cleaned:
+        return "INABILITADA"
+    if "DESISTEN" in cleaned:
+        return "DESISTENTE"
+    if cleaned in {"ARREMATANTE", "CLASSIFICADO", "CLASSIFICADA", "HABILITADO", "HABILITADA"}:
+        return "CLASSIFICADA"
+    return None
+
+
 def parse_pasted_ranking(text):
     """Reconhece linhas de classificação coladas de um portal (Compras.gov.br,
-    PNCP, Portal de Compras Públicas etc.) ou de uma planilha. Aceita colunas
-    separadas por tabulação (padrão ao colar de uma tabela web) ou por 2+
-    espaços (padrão ao colar texto alinhado). Reconhece cada valor pelo
-    formato (CNPJ, percentual, valor monetário) em vez de depender de uma
-    ordem fixa de colunas, para funcionar com layouts diferentes."""
+    PNCP, Portal de Compras Públicas, Licitações-e do Banco do Brasil etc.)
+    ou de uma planilha. Aceita colunas separadas por tabulação (padrão ao
+    colar de uma tabela web) ou por 2+ espaços (padrão ao colar texto
+    alinhado). Reconhece cada valor pelo formato (CNPJ, percentual, valor
+    monetário, situação, selo de porte da empresa, data/hora do lance) em
+    vez de depender de uma ordem fixa de colunas, para funcionar com
+    layouts diferentes."""
     rows = []
     cnpj_pattern = re.compile(r"^\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}$")
     for raw_line in text.strip().splitlines():
@@ -7938,10 +7961,13 @@ def parse_pasted_ranking(text):
         parts = [p.strip() for p in parts if p.strip()]
         if len(parts) < 2:
             continue
+        if any(p.strip().upper() == "PARTICIPANTE" for p in parts):
+            continue
         seq = None
         cnpj = None
         bid_value = None
         discount = None
+        situation = None
         remaining = []
         for part in parts:
             if seq is None and re.fullmatch(r"\d{1,4}º?", part):
@@ -7950,6 +7976,15 @@ def parse_pasted_ranking(text):
             if cnpj is None and cnpj_pattern.fullmatch(part):
                 cnpj = re.sub(r"\D", "", part)
                 continue
+            if _RANKING_SEGMENT_BADGE_PATTERN.fullmatch(part):
+                continue
+            if _RANKING_DATETIME_PATTERN.fullmatch(part):
+                continue
+            if situation is None:
+                token_situation = _ranking_situation_from_token(part)
+                if token_situation:
+                    situation = token_situation
+                    continue
             if "%" in part:
                 try:
                     discount = float(part.replace("%", "").strip().replace(".", "").replace(",", "."))
@@ -7968,13 +8003,16 @@ def parse_pasted_ranking(text):
         company = " ".join(remaining).strip()
         if not company or company.upper() in {"SEQ", "EMPRESAS", "EMPRESA"}:
             continue
-        rows.append({
+        row_data = {
             "seq": seq,
             "company_name": company,
             "company_cnpj": cnpj,
             "final_bid_value": bid_value,
             "discount_percent": discount,
-        })
+        }
+        if situation:
+            row_data["situation"] = situation
+        rows.append(row_data)
     for index, row in enumerate(rows):
         if row["seq"] is None:
             row["seq"] = index + 1
@@ -8174,17 +8212,20 @@ def parse_pasted_ranking_cards(text):
 
 
 def parse_pasted_ranking_auto(text, estimated_value=None, quantity=None, is_confidential=False):
-    """Detecta automaticamente o formato colado (linha única por empresa vs.
-    o formato em cartões do Compras.gov.br), converte valores unitários em
-    globais quando necessário, recalcula o desconto a partir do valor
-    estimado da licitação (com o percentual eventualmente colado servindo
-    apenas de reserva, quando não há valor estimado cadastrado), identifica
-    a ENGEMIL automaticamente e reordena a lista final com as empresas
-    desclassificadas/inabilitadas/desistentes sempre no fim, sem interromper
-    a numeração das empresas classificadas. Quando a licitação é sigilosa
-    (is_confidential=True), o desconto nunca é calculado — o valor estimado
-    cadastrado é só uma referência interna, não uma base de comparação
-    oficial válida até o órgão divulgar o valor de verdade."""
+    """Detecta automaticamente o formato colado (linha única por empresa —
+    inclusive o quadro do Licitações-e do Banco do Brasil, com colunas de
+    segmento/porte e situação — vs. o formato em cartões do Compras.gov.br),
+    converte valores unitários em globais quando necessário, recalcula o
+    desconto a partir do valor estimado da licitação (com o percentual
+    eventualmente colado servindo apenas de reserva, quando não há valor
+    estimado cadastrado) e identifica a ENGEMIL automaticamente. A lista
+    final é ordenada por valor de lance (do menor para o maior), com as
+    empresas desclassificadas/inabilitadas/desistentes sempre no fim
+    (também por valor), renumerando a sequência de 1 em diante. Quando a
+    licitação é sigilosa (is_confidential=True), o desconto nunca é
+    calculado — o valor estimado cadastrado é só uma referência interna,
+    não uma base de comparação oficial válida até o órgão divulgar o valor
+    de verdade."""
     lowered = text.lower()
     if "valor ofertado" in lowered or "valor negociado" in lowered:
         rows = parse_pasted_ranking_cards(text)
@@ -8214,8 +8255,18 @@ def parse_pasted_ranking_auto(text, estimated_value=None, quantity=None, is_conf
             or "ENGEMIL" in row["company_name"].upper()
         )
 
-    classified = [r for r in rows if r.get("situation", "CLASSIFICADA") == "CLASSIFICADA"]
-    others = [r for r in rows if r.get("situation", "CLASSIFICADA") != "CLASSIFICADA"]
+    def _value_sort_key(row):
+        value = row.get("final_bid_value")
+        return (value is None, value or 0)
+
+    classified = sorted(
+        (r for r in rows if r.get("situation", "CLASSIFICADA") == "CLASSIFICADA"),
+        key=_value_sort_key,
+    )
+    others = sorted(
+        (r for r in rows if r.get("situation", "CLASSIFICADA") != "CLASSIFICADA"),
+        key=_value_sort_key,
+    )
     ordered = classified + others
     for index, row in enumerate(ordered):
         row["seq"] = index + 1
@@ -9331,20 +9382,23 @@ def page_bids():
             )
         st.caption(
             "Cole a classificação copiada do portal (Compras.gov.br, PNCP, Portal de Compras "
-            "Públicas etc.) ou edite manualmente. O desconto é sempre recalculado automaticamente "
-            "a partir do valor estimado desta licitação. A linha da ENGEMIL é destacada "
-            "automaticamente na imagem gerada; ajuste a situação se alguma empresa for "
-            "desclassificada ao longo do certame."
+            "Públicas, Licitações-e do Banco do Brasil etc.) ou edite manualmente. O desconto "
+            "é sempre recalculado automaticamente a partir do valor estimado desta licitação. "
+            "A linha da ENGEMIL é destacada automaticamente na imagem gerada; ajuste a "
+            "situação se alguma empresa for desclassificada ao longo do certame."
         )
         if can_edit():
             with st.expander("Colar classificação copiada do portal", expanded=not rankings):
                 st.caption(
                     "Copie a tabela (ou o painel de propostas) do portal e cole abaixo. "
-                    "O sistema reconhece tanto uma linha por empresa (sequência, empresa, lance, "
-                    "desconto) quanto o formato em blocos do Compras.gov.br (CNPJ, selos, nome, "
-                    "UF, 'Valor ofertado'/'Valor negociado'). Confira o resultado antes de "
-                    "continuar — o desconto é sempre recalculado a partir do valor estimado "
-                    f"deste grupo/item ({brl(ranking_scope_estimated_value)})."
+                    "O sistema reconhece tanto uma linha por empresa (sequência, empresa, "
+                    "segmento/porte, situação, lance, data/hora — como no Licitações-e do "
+                    "Banco do Brasil) quanto o formato em blocos do Compras.gov.br (CNPJ, "
+                    "selos, nome, UF, 'Valor ofertado'/'Valor negociado'). A lista final é "
+                    "sempre reordenada pelo valor do lance (menor para o maior), com "
+                    "desclassificadas/inabilitadas/desistentes ao final. Confira o resultado "
+                    "antes de continuar — o desconto é sempre recalculado a partir do valor "
+                    f"estimado deste grupo/item ({brl(ranking_scope_estimated_value)})."
                 )
                 if not ranking_scope_estimated_value:
                     st.warning(
