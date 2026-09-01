@@ -103,7 +103,7 @@ from reports import (
 from notifications import send_test_email, smtp_status
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "62"
+APP_VERSION = "63"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -7922,14 +7922,30 @@ def bid_status_color(status):
 
 
 _RANKING_SEGMENT_BADGE_PATTERN = re.compile(r"(OE|ME|EPP|MEI)\*?", re.IGNORECASE)
-_RANKING_DATETIME_PATTERN = re.compile(r"\d{2}/\d{2}/\d{4}\s+\d{2}:\d{2}:\d{2}(:\d{1,3})?")
+_RANKING_SEGMENT_BADGE_WORDS = {
+    "OUTRAS EMPRESAS", "OUTRA EMPRESA", "MICRO-EMPRESA", "MICROEMPRESA",
+    "MICRO EMPRESA", "PEQUENA EMPRESA", "EMPRESA DE PEQUENO PORTE",
+    "GRANDE EMPRESA", "COOPERATIVA", "ME/EPP",
+}
+_RANKING_DATETIME_PATTERN = re.compile(
+    r"\d{2}/\d{2}/\d{4}(\s+\d{2}:\d{2}:\d{2}(:\d{1,3})?)?"
+)
+
+
+def _is_ranking_segment_badge(token):
+    """Reconhece o selo de porte/segmento da empresa (coluna 'Segmento'),
+    tanto na forma abreviada (OE*, ME*, EPP*, MEI*) quanto por extenso
+    (Outras Empresas, Micro-Empresa etc., como no Pregão Online do Banco
+    do Brasil) — não faz parte do nome da empresa."""
+    cleaned = re.sub(r"\s+", " ", token.strip()).upper()
+    return bool(_RANKING_SEGMENT_BADGE_PATTERN.fullmatch(cleaned)) or cleaned in _RANKING_SEGMENT_BADGE_WORDS
 
 
 def _ranking_situation_from_token(token):
     """Reconhece um token de situação dentro de uma coluna 'Situação' (ex.:
-    Licitações-e do Banco do Brasil: Classificado, Desclassificado,
-    Arrematante, Inabilitado, Desistente etc.), retornando a situação
-    padronizada — ou None se o token não for isso."""
+    Licitações-e e Pregão Online do Banco do Brasil: Classificado,
+    Desclassificado, Arrematante, Entregue, Inabilitado, Desistente etc.),
+    retornando a situação padronizada — ou None se o token não for isso."""
     cleaned = token.strip().upper()
     if "DESCLASSIFICAD" in cleaned:
         return "DESCLASSIFICADA"
@@ -7937,7 +7953,10 @@ def _ranking_situation_from_token(token):
         return "INABILITADA"
     if "DESISTEN" in cleaned:
         return "DESISTENTE"
-    if cleaned in {"ARREMATANTE", "CLASSIFICADO", "CLASSIFICADA", "HABILITADO", "HABILITADA"}:
+    if cleaned in {
+        "ARREMATANTE", "CLASSIFICADO", "CLASSIFICADA", "HABILITADO", "HABILITADA",
+        "ENTREGUE", "ACEITO", "ACEITA",
+    }:
         return "CLASSIFICADA"
     return None
 
@@ -7976,7 +7995,7 @@ def parse_pasted_ranking(text):
             if cnpj is None and cnpj_pattern.fullmatch(part):
                 cnpj = re.sub(r"\D", "", part)
                 continue
-            if _RANKING_SEGMENT_BADGE_PATTERN.fullmatch(part):
+            if _is_ranking_segment_badge(part):
                 continue
             if _RANKING_DATETIME_PATTERN.fullmatch(part):
                 continue

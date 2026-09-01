@@ -1,4 +1,18 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 63 Beta
+Data: 01/09/2026
+
+Principais alterações:
+- a colagem de classificação passa a reconhecer também o formato do
+  Pregão Online do Banco do Brasil (segmento por extenso — "Outras
+  Empresas", "Micro-Empresa" etc. — e situação "Entregue"/"Arrematante",
+  com data e hora em colunas separadas, a hora podendo vir em branco); os
+  dados que antes ficavam grudados no nome da empresa (segmento, situação,
+  data) agora são reconhecidos e descartados corretamente.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 62 Beta
 Data: 01/09/2026
 
