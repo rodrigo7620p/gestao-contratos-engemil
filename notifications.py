@@ -194,7 +194,11 @@ def send_email(
         return False, "SMTP não configurado. A obrigação continua registrada no painel."
 
     recipients = normalize_recipients(recipient)
-    copies = normalize_recipients([cc or "", config["default_cc"]])
+    # normalize_recipients(cc) achata cc primeiro (aceita string única ou
+    # lista/tupla/set de endereços) antes de juntar com o CC padrão — sem
+    # isso, passar uma lista em cc virava uma lista aninhada e quebrava o
+    # parsing dos endereços.
+    copies = normalize_recipients([*normalize_recipients(cc), config["default_cc"]])
     copies = [address for address in copies if address not in recipients]
     if not recipients:
         return False, "Nenhum e-mail de destinatário válido foi informado."

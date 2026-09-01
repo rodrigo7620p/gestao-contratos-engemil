@@ -10,7 +10,8 @@ das duas, um único e-mail consolidado (listando cada providência pendente
 e o respectivo responsável) é enviado para o(s) e-mail(is) de grupo
 cadastrados (contract_task_group_recipients); responsáveis marcados para
 "envio individual" (contract_task_responsibles.notify_individually) também
-recebem cópia.
+recebem cópia, assim como o engenheiro e o responsável administrativo do
+contrato, quando cadastrados (ver extra_recipients).
 
 O assunto do e-mail segue um padrão fixo para facilitar a comunicação entre
 departamentos: {centro_de_custo}_{código_do_instrumento}_{sigla_do_órgão}_
@@ -60,7 +61,7 @@ def _agency_subject_token(agency: str) -> str:
 def build_task_email_subject(
     cost_center, kind_label, ordinal, agency, contract_number, action_tag="ASSINADO",
 ) -> str:
-    cost_center_part = re.sub(r"[.\s]+", "_", str(cost_center or "").strip()).strip("_")
+    cost_center_part = re.sub(r"\s+", "_", str(cost_center or "").strip()).strip("_")
     instrument_code = _instrument_code(kind_label, ordinal)
     acronym = _agency_subject_token(agency)
     contract_part = str(contract_number or "").replace("/", "-").replace(" ", "")
@@ -137,6 +138,7 @@ def notify_contract_task_needs(
     document_bytes: bytes | None = None,
     document_filename: str | None = None,
     action_tag: str = "ASSINADO",
+    extra_recipients: list[str] | None = None,
 ) -> list[str]:
     """Verifica garantia/ART pendentes para o instrumento recém-lançado e
     envia UM único e-mail consolidado listando cada providência pendente e
@@ -146,7 +148,9 @@ def notify_contract_task_needs(
 
     Aceita tanto contratos/aditivos regulares (contract_id/amendment_id)
     quanto contratos decorrentes de ATA e seus aditivos
-    (ata_contract_id/ata_amendment_id)."""
+    (ata_contract_id/ata_amendment_id). `extra_recipients` recebe cópia do
+    mesmo e-mail (ex.: engenheiro e responsável administrativo do
+    contrato) além dos e-mails de grupo/individuais já cadastrados."""
     missing = _missing_tasks(contract_id, amendment_id, ata_contract_id, ata_amendment_id)
     if not missing:
         return []
@@ -203,5 +207,5 @@ def notify_contract_task_needs(
         "evidências da execução, assegurando o registro e a rastreabilidade do "
         f"cumprimento da{'s' if len(task_lines) > 1 else ''} {closing_object}."
     )
-    ok, _ = send_email(recipients, subject, body, attachments=attachments)
+    ok, _ = send_email(recipients, subject, body, cc=extra_recipients, attachments=attachments)
     return recipients if ok else []

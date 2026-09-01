@@ -1,4 +1,22 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 64 Beta
+Data: 01/09/2026
+
+Principais alterações:
+- corrigido o assunto do e-mail de providências (garantia/ART): o centro
+  de custo volta a manter os pontos (ex.: "01.04.00249"), em vez de virar
+  "01_04_00249" — ex.: "01.04.00249_3ºTAP_EBSERH_33-2023_ASSINADO";
+- o engenheiro responsável e o responsável administrativo cadastrados na
+  ficha do contrato agora recebem cópia automática desse e-mail, quando
+  preenchidos, além dos e-mails de grupo/individuais já cadastrados para
+  garantia e ART;
+- corrigido bug no envio de cópia (cc) em notifications.send_email(): uma
+  lista de e-mails em cc virava uma lista aninhada e corrompia o
+  destinatário — agora aceita string única ou lista normalmente.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 63 Beta
 Data: 01/09/2026
 

@@ -103,7 +103,7 @@ from reports import (
 from notifications import send_test_email, smtp_status
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "63"
+APP_VERSION = "64"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -2107,7 +2107,8 @@ def page_contracts():
                 "providências pendentes (mencionando o nome de cada responsável na "
                 "mensagem) para o(s) e-mail(is) de grupo cadastrados abaixo. Um "
                 "responsável marcado para \"envio individual\" também recebe cópia no "
-                "próprio e-mail."
+                "próprio e-mail — assim como o engenheiro e o responsável administrativo "
+                "cadastrados na ficha do contrato, quando preenchidos."
             )
             task_labels = {"GARANTIA": "Garantia contratual", "ART": "ART"}
             responsibles = [
@@ -3509,6 +3510,7 @@ def page_contract_detail():
                         contract_number=contract["contract_number"],
                         document_bytes=amendment_upload.getvalue(),
                         document_filename=amendment_upload.name,
+                        extra_recipients=[contract.get("engineer_email"), contract.get("manager_email")],
                     )
                     success_message = "Documento vinculado ao instrumento."
                     if notified:
@@ -4186,6 +4188,9 @@ def page_contract_detail():
                                     contract_number=ata_contract["contract_number"],
                                     document_bytes=ata_amendment_doc_bytes,
                                     document_filename=ata_amendment_doc_filename,
+                                    extra_recipients=[
+                                        contract.get("engineer_email"), contract.get("manager_email"),
+                                    ],
                                 )
                                 success_message = "Instrumento do contrato decorrente registrado."
                                 if notified:
@@ -4409,6 +4414,9 @@ def page_contract_detail():
                                     contract_number=new_ata_number.strip(),
                                     document_bytes=ata_document_bytes,
                                     document_filename=ata_document_filename,
+                                    extra_recipients=[
+                                        contract.get("engineer_email"), contract.get("manager_email"),
+                                    ],
                                 )
                                 success_message = "Contrato decorrente cadastrado."
                                 if notified:
@@ -6488,6 +6496,7 @@ def page_new_contract():
                         ordinal=None, cost_center=cost_center.strip(),
                         client=normalize_agency_name(client), contract_number=contract_number.strip(),
                         document_bytes=document_bytes, document_filename=document_filename,
+                        extra_recipients=[engineer_email, manager_email],
                     )
                     for reset_key in (
                         "new_contract_engineer_pick", "new_contract_manager_pick",
