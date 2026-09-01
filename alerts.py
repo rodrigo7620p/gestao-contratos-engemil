@@ -10,7 +10,7 @@ from bids import (
     format_estimated_value_display,
 )
 from contract_utils import extract_agency_acronym, humanize_remaining
-from db import archive_expired_contracts, execute, init_db, query
+from db import archive_expired_contracts, connect, execute, init_db, query
 from notifications import send_email, send_test_email, smtp_status
 
 BID_SCHEDULE_EXCLUDED_STATUSES = {"REVOGADA / CANCELADA", "DESERTA / FRACASSADA"}
@@ -754,10 +754,16 @@ def _bid_schedule_email_content(rows, today):
 def send_daily_bid_schedule(today=None, force=False):
     """Envia, para os e-mails cadastrados em bid_schedule_recipients, o
     quadro das licitações com disputa marcada para hoje. Roda de
-    segunda a sexta (parado nos fins de semana, quando não há pregão) e
-    só dispara uma vez por dia por destinatário — resultado idempotente
-    graças ao notification_log, então rodar de novo no mesmo dia (pela
-    tarefa agendada ou por alguém abrindo o sistema) não duplica e-mail."""
+    segunda a sexta (parado nos fins de semana, quando não há pregão).
+
+    A ideia é que MAIS DE UM gatilho possa chamar esta função no mesmo dia
+    (a tarefa agendada local, o próprio app publicado na nuvem como reforço
+    ao abrir uma sessão, um cron externo) sem nunca duplicar e-mail — por
+    isso a "reserva" da vaga em notification_log usa INSERT OR IGNORE (que
+    é atômico graças à restrição UNIQUE da tabela) ANTES de enviar, e só
+    envia se realmente conseguiu reservar. Checar-e-só-depois-inserir (como
+    era antes) tinha uma janela de corrida: dois processos podiam checar
+    "ainda não foi enviado" ao mesmo tempo e os dois enviarem."""
     init_db()
     today = today or date.today()
     result = {"sent": 0, "skipped_weekend": False, "recipients": 0, "bids_today": 0}
@@ -778,22 +784,34 @@ def send_daily_bid_schedule(today=None, force=False):
         return result
     subject, plain_body, html_body = _bid_schedule_email_content(rows, today)
     for recipient in recipients:
-        already_sent = query(
-            """SELECT id FROM notification_log WHERE event_type='LICITACOES_DIA'
-            AND reference_id=0 AND event_date=? AND recipient=?""",
-            (today.isoformat(), recipient),
-        )
-        if already_sent and not force:
-            continue
-        ok, _ = send_email(recipient, subject, plain_body, html_body=html_body)
-        if ok:
+        if force:
             execute(
+                """DELETE FROM notification_log WHERE event_type='LICITACOES_DIA'
+                AND reference_id=0 AND event_date=? AND recipient=?""",
+                (today.isoformat(), recipient),
+            )
+        with connect() as conn:
+            claim = conn.execute(
                 """INSERT OR IGNORE INTO notification_log(
                 event_type,reference_id,event_date,recipient)
                 VALUES('LICITACOES_DIA',0,?,?)""",
                 (today.isoformat(), recipient),
             )
+            claimed = bool(claim.rowcount)
+        if not claimed:
+            continue
+        ok, _ = send_email(recipient, subject, plain_body, html_body=html_body)
+        if ok:
             result["sent"] += 1
+        else:
+            # Reservou a vaga mas não conseguiu enviar (ex.: SMTP fora do
+            # ar) — libera de novo para a próxima chamada tentar, em vez de
+            # perder o aviso silenciosamente.
+            execute(
+                """DELETE FROM notification_log WHERE event_type='LICITACOES_DIA'
+                AND reference_id=0 AND event_date=? AND recipient=?""",
+                (today.isoformat(), recipient),
+            )
     return result
 
 

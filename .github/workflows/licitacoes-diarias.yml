@@ -1,0 +1,33 @@
+name: Licitações do dia
+
+# Dispara o envio do quadro de licitações do dia sem depender de nenhum
+# computador estar ligado. Roda inteiramente na nuvem do GitHub — segunda a
+# sexta, 06:50 no horário de Brasília (UTC-3 -> 09:50 UTC). O próprio
+# alerts.py já filtra fim de semana e evita duplicar envio (ver
+# send_daily_bid_schedule em alerts.py), então rodar também via tarefa
+# local ou pelo app publicado no mesmo dia não gera e-mail repetido.
+on:
+  schedule:
+    - cron: "50 9 * * 1-5"
+  workflow_dispatch: {}
+
+jobs:
+  enviar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - run: python alerts.py --bid-schedule
+        env:
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USE_SSL: ${{ secrets.SMTP_USE_SSL }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+          SMTP_DEFAULT_CC: ${{ secrets.SMTP_DEFAULT_CC }}

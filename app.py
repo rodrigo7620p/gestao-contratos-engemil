@@ -103,7 +103,7 @@ from reports import (
 from notifications import send_test_email, smtp_status
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "61"
+APP_VERSION = "62"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -10498,10 +10498,13 @@ if "alerts_processed" not in st.session_state:
     st.session_state.alerts_processed = process_repactuation_alerts()
 if "bid_schedule_checked" not in st.session_state:
     st.session_state.bid_schedule_checked = True
-    # Rede de segurança: a tarefa agendada local dispara às 6h50, mas se por
-    # algum motivo não rodar (computador desligado, etc.), o primeiro acesso
-    # ao sistema depois desse horário num dia útil também aciona o envio —
-    # o notification_log garante que isso nunca duplica e-mail.
+    # Rede de segurança: o gatilho principal roda na nuvem do GitHub
+    # (.github/workflows/licitacoes-diarias.yml, 6h50, independente de
+    # qualquer computador estar ligado), mas se por algum motivo não
+    # rodar, o primeiro acesso ao sistema depois desse horário num dia
+    # útil também aciona o envio — a reserva atômica em notification_log
+    # (ver send_daily_bid_schedule em alerts.py) garante que isso nunca
+    # duplica e-mail, mesmo com múltiplos gatilhos concorrentes.
     if datetime.now().time() >= time(6, 50):
         send_daily_bid_schedule()
 selected_theme = st.sidebar.radio(

@@ -1,4 +1,25 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 62 Beta
+Data: 01/09/2026
+
+Principais alterações:
+- corrigido o e-mail duplicado do quadro de licitações do dia: a reserva
+  de envio em notification_log agora é atômica (reserva antes de enviar,
+  em vez de checar-e-só-depois-reservar), então mesmo que mais de um
+  gatilho rode no mesmo dia (app na nuvem, tarefa local, GitHub Actions)
+  só sai um e-mail; se o envio falhar, a reserva é liberada para não
+  perder o aviso;
+- novo gatilho principal em .github/workflows/licitacoes-diarias.yml: roda
+  na nuvem do GitHub todo dia útil às 6h50 (horário de Brasília),
+  independente de qualquer computador estar ligado — precisa que os
+  segredos do repositório (TURSO_DATABASE_URL, TURSO_AUTH_TOKEN e os
+  SMTP_*) sejam cadastrados no GitHub (Settings → Secrets and variables →
+  Actions) para funcionar; o aviso ao abrir o app continua como reforço,
+  caso o GitHub Actions falhe por algum motivo.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 61 Beta
 Data: 30/08/2026
 
