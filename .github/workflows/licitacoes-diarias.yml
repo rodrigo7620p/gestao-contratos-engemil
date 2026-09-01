@@ -14,6 +14,10 @@ on:
 jobs:
   enviar:
     runs-on: ubuntu-latest
+    # Sem isso, uma falha de rede ao alcançar o Turso pode ficar pendurada
+    # por horas (a biblioteca libsql-client não define timeout próprio) e
+    # consumir o limite de minutos gratuitos do GitHub Actions à toa.
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
