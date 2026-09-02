@@ -1,0 +1,22 @@
+name: Manter app acordado
+
+# O Streamlit Community Cloud hiberna o app após um período sem acesso, e
+# o primeiro acesso depois disso demora alguns segundos para "acordar".
+# Este job faz uma requisição periódica ao app publicado só para contar
+# como acesso e evitar a hibernação — assim ele fica sempre pronto para
+# quem for usar, e o envio automático de licitações (que já roda à parte,
+# em licitacoes-diarias.yml, direto contra o banco) não fica refém do
+# app estar acordado ou não.
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: |
+          curl -sS -o /dev/null -w "HTTP %{http_code}\n" \
+            "https://gestao-contratos-engemil.streamlit.app/?health=1" || true

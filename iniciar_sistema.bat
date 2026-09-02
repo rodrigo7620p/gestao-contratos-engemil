@@ -4,6 +4,7 @@ cd /d "%~dp0"
 title Gestao Contratual ENGEMIL
 
 if exist "%~dp0configuracao_email.bat" call "%~dp0configuracao_email.bat"
+if exist "%~dp0configuracao_turso.bat" call "%~dp0configuracao_turso.bat"
 
 if not exist "%~dp0.venv\Scripts\python.exe" (
     echo Preparando o ambiente Python na primeira execucao...

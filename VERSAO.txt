@@ -1,4 +1,27 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 65 Beta
+Data: 01/09/2026
+
+Principais alterações:
+- corrigida a causa real do e-mail duplicado de licitações: iniciar_sistema.bat
+  (usado pela tarefa que sobe uma cópia local do sistema a cada boot deste
+  computador) não carregava configuracao_turso.bat — ou seja, essa cópia
+  local rodava contra um banco SQLite local isolado, sem nenhuma visão do
+  que já tinha sido enviado pelo app publicado na nuvem (mesmo banco
+  Turso). Cada lado achava que "ainda não enviei hoje" e os dois enviavam.
+  Agora iniciar_sistema.bat carrega configuracao_turso.bat como os demais
+  scripts, então local e nuvem passam a enxergar o mesmo registro de
+  envios;
+- novo .github/workflows/manter-app-acordado.yml: faz um acesso ao app
+  publicado a cada 10 minutos só para evitar que o Streamlit Community
+  Cloud hiberne por inatividade — reduz a espera de "acordar" para quem
+  for usar o sistema. O envio automático de licitações não depende mais
+  disso de qualquer forma, já que roda direto contra o banco em
+  licitacoes-diarias.yml, independente do app estar acordado.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 64 Beta
 Data: 01/09/2026
 
