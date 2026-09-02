@@ -838,7 +838,6 @@ def init_db() -> None:
         # verificações abaixo — cada uma uma requisição HTTP separada —
         # acrescentariam vários segundos a CADA interação do usuário.
         return
-    _schema_initialized = True
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     (UPLOAD_DIR / "company_documents").mkdir(parents=True, exist_ok=True)
     (UPLOAD_DIR / "company_templates").mkdir(parents=True, exist_ok=True)
@@ -1255,6 +1254,13 @@ def init_db() -> None:
             "INSERT OR IGNORE INTO labor_parameters(year,minimum_wage,notes) VALUES(?,?,?)",
             (datetime.now().year, 0, "Informe o salário mínimo oficial antes de calcular a insalubridade."),
         )
+        # Só marca como concluído depois que TODA a migração rodar sem erro.
+        # Marcar antes (como era) deixava o processo "travado" num schema
+        # incompleto se uma única instrução falhasse no meio (ex.: soluço de
+        # rede com o Turso) — como a guarda acima não roda de novo dentro do
+        # mesmo processo, o app seguia no ar rodando código novo contra
+        # colunas que nunca chegaram a ser criadas.
+        _schema_initialized = True
 
 
 UPLOADS_BLOB_KEY = "uploads_archive_v1"
