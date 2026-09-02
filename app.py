@@ -104,7 +104,7 @@ from reports import (
 from notifications import send_email, send_test_email, smtp_status
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "66"
+APP_VERSION = "67"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -6369,6 +6369,15 @@ def page_new_contract():
         "espaço para digitar uma modalidade diferente.",
     )
 
+    with st.expander("BDI (opcional)", expanded=False):
+        st.caption(
+            "Mesma composição usada na aba BDI da ficha do contrato — preenchendo aqui, "
+            "já sai calculada e detalhada (por item) no e-mail de anúncio. Deixe a "
+            "identificação em branco para não cadastrar nenhum BDI agora; dá para "
+            "cadastrar mais de um depois, na própria ficha."
+        )
+        new_contract_bdi, new_contract_bdi_error = bdi_input_fields("new_contract_bdi")
+
     with st.form("new_contract"):
         c1, c2 = st.columns(2)
         contract_number = c1.text_input(
@@ -6428,7 +6437,7 @@ def page_new_contract():
             "Referência da data do orçamento",
             placeholder="Ex.: orçamento contratual inicial",
         )
-        st.markdown("#### Garantia e BDI (opcional)")
+        st.markdown("#### Garantia (opcional)")
         st.caption(
             "Preenchendo aqui, o valor exigido de garantia já sai calculado — e continua "
             "editável depois na aba Garantias e seguros da ficha do contrato."
@@ -6447,21 +6456,6 @@ def page_new_contract():
             "Valor estimado da licitação (para a garantia adicional)", min_value=0.0, format="%.2f",
             help="Só é usado quando a garantia adicional acima está marcada — o valor exigido "
             "é a diferença entre o estimado e o valor do contrato.",
-        )
-        bdi_rows = st.data_editor(
-            pd.DataFrame(columns=["Nome do BDI", "Composição (observações)"]),
-            num_rows="dynamic", width="stretch", hide_index=True, key="new_contract_bdis",
-            column_config={
-                "Nome do BDI": st.column_config.TextColumn(
-                    "Nome do BDI", help="Ex.: BDI Edificações — pode haver mais de um.",
-                ),
-                "Composição (observações)": st.column_config.TextColumn(
-                    "Composição (observações)", width="large",
-                    help="Texto livre com os percentuais (administração central, seguros/riscos/"
-                    "garantias, lucro, tributos etc.) — o detalhamento completo é preenchido "
-                    "depois na aba BDI da ficha do contrato.",
-                ),
-            },
         )
         st.markdown("#### Anexos do certame (opcional)")
         c1, c2 = st.columns(2)
@@ -6634,14 +6628,16 @@ def page_new_contract():
                                     "Não se aplica a este contrato.",
                                 ),
                             )
-                    for _, row in bdi_rows.fillna("").iterrows():
-                        bdi_name = str(row.get("Nome do BDI", "")).strip()
-                        if not bdi_name:
-                            continue
+                    if (
+                        not new_contract_bdi_error
+                        and new_contract_bdi.get("name")
+                        and new_contract_bdi.get("reference_name")
+                    ):
+                        bdi_placeholders = ",".join("?" for _ in BDI_DB_FIELDS)
                         execute(
-                            """INSERT INTO contract_bdis(contract_id,name,reference_name,notes)
-                            VALUES(?,?,?,?)""",
-                            (cid, bdi_name, bdi_name, str(row.get("Composição (observações)", ""))),
+                            f"""INSERT INTO contract_bdis(contract_id,{','.join(BDI_DB_FIELDS)})
+                            VALUES(?,{bdi_placeholders})""",
+                            (cid,) + tuple(new_contract_bdi[field] for field in BDI_DB_FIELDS),
                         )
                     for upload, doc_category, doc_title in (
                         (edital_upload, "EDITAL", "Edital"),
@@ -6794,14 +6790,21 @@ def page_precontracts():
             if not can_edit():
                 continue
             with st.expander("Preparar e-mail de anúncio"):
-                subject, body = build_announcement_email(item["id"])
+                subject, body, html_body = build_announcement_email(item["id"])
                 edited_subject = st.text_input(
                     "Assunto", value=subject, key=f"announcement_subject_{item['id']}",
                 )
                 edited_body = st.text_area(
-                    "Corpo do e-mail", value=body, height=320,
+                    "Corpo do e-mail (texto simples)", value=body, height=240,
                     key=f"announcement_body_{item['id']}",
+                    help="É este texto que fica editável antes do envio. A tabela de "
+                    "garantia e BDI abaixo é só uma prévia de como sai formatada no "
+                    "e-mail (calculada a partir dos dados cadastrados) — para corrigir "
+                    "algum número dela, ajuste na aba Garantias ou BDI da ficha do "
+                    "contrato e reabra este e-mail.",
                 )
+                st.caption("Prévia da tabela de garantia e BDI (como chega no e-mail):")
+                st.markdown(html_body, unsafe_allow_html=True)
                 attachments_available = announcement_attachments_available(item["id"])
                 selected_attachments = []
                 if attachments_available:
@@ -6837,7 +6840,7 @@ def page_precontracts():
                             attachment_payload.append((doc["filename"], doc_path.read_bytes()))
                     ok, message = send_email(
                         active_recipients, edited_subject, edited_body,
-                        attachments=attachment_payload or None,
+                        html_body=html_body, attachments=attachment_payload or None,
                     )
                     if ok:
                         log_action(

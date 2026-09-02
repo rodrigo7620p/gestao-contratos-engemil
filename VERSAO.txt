@@ -1,4 +1,22 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 67 Beta
+Data: 02/09/2026
+
+Principais alterações:
+- e-mail de anúncio de contrato ganhou tabelas de garantia e BDI no mesmo
+  layout da planilha de referência usada manualmente até hoje: garantia
+  contratual e adicional em tabela (igual ao modelo), e cada composição de
+  BDI detalhada item a item (Administração Central, Seguros/Riscos/
+  Garantias com subtotal, Despesas Financeiras, Tributos com PIS/COFINS/
+  ISS/CPRB detalhados, Lucro e o BDI ADOTADO calculado), com prévia da
+  tabela já na tela antes de enviar;
+- para isso, o cadastro de "Novo contrato" passa a usar o mesmo formulário
+  completo de BDI já existente na ficha do contrato (com todos os
+  percentuais), no lugar do campo de texto livre anterior.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 66 Beta
 Data: 02/09/2026
 
