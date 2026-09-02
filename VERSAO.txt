@@ -1,4 +1,20 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 69 Beta
+Data: 02/09/2026
+
+Principais alterações:
+- limite de tamanho de anexos: notifications.send_email() agora barra o
+  envio ANTES de tentar (em vez de deixar o servidor de e-mail rejeitar
+  com "mensagem muito grande") quando os anexos somam mais de 20 MB —
+  vale para qualquer e-mail do sistema que leve anexo;
+- no e-mail de anúncio de contrato, os anexos do certame agora mostram o
+  tamanho de cada arquivo antes de escolher, o total dos selecionados, um
+  aviso claro se passar do limite, e — quando mais de um anexo é
+  escolhido — são compactados automaticamente em um único .zip no envio.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 68 Beta
 Data: 02/09/2026
 

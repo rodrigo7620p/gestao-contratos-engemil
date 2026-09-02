@@ -185,6 +185,12 @@ def smtp_status() -> dict:
     }
 
 
+# A maioria dos provedores (KingHost incluído) rejeita mensagens acima de
+# ~33 MB já codificadas — o base64 dos anexos infla o tamanho original em
+# ~37%, então este limite é sobre os bytes brutos dos anexos, com folga.
+MAX_ATTACHMENTS_BYTES = 20 * 1024 * 1024
+
+
 def send_email(
     recipient: str, subject: str, body: str, cc=None, html_body: str = None,
     attachments=None,
@@ -202,6 +208,16 @@ def send_email(
     copies = [address for address in copies if address not in recipients]
     if not recipients:
         return False, "Nenhum e-mail de destinatário válido foi informado."
+
+    attachments_total_bytes = sum(len(content) for _, content in (attachments or []))
+    if attachments_total_bytes > MAX_ATTACHMENTS_BYTES:
+        size_mb = attachments_total_bytes / (1024 * 1024)
+        limit_mb = MAX_ATTACHMENTS_BYTES / (1024 * 1024)
+        return False, (
+            f"Anexos muito grandes ({size_mb:.1f} MB) — o servidor de e-mail rejeita "
+            f"mensagens acima de ~33 MB já codificadas. Reduza para até {limit_mb:.0f} MB "
+            "de anexos (remova algum arquivo ou compacte-os antes de anexar)."
+        )
 
     msg = EmailMessage()
     msg["From"] = config["sender"]

@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import uuid
+import zipfile
 from html import escape
 from io import BytesIO
 from datetime import date, datetime, time, timedelta
@@ -101,10 +102,10 @@ from reports import (
     generate_contract_dossier,
     generate_indices_pdf,
 )
-from notifications import send_email, send_test_email, smtp_status
+from notifications import MAX_ATTACHMENTS_BYTES, send_email, send_test_email, smtp_status
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "68"
+APP_VERSION = "69"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -6820,8 +6821,16 @@ def page_precontracts():
                 attachments_available = announcement_attachments_available(item["id"])
                 selected_attachments = []
                 if attachments_available:
+                    for doc in attachments_available:
+                        stored_name = Path(str(doc["stored_path"]).replace("\\", "/")).name
+                        doc_path = portable_project_path(
+                            doc["stored_path"], UPLOAD_DIR / str(doc["contract_id"]) / stored_name,
+                        )
+                        doc["_size_bytes"] = doc_path.stat().st_size if doc_path.exists() else 0
                     attachment_options = {
-                        f"{doc['title']} · {doc['filename']}": doc for doc in attachments_available
+                        f"{doc['title']} · {doc['filename']} "
+                        f"({doc['_size_bytes'] / (1024 * 1024):.1f} MB)": doc
+                        for doc in attachments_available
                     }
                     picked = st.multiselect(
                         "Anexos do certame para incluir", list(attachment_options),
@@ -6829,6 +6838,20 @@ def page_precontracts():
                         key=f"announcement_attachments_{item['id']}",
                     )
                     selected_attachments = [attachment_options[label] for label in picked]
+                    selected_size_mb = sum(
+                        doc["_size_bytes"] for doc in selected_attachments
+                    ) / (1024 * 1024)
+                    limit_mb = MAX_ATTACHMENTS_BYTES / (1024 * 1024)
+                    if selected_size_mb > limit_mb:
+                        st.error(
+                            f"Anexos selecionados somam {selected_size_mb:.1f} MB, acima "
+                            f"do limite de {limit_mb:.0f} MB — o servidor de e-mail rejeita "
+                            "mensagens muito grandes. Desmarque algum anexo antes de enviar "
+                            "(mais de um anexo é compactado em .zip automaticamente, mas "
+                            "isso raramente reduz arquivos que já são PDF/imagem)."
+                        )
+                    elif selected_attachments:
+                        st.caption(f"Anexos selecionados: {selected_size_mb:.1f} MB no total.")
                 else:
                     st.caption("Nenhum anexo do certame salvo para este pré-contrato.")
                 active_recipients = [
@@ -6856,6 +6879,12 @@ def page_precontracts():
                         )
                         if doc_path.exists():
                             attachment_payload.append((doc["filename"], doc_path.read_bytes()))
+                    if len(attachment_payload) > 1:
+                        zip_buffer = BytesIO()
+                        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+                            for filename, content in attachment_payload:
+                                zf.writestr(filename, content)
+                        attachment_payload = [("Anexos_do_certame.zip", zip_buffer.getvalue())]
                     ok, message = send_email(
                         active_recipients, edited_subject, edited_body,
                         cc=announcement_cc, html_body=html_body,
