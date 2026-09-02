@@ -1,4 +1,18 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 71 Beta
+Data: 02/09/2026
+
+Principais alterações:
+- corrigido o contraste da prévia do e-mail de anúncio (Pré-contratos): o
+  tema escuro do sistema forçava a cor clara de texto do Streamlit dentro
+  da caixa branca da prévia, deixando o conteúdo quase ilegível (cinza
+  claro sobre fundo branco) — os títulos, tabelas e parágrafos da prévia
+  agora saem com a cor correta independente do tema (claro ou escuro)
+  escolhido no sistema.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 70 Beta
 Data: 02/09/2026
 

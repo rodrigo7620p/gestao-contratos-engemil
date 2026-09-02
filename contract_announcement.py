@@ -308,11 +308,28 @@ def build_announcement_email(contract_id: int) -> tuple[str, str, str]:
         "partir dos dados do pré-contrato — revise antes de enviar."
     )
     plain.append(closing)
-    html.append(f'<p style="color:#6b7280;font-size:12px;">{escape(closing)}</p>')
+    html.append(f'<p class="ann-note" style="color:#6b7280;font-size:12px;">{escape(closing)}</p>')
 
     plain_body = "\n".join(plain)
+    # O st.markdown(..., unsafe_allow_html=True) do preview renderiza este HTML
+    # dentro da própria página do Streamlit (sem iframe), e o tema escuro do
+    # Streamlit define cor de texto clara em <p>/<td>/<li> com uma regra mais
+    # específica do que a herdada da cor do <div> — sem o !important escopado
+    # pela classe abaixo, o texto sai quase invisível (cinza claro sobre fundo
+    # branco). Os seletores ficam restritos a .announcement-email-preview para
+    # não vazar para o resto da página.
     html_body = (
-        '<div style="font-family:Arial,Helvetica,sans-serif;color:#1f1b1d;'
-        'background:#ffffff;padding:16px;">' + "".join(html) + "</div>"
+        '<div class="announcement-email-preview" style="font-family:Arial,'
+        'Helvetica,sans-serif;color:#1f1b1d;background:#ffffff;padding:16px;">'
+        '<style>'
+        '.announcement-email-preview,.announcement-email-preview p,'
+        '.announcement-email-preview li,.announcement-email-preview td,'
+        '.announcement-email-preview strong,.announcement-email-preview h4'
+        '{color:#1f1b1d !important;}'
+        f'.announcement-email-preview h3{{color:{_BRAND_COLOR} !important;}}'
+        '.announcement-email-preview th{color:#ffffff !important;}'
+        '.announcement-email-preview p.ann-note{color:#6b7280 !important;}'
+        '</style>'
+        + "".join(html) + "</div>"
     )
     return subject, plain_body, html_body
