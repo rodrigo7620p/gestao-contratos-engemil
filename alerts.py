@@ -223,7 +223,7 @@ def process_contract_expiry_alerts(today=None):
             'Contrato'
         ) effective_instrument
         FROM contracts c
-        WHERE c.archived=0
+        WHERE c.archived=0 AND c.formalized=1
         ORDER BY effective_end,c.client"""
     )
     result = {

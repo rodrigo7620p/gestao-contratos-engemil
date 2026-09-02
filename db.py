@@ -253,6 +253,8 @@ CREATE TABLE IF NOT EXISTS contracts (
     source_sheet TEXT,
     tax_regime TEXT NOT NULL DEFAULT 'NÃO DEFINIDO',
     cno_required INTEGER,
+    formalized INTEGER NOT NULL DEFAULT 1,
+    object_identifier TEXT,
     archived INTEGER NOT NULL DEFAULT 0,
     archived_at TEXT,
     archived_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -775,6 +777,12 @@ CREATE TABLE IF NOT EXISTS bid_schedule_recipients (
     active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS new_contract_announcement_recipients (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 CREATE TABLE IF NOT EXISTS contract_task_responsibles (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     task_type TEXT NOT NULL,
@@ -889,6 +897,12 @@ def init_db() -> None:
             conn.execute("ALTER TABLE contracts ADD COLUMN cno_required INTEGER")
         if "process_number" not in contract_columns:
             conn.execute("ALTER TABLE contracts ADD COLUMN process_number TEXT")
+        if "formalized" not in contract_columns:
+            conn.execute(
+                "ALTER TABLE contracts ADD COLUMN formalized INTEGER NOT NULL DEFAULT 1"
+            )
+        if "object_identifier" not in contract_columns:
+            conn.execute("ALTER TABLE contracts ADD COLUMN object_identifier TEXT")
         bid_process_columns = {row["name"] for row in conn.execute("PRAGMA table_info(bid_processes)")}
         if bid_process_columns and "agency_cnpj" not in bid_process_columns:
             conn.execute("ALTER TABLE bid_processes ADD COLUMN agency_cnpj TEXT")

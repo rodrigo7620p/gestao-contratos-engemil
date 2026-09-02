@@ -1,4 +1,34 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 66 Beta
+Data: 02/09/2026
+
+Principais alterações:
+- centro de custo automático: ao cadastrar um contrato novo, escolher a
+  modalidade (Manutenção/Obra/Reforma/ATA/Consórcio/Outro) já gera o
+  centro de custo sozinho, seguindo a sequência existente para aquele
+  código (01.YY.ZZZZZ) — dá para digitar manualmente quando o padrão não
+  se aplicar. O número do contrato deixa de ser obrigatório nesse momento;
+- pré-contratos: um contrato cadastrado sem número fica como "pré-contrato"
+  — fora do Dashboard, Contratos (Ativos), Índices, Exportações e do
+  alerta de vencimento, mas continua editável pela Ficha do Contrato.
+  Preencher o número do contrato ali (ou no cadastro) formaliza e inclui
+  o contrato na carteira automaticamente;
+- nova página "Pré-contratos": lista os centros de custo reservados
+  aguardando formalização, com atalho para abrir a ficha e um gerador de
+  e-mail de anúncio de licitação vencida (mesmo modelo hoje usado
+  manualmente) — assunto com centro de custo, sigla do órgão, modalidade
+  e identificação do objeto; corpo com número do certame/processo,
+  objeto, gestor do contrato, garantia contratual e adicional já
+  calculadas e composições de BDI. É só um rascunho: fica em campos
+  editáveis até clicar em enviar, com anexos do certame (edital, termo de
+  referência, planilha, proposta homologada) para incluir, e uma lista de
+  e-mails de destinatários fixa e reaproveitável entre os envios;
+- novo campo "Identificação do objeto" no contrato (ex.: VRF, Manutenção
+  Predial), usado no assunto desse e-mail de anúncio.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 65 Beta
 Data: 01/09/2026
 

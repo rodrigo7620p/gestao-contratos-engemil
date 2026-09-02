@@ -39,6 +39,7 @@ from bids import (
     pncp_search_contratacoes,
 )
 from bid_viability import build_pncp_documents_zip, parse_pncp_control_number
+from contract_announcement import announcement_attachments_available, build_announcement_email
 from contract_tasks import notify_contract_task_needs
 from contract_utils import (
     agency_document_fields,
@@ -100,10 +101,10 @@ from reports import (
     generate_contract_dossier,
     generate_indices_pdf,
 )
-from notifications import send_test_email, smtp_status
+from notifications import send_email, send_test_email, smtp_status
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "65"
+APP_VERSION = "66"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -1854,7 +1855,7 @@ def page_dashboard():
         f"Somente contratos vigentes · Atualizado em {fmt_date_long(date.today())}, "
         f"às {datetime.now().strftime('%H:%M')}. Contratos encerrados deixam de compor os indicadores."
     )
-    portfolio = pd.DataFrame(load_contracts("WHERE c.archived=0"))
+    portfolio = pd.DataFrame(load_contracts("WHERE c.archived=0 AND c.formalized=1"))
     if portfolio.empty:
         st.info("Não há contratos ativos na carteira.")
         return
@@ -2268,7 +2269,10 @@ def page_contracts():
                         except Exception:
                             st.error("Este e-mail já está cadastrado.")
     scope = st.radio("Exibir", ["Ativos", "Arquivados", "Todos"], horizontal=True)
-    where = {"Ativos": "WHERE c.archived=0", "Arquivados": "WHERE c.archived=1", "Todos": ""}[scope]
+    where = {
+        "Ativos": "WHERE c.archived=0 AND c.formalized=1",
+        "Arquivados": "WHERE c.archived=1", "Todos": "",
+    }[scope]
     rows = load_contracts(where)
     search = st.text_input("Pesquisar por órgão, contrato, processo, objeto ou centro de custo")
     if search:
@@ -3173,7 +3177,10 @@ def build_employee_import_preview(
 def page_contract_detail():
     st.title("Ficha do Contrato")
     scope = st.radio("Carteira", ["Ativos", "Arquivados", "Todos"], horizontal=True, key="detail_scope")
-    where = {"Ativos": "WHERE c.archived=0", "Arquivados": "WHERE c.archived=1", "Todos": ""}[scope]
+    where = {
+        "Ativos": "WHERE c.archived=0 AND c.formalized=1",
+        "Arquivados": "WHERE c.archived=1", "Todos": "",
+    }[scope]
     rows = load_contracts(where)
     if not rows:
         st.info("Nenhum contrato disponível.")
@@ -6135,12 +6142,14 @@ def page_contract_detail():
                     except ValueError:
                         st.error("Informe os valores no padrão brasileiro, por exemplo: R$ 18.740.995,83.")
                     else:
+                        newly_formalized = not contract["formalized"] and bool(contract_number.strip())
+                        formalized = 1 if (contract["formalized"] or contract_number.strip()) else 0
                         execute(
                             """UPDATE contracts SET cost_center=?,contract_number=?,category=?,client=?,object=?,
                             bid_number=?,process_number=?,uasg=?,procurement_method=?,signature_date=?,start_date=?,end_date=?,
                             original_value=?,current_value=?,status=?,tax_regime=?,manager_name=?,manager_email=?,
                             engineer_name=?,engineer_email=?,repactuation_date=?,
-                            observations=?,updated_at=CURRENT_TIMESTAMP WHERE id=?""",
+                            observations=?,formalized=?,updated_at=CURRENT_TIMESTAMP WHERE id=?""",
                             (
                              cost_center, contract_number, category,
                              normalize_agency_name(client), object_text, bid_number, process_number, uasg,
@@ -6150,7 +6159,7 @@ def page_contract_detail():
                              manager_name, manager_email,
                              engineer_name, engineer_email,
                              repactuation.isoformat() if repactuation else None,
-                             observations, cid),
+                             observations, formalized, cid),
                         )
                         refresh_contract_lifecycle(cid)
                         log_action(
@@ -6158,7 +6167,10 @@ def page_contract_detail():
                             contract["cost_center"],
                         )
                         st.session_state["data_review_success_notice"] = True
-                        st.success("Contrato atualizado.")
+                        if newly_formalized:
+                            st.success("Contrato formalizado e incluído na carteira.")
+                        else:
+                            st.success("Contrato atualizado.")
                         rerun()
             render_budget_dates_editor(cid)
             st.divider()
@@ -6216,11 +6228,15 @@ def page_contract_detail():
 
 
 CONTRACT_CATEGORY_BY_COST_CENTER_CODE = {
+    "01": "OUTRO",
     "02": "MANUTENÇÃO",
     "03": "OBRA",
     "04": "REFORMA",
     "05": "ATA",
     "06": "CONSÓRCIO",
+}
+COST_CENTER_CODE_BY_CATEGORY = {
+    category: code for code, category in CONTRACT_CATEGORY_BY_COST_CENTER_CODE.items()
 }
 
 
@@ -6232,6 +6248,24 @@ def suggested_category_from_cost_center(cost_center):
     um centro de custo em formato diferente."""
     code = (cost_center or "")[3:5]
     return CONTRACT_CATEGORY_BY_COST_CENTER_CODE.get(code)
+
+
+def next_cost_center_for_category(category):
+    """Gera o próximo centro de custo disponível para a modalidade
+    escolhida, seguindo o padrão fixo 01.YY.ZZZZZ (YY = código da
+    modalidade, ZZZZZ = sequência com 5 dígitos). Considera TODOS os
+    centros de custo já usados com aquele código — inclusive os ainda não
+    formalizados — para nunca repetir um número já reservado."""
+    code = COST_CENTER_CODE_BY_CATEGORY.get(category, "01")
+    rows = query(
+        "SELECT cost_center FROM contracts WHERE substr(cost_center,4,2)=?", (code,)
+    )
+    max_seq = 0
+    for row in rows:
+        match = re.match(r"^01\.\d{2}\.(\d+)$", str(row["cost_center"] or "").strip())
+        if match:
+            max_seq = max(max_seq, int(match.group(1)))
+    return f"01.{code}.{max_seq + 1:05d}"
 
 
 def load_known_contract_people():
@@ -6268,24 +6302,38 @@ def page_new_contract():
             "lançamento para cadastrar novos contratos."
         )
         return
-    with st.expander("Como funciona a modalidade automática", expanded=False):
+    with st.expander("Como funciona o centro de custo automático", expanded=False):
         st.caption(
-            "O centro de custo segue o padrão XX.YY.ZZZZZ, em que YY define a modalidade: "
-            "02 → Manutenção, 03 → Obra, 04 → Reforma, 05 → ATA, 06 → Consórcio. Ao digitar o "
-            "centro de custo abaixo, a Modalidade já vem sugerida automaticamente — você ainda "
-            "pode trocar manualmente se o padrão não se aplicar a este contrato."
+            "O centro de custo segue o padrão 01.YY.ZZZZZ, em que YY define a modalidade: "
+            "01 → Outro, 02 → Manutenção, 03 → Obra, 04 → Reforma, 05 → ATA, 06 → Consórcio. "
+            "Ao escolher a modalidade abaixo, o centro de custo já é gerado automaticamente, "
+            "seguindo a sequência existente para aquele código — normalmente antes mesmo de o "
+            "contrato ser assinado, quando ainda não há número de contrato. Marque \"digitar "
+            "manualmente\" só se este caso não seguir o padrão."
         )
-    cc1, cc2 = st.columns(2)
-    cost_center = cc1.text_input("Centro de custo *", key="new_contract_cost_center")
-    suggested_category = suggested_category_from_cost_center(cost_center)
     category_options = ["MANUTENÇÃO", "OBRA", "REFORMA", "ATA", "CONSÓRCIO", "OUTRO"]
-    category = cc2.selectbox(
-        "Modalidade", category_options,
-        index=category_options.index(suggested_category) if suggested_category in category_options else 0,
-        key=f"new_contract_category_{re.sub(r'[^0-9]', '', cost_center)[:5] or 'manual'}",
-        help="Sugerida automaticamente a partir do centro de custo digitado ao lado — "
-        "pode ser trocada manualmente a qualquer momento.",
+    manual_cost_center = st.checkbox(
+        "Digitar centro de custo manualmente (em vez de gerar automaticamente pela modalidade)",
+        key="new_contract_manual_cc",
     )
+    cc1, cc2 = st.columns(2)
+    if manual_cost_center:
+        cost_center = cc1.text_input("Centro de custo *", key="new_contract_cost_center")
+        suggested_category = suggested_category_from_cost_center(cost_center)
+        category = cc2.selectbox(
+            "Modalidade", category_options,
+            index=category_options.index(suggested_category) if suggested_category in category_options else 0,
+            key=f"new_contract_category_{re.sub(r'[^0-9]', '', cost_center)[:5] or 'manual'}",
+            help="Sugerida automaticamente a partir do centro de custo digitado ao lado — "
+            "pode ser trocada manualmente a qualquer momento.",
+        )
+    else:
+        category = cc1.selectbox("Modalidade", category_options, key="new_contract_category_auto")
+        cost_center = next_cost_center_for_category(category)
+        cc2.text_input(
+            "Centro de custo (gerado automaticamente)", value=cost_center, disabled=True,
+            key=f"new_contract_cost_center_display_{category}",
+        )
 
     known_people = load_known_contract_people()
     people_options = {"Cadastrar novo": None}
@@ -6323,11 +6371,22 @@ def page_new_contract():
 
     with st.form("new_contract"):
         c1, c2 = st.columns(2)
-        contract_number = c1.text_input("Número do contrato *")
+        contract_number = c1.text_input(
+            "Número do contrato",
+            help="Pode ficar em branco quando o centro de custo é reservado antes da "
+            "assinatura — o contrato fica como pré-contrato (fora da carteira) até o "
+            "número ser preenchido aqui ou na Ficha do Contrato.",
+        )
         client = c2.text_input("Órgão/contratante *")
         object_text = st.text_area("Objeto")
+        object_identifier = st.text_input(
+            "Identificação do objeto (para o assunto do e-mail)",
+            placeholder="Ex.: VRF, Manutenção Predial, Obra de Restauro",
+            help="Um termo curto que identifique o tipo de objeto — usado no assunto do "
+            "e-mail de anúncio e dos avisos de providências deste contrato.",
+        )
         c1, c2 = st.columns(2)
-        bid_number = c1.text_input("Edital/licitação")
+        bid_number = c1.text_input("Edital/licitação", help="Número do certame (pregão eletrônico etc.).")
         process_number = c2.text_input(
             "Número do processo",
             help="Número do processo administrativo/licitatório de origem do contrato.",
@@ -6369,6 +6428,48 @@ def page_new_contract():
             "Referência da data do orçamento",
             placeholder="Ex.: orçamento contratual inicial",
         )
+        st.markdown("#### Garantia e BDI (opcional)")
+        st.caption(
+            "Preenchendo aqui, o valor exigido de garantia já sai calculado — e continua "
+            "editável depois na aba Garantias e seguros da ficha do contrato."
+        )
+        c1, c2 = st.columns(2)
+        guarantee_percent = c1.number_input(
+            "Garantia contratual (%)", min_value=0.0, max_value=100.0, format="%.2f",
+            help="Percentual aplicado sobre o valor do contrato (campo \"Valor original\" acima).",
+        )
+        additional_guarantee_applies = c2.checkbox(
+            "Exige garantia adicional (obras/serviços de engenharia)",
+            help="Lei nº 14.133/2021, art. 59, § 5º — deixe desmarcado quando não se aplicar; "
+            "o sistema já registra a dispensa com a base legal correspondente.",
+        )
+        additional_guarantee_estimated = st.number_input(
+            "Valor estimado da licitação (para a garantia adicional)", min_value=0.0, format="%.2f",
+            help="Só é usado quando a garantia adicional acima está marcada — o valor exigido "
+            "é a diferença entre o estimado e o valor do contrato.",
+        )
+        bdi_rows = st.data_editor(
+            pd.DataFrame(columns=["Nome do BDI", "Composição (observações)"]),
+            num_rows="dynamic", width="stretch", hide_index=True, key="new_contract_bdis",
+            column_config={
+                "Nome do BDI": st.column_config.TextColumn(
+                    "Nome do BDI", help="Ex.: BDI Edificações — pode haver mais de um.",
+                ),
+                "Composição (observações)": st.column_config.TextColumn(
+                    "Composição (observações)", width="large",
+                    help="Texto livre com os percentuais (administração central, seguros/riscos/"
+                    "garantias, lucro, tributos etc.) — o detalhamento completo é preenchido "
+                    "depois na aba BDI da ficha do contrato.",
+                ),
+            },
+        )
+        st.markdown("#### Anexos do certame (opcional)")
+        c1, c2 = st.columns(2)
+        edital_upload = c1.file_uploader("Edital")
+        tr_upload = c2.file_uploader("Termo de Referência")
+        c1, c2 = st.columns(2)
+        spreadsheet_upload = c1.file_uploader("Planilha")
+        proposal_upload = c2.file_uploader("Proposta homologada")
         st.markdown("#### Sindicatos e datas-base iniciais")
         union_rows = st.data_editor(
             pd.DataFrame(columns=[
@@ -6418,25 +6519,28 @@ def page_new_contract():
             "ART), quando houver responsável cadastrado para isso.",
         )
         if st.form_submit_button("Cadastrar contrato", width="stretch"):
-            if not cost_center.strip() or not contract_number.strip() or not client.strip():
-                st.error("Preencha centro de custo, número e contratante.")
+            if not cost_center.strip() or not client.strip():
+                st.error("Preencha centro de custo e contratante.")
             else:
+                formalized = 1 if contract_number.strip() else 0
                 try:
                     cid = execute(
-                        """INSERT INTO contracts(cost_center,client,contract_number,category,object,bid_number,
+                        """INSERT INTO contracts(cost_center,client,contract_number,category,object,
+                        object_identifier,bid_number,
                         process_number,uasg,procurement_method,signature_date,start_date,end_date,original_value,current_value,
                         manager_name,manager_email,engineer_name,engineer_email,
-                        repactuation_date,observations,tax_regime,status)
-                        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'ATIVO')""",
+                        repactuation_date,observations,tax_regime,formalized,status)
+                        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'ATIVO')""",
                         (
                          cost_center.strip(), normalize_agency_name(client),
-                         contract_number.strip(), category, object_text,
+                         contract_number.strip() or None, category, object_text,
+                         object_identifier.strip() or None,
                          bid_number, process_number, uasg, procurement_method,
                          signature.isoformat() if signature else None, start.isoformat() if start else None,
                          end.isoformat() if end else None, original_value, current_value,
                          manager_name, manager_email, engineer_name, engineer_email,
                          repactuation.isoformat() if repactuation else None,
-                         observations, tax_regime),
+                         observations, tax_regime, formalized),
                     )
                     if budget_date:
                         execute(
@@ -6483,6 +6587,70 @@ def page_new_contract():
                              int(numeric("Ano-base insalubridade", date.today().year)), union_id),
                         )
                     log_action(user["id"], "CRIAR", "contrato", cid, cost_center)
+                    if guarantee_percent > 0 or additional_guarantee_applies:
+                        required_amount = calculate_required_amount(
+                            "PERCENTUAL_BASE", calculation_base=original_value,
+                            percentage=guarantee_percent,
+                        )
+                        execute(
+                            """INSERT INTO contract_guarantees(
+                            contract_id,guarantee_type,instrument_scope,legal_basis,
+                            calculation_method,calculation_base,percentage,required_amount)
+                            VALUES(?,?,?,?,?,?,?,?)""",
+                            (
+                                cid, "GARANTIA CONTRATUAL", "CONTRATO INICIAL",
+                                default_legal_basis("GARANTIA CONTRATUAL"),
+                                "PERCENTUAL_BASE", original_value, guarantee_percent,
+                                required_amount,
+                            ),
+                        )
+                        if additional_guarantee_applies:
+                            additional_required = calculate_required_amount(
+                                "GARANTIA_ADICIONAL", estimated_budget=additional_guarantee_estimated,
+                                proposal_value=original_value,
+                            )
+                            execute(
+                                """INSERT INTO contract_guarantees(
+                                contract_id,guarantee_type,instrument_scope,legal_basis,
+                                calculation_method,estimated_budget,proposal_value,required_amount)
+                                VALUES(?,?,?,?,?,?,?,?)""",
+                                (
+                                    cid, "GARANTIA ADICIONAL", "CONTRATO INICIAL",
+                                    default_legal_basis("GARANTIA ADICIONAL"),
+                                    "GARANTIA_ADICIONAL", additional_guarantee_estimated,
+                                    original_value, additional_required,
+                                ),
+                            )
+                        else:
+                            execute(
+                                """INSERT INTO contract_guarantees(
+                                contract_id,guarantee_type,instrument_scope,legal_basis,
+                                calculation_method,request_status,notes)
+                                VALUES(?,?,?,?,?,?,?)""",
+                                (
+                                    cid, "GARANTIA ADICIONAL", "CONTRATO INICIAL",
+                                    default_legal_basis("GARANTIA ADICIONAL"),
+                                    "GARANTIA_ADICIONAL", "DISPENSADA",
+                                    "Não se aplica a este contrato.",
+                                ),
+                            )
+                    for _, row in bdi_rows.fillna("").iterrows():
+                        bdi_name = str(row.get("Nome do BDI", "")).strip()
+                        if not bdi_name:
+                            continue
+                        execute(
+                            """INSERT INTO contract_bdis(contract_id,name,reference_name,notes)
+                            VALUES(?,?,?,?)""",
+                            (cid, bdi_name, bdi_name, str(row.get("Composição (observações)", ""))),
+                        )
+                    for upload, doc_category, doc_title in (
+                        (edital_upload, "EDITAL", "Edital"),
+                        (tr_upload, "TERMO DE REFERÊNCIA", "Termo de Referência"),
+                        (spreadsheet_upload, "PLANILHA", "Planilha"),
+                        (proposal_upload, "PROPOSTA HOMOLOGADA", "Proposta homologada"),
+                    ):
+                        if upload:
+                            save_document(cid, upload, doc_category, doc_title)
                     document_bytes = document_filename = None
                     if contract_document_upload:
                         save_document(
@@ -6491,13 +6659,15 @@ def page_new_contract():
                         )
                         document_bytes = contract_document_upload.getvalue()
                         document_filename = contract_document_upload.name
-                    notified = notify_contract_task_needs(
-                        contract_id=cid, amendment_id=None, kind_label="CONTRATO",
-                        ordinal=None, cost_center=cost_center.strip(),
-                        client=normalize_agency_name(client), contract_number=contract_number.strip(),
-                        document_bytes=document_bytes, document_filename=document_filename,
-                        extra_recipients=[engineer_email, manager_email],
-                    )
+                    notified = []
+                    if formalized:
+                        notified = notify_contract_task_needs(
+                            contract_id=cid, amendment_id=None, kind_label="CONTRATO",
+                            ordinal=None, cost_center=cost_center.strip(),
+                            client=normalize_agency_name(client), contract_number=contract_number.strip(),
+                            document_bytes=document_bytes, document_filename=document_filename,
+                            extra_recipients=[engineer_email, manager_email],
+                        )
                     for reset_key in (
                         "new_contract_engineer_pick", "new_contract_manager_pick",
                         "new_contract_engineer_applied", "new_contract_manager_applied",
@@ -6507,15 +6677,176 @@ def page_new_contract():
                         "new_contract_procurement_method_select", "new_contract_procurement_method_custom",
                     ):
                         st.session_state.pop(reset_key, None)
-                    success_message = "Contrato, sindicatos e equipe cadastrados. Complete os demais dados na Ficha do Contrato."
-                    if notified:
-                        success_message += (
-                            f" Aviso de providências iniciais enviado para "
-                            f"{len(notified)} responsável(is)."
+                    if formalized:
+                        success_message = "Contrato, sindicatos e equipe cadastrados. Complete os demais dados na Ficha do Contrato."
+                        if notified:
+                            success_message += (
+                                f" Aviso de providências iniciais enviado para "
+                                f"{len(notified)} responsável(is)."
+                            )
+                    else:
+                        success_message = (
+                            f"Centro de custo {cost_center.strip()} reservado como pré-contrato "
+                            "(fora da carteira até o número do contrato ser preenchido). Vá em "
+                            "\"Pré-contratos\" para revisar e enviar o e-mail de anúncio."
                         )
                     st.success(success_message)
                 except Exception:
                     st.error("Não foi possível cadastrar. Verifique se o centro de custo já existe.")
+
+
+def page_precontracts():
+    st.title("Pré-contratos")
+    st.caption(
+        "Centros de custo já reservados, aguardando a formalização do contrato (número do "
+        "contrato ainda não preenchido). Ficam fora da carteira ativa até serem formalizados "
+        "— preencha o número na Ficha do Contrato para incluí-los na carteira."
+    )
+    if can_edit():
+        with st.expander("E-mails de anúncio (destinatários fixos)"):
+            st.caption(
+                "Lista reaproveitada em todos os envios do e-mail de anúncio de contrato "
+                "vencido — cadastre uma vez e vá incluindo novos endereços conforme necessário."
+            )
+            recipients = [
+                dict(row) for row in query(
+                    "SELECT * FROM new_contract_announcement_recipients ORDER BY active DESC,email"
+                )
+            ]
+            if recipients:
+                modern_table(pd.DataFrame([{
+                    "E-mail": row["email"],
+                    "Status": "ATIVO" if row["active"] else "INATIVO",
+                } for row in recipients]))
+                remove_options = {row["email"]: row["id"] for row in recipients}
+                rc1, rc2 = st.columns([3, 1])
+                remove_label = rc1.selectbox(
+                    "E-mail para pausar/reativar ou remover", remove_options,
+                    key="announcement_recipient_target",
+                )
+                target_id = remove_options[remove_label]
+                target_row = next(r for r in recipients if r["id"] == target_id)
+                with rc2:
+                    st.write("")
+                    st.write("")
+                    if st.button(
+                        "Pausar" if target_row["active"] else "Reativar",
+                        key="toggle_announcement_recipient",
+                    ):
+                        execute(
+                            "UPDATE new_contract_announcement_recipients SET active=? WHERE id=?",
+                            (0 if target_row["active"] else 1, target_id),
+                        )
+                        rerun()
+                if st.button("Remover este e-mail definitivamente", key="delete_announcement_recipient"):
+                    execute(
+                        "DELETE FROM new_contract_announcement_recipients WHERE id=?", (target_id,)
+                    )
+                    log_action(
+                        user["id"], "REMOVER", "destinatário de anúncio de contrato",
+                        target_id, remove_label,
+                    )
+                    st.success("E-mail removido.")
+                    rerun()
+            else:
+                st.info("Nenhum e-mail cadastrado ainda.")
+            with st.form("new_announcement_recipient", clear_on_submit=True):
+                new_email = st.text_input("Adicionar e-mail")
+                if st.form_submit_button("Adicionar"):
+                    normalized = new_email.strip().lower()
+                    if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", normalized):
+                        st.error("Informe um endereço de e-mail válido.")
+                    else:
+                        try:
+                            execute(
+                                "INSERT INTO new_contract_announcement_recipients(email) VALUES(?)",
+                                (normalized,),
+                            )
+                            log_action(
+                                user["id"], "CADASTRAR", "destinatário de anúncio de contrato",
+                                None, normalized,
+                            )
+                            st.success("E-mail cadastrado.")
+                            rerun()
+                        except Exception:
+                            st.error("Este e-mail já está cadastrado.")
+
+    precontracts = load_contracts("WHERE c.formalized=0")
+    if not precontracts:
+        st.info("Nenhum pré-contrato pendente no momento.")
+        return
+
+    for item in precontracts:
+        with st.container(border=True):
+            st.markdown(f"##### {item['cost_center']} · {item['client']}")
+            cols = st.columns(4)
+            cols[0].metric("Modalidade", item["category"] or "—")
+            cols[1].metric("Identificação", item.get("object_identifier") or "—")
+            cols[2].metric("Criado em", fmt_date(item.get("created_at")))
+            with cols[3]:
+                st.write("")
+                if st.button("Abrir ficha", key=f"open_precontract_{item['id']}"):
+                    st.session_state["detail_contract_id"] = item["id"]
+                    st.session_state["navigation_page"] = "Ficha do contrato"
+                    rerun()
+            if item.get("object"):
+                st.caption(item["object"])
+            if not can_edit():
+                continue
+            with st.expander("Preparar e-mail de anúncio"):
+                subject, body = build_announcement_email(item["id"])
+                edited_subject = st.text_input(
+                    "Assunto", value=subject, key=f"announcement_subject_{item['id']}",
+                )
+                edited_body = st.text_area(
+                    "Corpo do e-mail", value=body, height=320,
+                    key=f"announcement_body_{item['id']}",
+                )
+                attachments_available = announcement_attachments_available(item["id"])
+                selected_attachments = []
+                if attachments_available:
+                    attachment_options = {
+                        f"{doc['title']} · {doc['filename']}": doc for doc in attachments_available
+                    }
+                    picked = st.multiselect(
+                        "Anexos do certame para incluir", list(attachment_options),
+                        default=list(attachment_options),
+                        key=f"announcement_attachments_{item['id']}",
+                    )
+                    selected_attachments = [attachment_options[label] for label in picked]
+                else:
+                    st.caption("Nenhum anexo do certame salvo para este pré-contrato.")
+                active_recipients = [
+                    row["email"] for row in query(
+                        "SELECT email FROM new_contract_announcement_recipients WHERE active=1 ORDER BY email"
+                    )
+                ]
+                if not active_recipients:
+                    st.warning("Cadastre ao menos um e-mail de anúncio acima antes de enviar.")
+                if st.button(
+                    "Enviar e-mail de anúncio", key=f"send_announcement_{item['id']}",
+                    disabled=not active_recipients,
+                ):
+                    attachment_payload = []
+                    for doc in selected_attachments:
+                        stored_name = Path(str(doc["stored_path"]).replace("\\", "/")).name
+                        doc_path = portable_project_path(
+                            doc["stored_path"], UPLOAD_DIR / str(doc["contract_id"]) / stored_name,
+                        )
+                        if doc_path.exists():
+                            attachment_payload.append((doc["filename"], doc_path.read_bytes()))
+                    ok, message = send_email(
+                        active_recipients, edited_subject, edited_body,
+                        attachments=attachment_payload or None,
+                    )
+                    if ok:
+                        log_action(
+                            user["id"], "ENVIAR", "e-mail de anúncio de contrato",
+                            item["id"], item["cost_center"],
+                        )
+                        st.success(message)
+                    else:
+                        st.error(message)
 
 
 def page_import():
@@ -6540,7 +6871,7 @@ def page_import():
 
 def indices_data():
     contracts = [
-        contract for contract in load_contracts("WHERE c.archived=0")
+        contract for contract in load_contracts("WHERE c.archived=0 AND c.formalized=1")
         if days_until(contract["end_date"]) is not None and days_until(contract["end_date"]) >= 0
     ]
     params = dict(query("SELECT * FROM financial_parameters WHERE id=1")[0])
@@ -6664,7 +6995,7 @@ def page_indices():
                     rerun()
     st.subheader("Relação que será incluída na declaração")
     contracts = [
-        contract for contract in load_contracts("WHERE c.archived=0")
+        contract for contract in load_contracts("WHERE c.archived=0 AND c.formalized=1")
         if days_until(contract["end_date"]) is not None and days_until(contract["end_date"]) >= 0
     ]
     declaration_contracts = []
@@ -10019,7 +10350,7 @@ def page_sesmt():
 def page_exports():
     st.title("Exportações")
     st.caption("Gere arquivos Excel atualizados a qualquer momento, sem depender da planilha original.")
-    contracts = load_contracts("WHERE c.archived=0")
+    contracts = load_contracts("WHERE c.archived=0 AND c.formalized=1")
     vigent_contracts = [
         contract for contract in contracts
         if days_until(contract["end_date"]) is not None and days_until(contract["end_date"]) >= 0
@@ -10593,6 +10924,7 @@ page_modules = {
     "Contratos": "contracts",
     "Ficha do contrato": "contract_detail",
     "Novo contrato": "new_contract",
+    "Pré-contratos": "new_contract",
     "Licitações": "bids",
     "SESMT": "sesmt",
     "Exportações": "exports",
@@ -10602,7 +10934,7 @@ page_modules = {
 pages = [
     label for label, module in page_modules.items()
     if has_permission(module, "can_view")
-    and (label != "Novo contrato" or has_permission(module, "can_create"))
+    and (label not in ("Novo contrato", "Pré-contratos") or has_permission(module, "can_create"))
 ]
 if user["role"] == "admin":
     pages.append("Usuários")
@@ -10628,6 +10960,7 @@ st.session_state.current_module = page_modules.get(page, "users")
     "Contratos": page_contracts,
     "Ficha do contrato": page_contract_detail,
     "Novo contrato": page_new_contract,
+    "Pré-contratos": page_precontracts,
     "Licitações": page_bids,
     "SESMT": page_sesmt,
     "Exportações": page_exports,
