@@ -104,7 +104,7 @@ from reports import (
 from notifications import send_email, send_test_email, smtp_status
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "67"
+APP_VERSION = "68"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -1845,6 +1845,18 @@ def open_contract_guarantees(contract_id):
     st.session_state["detail_contract_id"] = int(contract_id)
     st.session_state["detail_review_fields"] = []
     st.session_state["detail_scope"] = "Ativos"
+    st.session_state.pop("_detail_target_applied", None)
+    st.session_state["navigation_page"] = "Ficha do contrato"
+
+
+def open_precontract_ficha(contract_id):
+    """Abre a ficha de um pré-contrato a partir da página Pré-contratos.
+
+    Usa o escopo "Todos" porque um pré-contrato (formalized=0) não aparece
+    no escopo padrão "Ativos" da ficha."""
+    st.session_state["detail_contract_id"] = int(contract_id)
+    st.session_state["detail_review_fields"] = []
+    st.session_state["detail_scope"] = "Todos"
     st.session_state.pop("_detail_target_applied", None)
     st.session_state["navigation_page"] = "Ficha do contrato"
 
@@ -6781,10 +6793,10 @@ def page_precontracts():
             cols[2].metric("Criado em", fmt_date(item.get("created_at")))
             with cols[3]:
                 st.write("")
-                if st.button("Abrir ficha", key=f"open_precontract_{item['id']}"):
-                    st.session_state["detail_contract_id"] = item["id"]
-                    st.session_state["navigation_page"] = "Ficha do contrato"
-                    rerun()
+                st.button(
+                    "Abrir ficha", key=f"open_precontract_{item['id']}",
+                    on_click=open_precontract_ficha, args=(item["id"],),
+                )
             if item.get("object"):
                 st.caption(item["object"])
             if not can_edit():
@@ -6826,6 +6838,12 @@ def page_precontracts():
                 ]
                 if not active_recipients:
                     st.warning("Cadastre ao menos um e-mail de anúncio acima antes de enviar.")
+                announcement_cc = [item.get("engineer_email"), item.get("manager_email")]
+                if any(announcement_cc):
+                    st.caption(
+                        "Recebem cópia automaticamente: "
+                        + ", ".join(email for email in announcement_cc if email)
+                    )
                 if st.button(
                     "Enviar e-mail de anúncio", key=f"send_announcement_{item['id']}",
                     disabled=not active_recipients,
@@ -6840,7 +6858,8 @@ def page_precontracts():
                             attachment_payload.append((doc["filename"], doc_path.read_bytes()))
                     ok, message = send_email(
                         active_recipients, edited_subject, edited_body,
-                        html_body=html_body, attachments=attachment_payload or None,
+                        cc=announcement_cc, html_body=html_body,
+                        attachments=attachment_payload or None,
                     )
                     if ok:
                         log_action(

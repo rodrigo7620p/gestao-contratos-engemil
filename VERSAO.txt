@@ -1,4 +1,20 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 68 Beta
+Data: 02/09/2026
+
+Principais alterações:
+- corrigido erro ao clicar em "Abrir ficha" na página Pré-contratos
+  (StreamlitWidgetAlreadyInstantiatedError) — o botão agora troca de
+  página pelo mesmo mecanismo (on_click) já usado pelos demais atalhos de
+  abrir ficha do sistema, em vez de mexer no controle de navegação
+  enquanto ele já estava em uso;
+- o e-mail de anúncio de contrato agora envia cópia automaticamente para
+  o engenheiro responsável e o responsável administrativo cadastrados no
+  contrato, quando preenchidos.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 67 Beta
 Data: 02/09/2026
 
