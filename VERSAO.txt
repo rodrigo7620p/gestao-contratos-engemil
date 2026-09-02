@@ -1,4 +1,22 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 70 Beta
+Data: 02/09/2026
+
+Principais alterações:
+- na tela "Preparar e-mail de anúncio" (Pré-contratos), desmarcar um anexo
+  no seletor só afetava aquele envio — o arquivo continuava salvo e
+  reaparecia da próxima vez. Agora há um "Baixar ou excluir anexo do
+  certame" logo abaixo, que exclui de verdade o documento do pré-contrato
+  (movendo o arquivo para a pasta de recuperação, mesmo mecanismo já usado
+  na Ficha do Contrato);
+- quando o pré-contrato ainda não tem garantia contratual/adicional nem
+  BDI cadastrados, um aviso aparece antes do envio avisando que a seção
+  "Informações adicionais" vai sair vazia no e-mail, com o lembrete de
+  cadastrar pela aba Garantias/BDI da Ficha do Contrato antes de enviar.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 69 Beta
 Data: 02/09/2026
 

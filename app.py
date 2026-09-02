@@ -105,7 +105,7 @@ from reports import (
 from notifications import MAX_ATTACHMENTS_BYTES, send_email, send_test_email, smtp_status
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "69"
+APP_VERSION = "70"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -6816,6 +6816,22 @@ def page_precontracts():
                     "algum número dela, ajuste na aba Garantias ou BDI da ficha do "
                     "contrato e reabra este e-mail.",
                 )
+                has_guarantee = query(
+                    "SELECT 1 FROM contract_guarantees WHERE contract_id=? AND amendment_id IS NULL "
+                    "AND ata_contract_id IS NULL LIMIT 1",
+                    (item["id"],),
+                )
+                has_bdi = query(
+                    "SELECT 1 FROM contract_bdis WHERE contract_id=? LIMIT 1", (item["id"],)
+                )
+                if not has_guarantee and not has_bdi:
+                    st.warning(
+                        "Nenhuma garantia contratual/adicional ou composição de BDI cadastrada "
+                        "para este pré-contrato — a seção \"Informações adicionais\" vai sair "
+                        "vazia no e-mail. Se for o caso, cadastre pela aba Garantias ou BDI na "
+                        "Ficha do Contrato (botão \"Abrir ficha\" acima) e volte aqui para "
+                        "reabrir o e-mail com os dados atualizados."
+                    )
                 st.caption("Prévia da tabela de garantia e BDI (como chega no e-mail):")
                 st.markdown(html_body, unsafe_allow_html=True)
                 attachments_available = announcement_attachments_available(item["id"])
@@ -6833,9 +6849,12 @@ def page_precontracts():
                         for doc in attachments_available
                     }
                     picked = st.multiselect(
-                        "Anexos do certame para incluir", list(attachment_options),
+                        "Anexos do certame para incluir neste envio", list(attachment_options),
                         default=list(attachment_options),
                         key=f"announcement_attachments_{item['id']}",
+                        help="Desmarcar aqui só afeta este envio — o arquivo continua salvo no "
+                        "pré-contrato. Para removê-lo definitivamente, use \"Excluir anexo do "
+                        "certame\" logo abaixo.",
                     )
                     selected_attachments = [attachment_options[label] for label in picked]
                     selected_size_mb = sum(
@@ -6846,12 +6865,16 @@ def page_precontracts():
                         st.error(
                             f"Anexos selecionados somam {selected_size_mb:.1f} MB, acima "
                             f"do limite de {limit_mb:.0f} MB — o servidor de e-mail rejeita "
-                            "mensagens muito grandes. Desmarque algum anexo antes de enviar "
-                            "(mais de um anexo é compactado em .zip automaticamente, mas "
-                            "isso raramente reduz arquivos que já são PDF/imagem)."
+                            "mensagens muito grandes. Desmarque ou exclua algum anexo antes de "
+                            "enviar (mais de um anexo é compactado em .zip automaticamente, "
+                            "mas isso raramente reduz arquivos que já são PDF/imagem)."
                         )
                     elif selected_attachments:
                         st.caption(f"Anexos selecionados: {selected_size_mb:.1f} MB no total.")
+                    with st.expander("Baixar ou excluir anexo do certame"):
+                        document_downloads(
+                            attachments_available, key_prefix=f"precontract_announcement_{item['id']}"
+                        )
                 else:
                     st.caption("Nenhum anexo do certame salvo para este pré-contrato.")
                 active_recipients = [
