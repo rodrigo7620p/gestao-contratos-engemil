@@ -763,7 +763,18 @@ def send_daily_bid_schedule(today=None, force=False):
     é atômico graças à restrição UNIQUE da tabela) ANTES de enviar, e só
     envia se realmente conseguiu reservar. Checar-e-só-depois-inserir (como
     era antes) tinha uma janela de corrida: dois processos podiam checar
-    "ainda não foi enviado" ao mesmo tempo e os dois enviarem."""
+    "ainda não foi enviado" ao mesmo tempo e os dois enviarem.
+
+    Os destinatários pendentes do dia são reservados um a um (mantendo o
+    registro individual em notification_log, para nunca reenviar a quem já
+    recebeu), mas o e-mail em si sai em UM ÚNICO envio com todos eles —
+    antes cada um recebia uma mensagem separada, e notifications.send_email()
+    inclui automaticamente o CC padrão (SMTP_DEFAULT_CC) em toda mensagem
+    que manda; com N mensagens separadas, quem estivesse nesse CC padrão
+    recebia N cópias do mesmo quadro no mesmo dia — daí o e-mail duplicado
+    mesmo com a reserva em notification_log funcionando certinho (ela nunca
+    permitiu reservar a vaga duas vezes; o problema era o CC repetido a
+    cada mensagem individual)."""
     init_db()
     today = today or date.today()
     result = {"sent": 0, "skipped_weekend": False, "recipients": 0, "bids_today": 0}
@@ -783,6 +794,7 @@ def send_daily_bid_schedule(today=None, force=False):
     if not rows:
         return result
     subject, plain_body, html_body = _bid_schedule_email_content(rows, today)
+    pending = []
     for recipient in recipients:
         if force:
             execute(
@@ -798,15 +810,18 @@ def send_daily_bid_schedule(today=None, force=False):
                 (today.isoformat(), recipient),
             )
             claimed = bool(claim.rowcount)
-        if not claimed:
-            continue
-        ok, _ = send_email(recipient, subject, plain_body, html_body=html_body)
-        if ok:
-            result["sent"] += 1
-        else:
-            # Reservou a vaga mas não conseguiu enviar (ex.: SMTP fora do
-            # ar) — libera de novo para a próxima chamada tentar, em vez de
-            # perder o aviso silenciosamente.
+        if claimed:
+            pending.append(recipient)
+    if not pending:
+        return result
+    ok, _ = send_email(pending, subject, plain_body, html_body=html_body)
+    if ok:
+        result["sent"] = len(pending)
+    else:
+        # Reservou as vagas mas não conseguiu enviar (ex.: SMTP fora do
+        # ar) — libera de novo para a próxima chamada tentar, em vez de
+        # perder o aviso silenciosamente.
+        for recipient in pending:
             execute(
                 """DELETE FROM notification_log WHERE event_type='LICITACOES_DIA'
                 AND reference_id=0 AND event_date=? AND recipient=?""",

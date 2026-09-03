@@ -9,7 +9,7 @@ import uuid
 import zipfile
 from html import escape
 from io import BytesIO
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 
 import altair as alt
@@ -105,7 +105,7 @@ from reports import (
 from notifications import MAX_ATTACHMENTS_BYTES, send_email, send_test_email, smtp_status
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "71"
+APP_VERSION = "72"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -10932,13 +10932,18 @@ if "alerts_processed" not in st.session_state:
 if "bid_schedule_checked" not in st.session_state:
     st.session_state.bid_schedule_checked = True
     # Rede de segurança: o gatilho principal roda na nuvem do GitHub
-    # (.github/workflows/licitacoes-diarias.yml, 6h50, independente de
-    # qualquer computador estar ligado), mas se por algum motivo não
-    # rodar, o primeiro acesso ao sistema depois desse horário num dia
-    # útil também aciona o envio — a reserva atômica em notification_log
-    # (ver send_daily_bid_schedule em alerts.py) garante que isso nunca
-    # duplica e-mail, mesmo com múltiplos gatilhos concorrentes.
-    if datetime.now().time() >= time(6, 50):
+    # (.github/workflows/licitacoes-diarias.yml, 6h50 no horário de
+    # Brasília, independente de qualquer computador estar ligado), mas se
+    # por algum motivo não rodar, o primeiro acesso ao sistema depois desse
+    # horário num dia útil também aciona o envio — a reserva atômica em
+    # notification_log (ver send_daily_bid_schedule em alerts.py) garante
+    # que isso nunca duplica e-mail, mesmo com múltiplos gatilhos
+    # concorrentes. O servidor do Streamlit Cloud roda em UTC, não em
+    # horário de Brasília (UTC-3, sem horário de verão desde 2019) — sem
+    # esse ajuste, datetime.now() já passaria das "6h50" três horas mais
+    # cedo do que o pretendido.
+    now_brt = datetime.now(timezone.utc) - timedelta(hours=3)
+    if now_brt.time() >= time(6, 50):
         send_daily_bid_schedule()
 selected_theme = st.sidebar.radio(
     "Aparência",

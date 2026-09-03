@@ -205,7 +205,8 @@ def send_email(
     # isso, passar uma lista em cc virava uma lista aninhada e quebrava o
     # parsing dos endereços.
     copies = normalize_recipients([*normalize_recipients(cc), config["default_cc"]])
-    copies = [address for address in copies if address not in recipients]
+    recipients_lower = {address.lower() for address in recipients}
+    copies = [address for address in copies if address.lower() not in recipients_lower]
     if not recipients:
         return False, "Nenhum e-mail de destinatário válido foi informado."
 

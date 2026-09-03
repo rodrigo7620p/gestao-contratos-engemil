@@ -1,4 +1,31 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 72 Beta
+Data: 03/09/2026
+
+Principais alterações:
+- corrigida a causa real do e-mail duplicado de "Licitações do dia": o
+  quadro era enviado em uma mensagem SEPARADA para cada destinatário
+  cadastrado, e notifications.send_email() inclui automaticamente o e-mail
+  de cópia padrão (SMTP_DEFAULT_CC) em toda mensagem — com várias mensagens
+  no mesmo envio, quem estivesse nesse CC padrão recebia uma cópia a mais
+  para cada destinatário da lista, no mesmo dia. Isso acontecia mesmo com a
+  reserva em notification_log funcionando certinho (ela nunca deixou
+  reservar a vaga duas vezes; o problema era o CC repetido a cada mensagem
+  individual, não a reserva). Agora o quadro do dia sai em uma ÚNICA
+  mensagem com todos os destinatários pendentes, então o CC padrão entra
+  só uma vez;
+- esse mesmo CC padrão agora também é comparado sem diferenciar
+  maiúsculas/minúsculas para decidir se já está entre os destinatários, o
+  que também podia deixar passar uma cópia repetida;
+- corrigido o horário do envio de reforço (o acesso ao sistema depois das
+  6h50 que reenvia caso o gatilho da nuvem do GitHub não tenha rodado): o
+  servidor do Streamlit Cloud roda em UTC, não no horário de Brasília, e a
+  checagem comparava com "6h50" sem esse ajuste — ficava valendo a partir
+  das 3h50 de Brasília, três horas mais cedo do que o pretendido.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 71 Beta
 Data: 02/09/2026
 
