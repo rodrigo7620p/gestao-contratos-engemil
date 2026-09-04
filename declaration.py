@@ -4,6 +4,7 @@ from datetime import date
 from io import BytesIO
 from pathlib import Path
 
+from contract_utils import today_brt
 from docx import Document
 from docx.enum.section import WD_ORIENT
 from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_TABLE_ALIGNMENT
@@ -265,7 +266,7 @@ def generate_declaration(contracts, parameters, template_path=DEFAULT_TEMPLATE):
         "distribuem ao longo de exercícios presentes e futuros."
     )
     add_body(doc, justification)
-    add_body(doc, f"Brasília/DF, {date.today().strftime('%d/%m/%Y')}.", center=True)
+    add_body(doc, f"Brasília/DF, {today_brt().strftime('%d/%m/%Y')}.", center=True)
     spacer = doc.add_paragraph()
     spacer.paragraph_format.space_after = Pt(3)
     add_signature_text(

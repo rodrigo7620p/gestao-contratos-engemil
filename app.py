@@ -9,7 +9,7 @@ import uuid
 import zipfile
 from html import escape
 from io import BytesIO
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
 import altair as alt
@@ -49,7 +49,9 @@ from contract_utils import (
     format_cnpj,
     humanize_remaining,
     normalize_agency_name,
+    now_brt,
     parse_brazilian_number,
+    today_brt,
 )
 from data_quality import contract_review_issues
 from document_factory import (
@@ -105,7 +107,7 @@ from reports import (
 from notifications import MAX_ATTACHMENTS_BYTES, send_email, send_test_email, smtp_status
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "72"
+APP_VERSION = "73"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -1098,9 +1100,14 @@ def fmt_datetime(value):
     if not value:
         return "—"
     try:
-        return datetime.fromisoformat(str(value)).strftime("%d/%m/%Y %H:%M")
+        parsed = datetime.fromisoformat(str(value))
     except ValueError:
         return str(value)
+    # Os carimbos gravados no banco (CURRENT_TIMESTAMP do SQLite/Turso, ou
+    # datetime.now(timezone.utc) explícito) são sempre em UTC — só na
+    # exibição é que convertemos para o horário de Brasília (UTC-3, sem
+    # horário de verão desde 2019), sem alterar o que fica armazenado.
+    return (parsed - timedelta(hours=3)).strftime("%d/%m/%Y %H:%M")
 
 
 def responsive_cards(items):
@@ -1417,7 +1424,7 @@ def days_until(value):
     if not value:
         return None
     try:
-        return (date.fromisoformat(str(value)[:10]) - date.today()).days
+        return (date.fromisoformat(str(value)[:10]) - today_brt()).days
     except ValueError:
         return None
 
@@ -1686,7 +1693,7 @@ def company_document_prefill(field_name, contract, signatory, separate_acronym=T
     data = " ".join(filter(None, [registration, f"CPF: {cpf}" if cpf else None]))
     agency_name, agency_acronym = agency_document_fields(contract.get("client") or "")
     values = {
-        "DATA": date.today().strftime("%d/%m/%Y"),
+        "DATA": today_brt().strftime("%d/%m/%Y"),
         "DATA_EXTENSO": date_in_words(),
         "CENTRO_CUSTO": contract.get("cost_center") or "",
         "CONTRATO": contract.get("contract_number") or "",
@@ -1713,7 +1720,7 @@ def professional_footer():
             Concepção e desenvolvimento por <strong>Rodrigo de Sousa da Silva</strong><br>
             <span class="developer-title">Engenheiro de Software</span> ·
             CREA-DF nº 36849/D-DF · RNP nº 0724248897<br>
-            © {date.today().year} · Aplicação de apoio à gestão, controle e rastreabilidade contratual
+            © {today_brt().year} · Aplicação de apoio à gestão, controle e rastreabilidade contratual
         </footer>
         """,
         unsafe_allow_html=True,
@@ -1865,8 +1872,8 @@ def open_precontract_ficha(contract_id):
 def page_dashboard():
     st.title("Visão Geral")
     st.caption(
-        f"Somente contratos vigentes · Atualizado em {fmt_date_long(date.today())}, "
-        f"às {datetime.now().strftime('%H:%M')}. Contratos encerrados deixam de compor os indicadores."
+        f"Somente contratos vigentes · Atualizado em {fmt_date_long(today_brt())}, "
+        f"às {now_brt().strftime('%H:%M')}. Contratos encerrados deixam de compor os indicadores."
     )
     portfolio = pd.DataFrame(load_contracts("WHERE c.archived=0 AND c.formalized=1"))
     if portfolio.empty:
@@ -1889,7 +1896,7 @@ def page_dashboard():
     responsive_cards([
         ("Contratos vigentes", f"{len(contracts):,}".replace(",", "."), "Vigência válida hoje", "blue"),
         ("Valor atual da carteira", brl(total_value), "Últimos instrumentos cadastrados", "green"),
-        ("Remanescente estimado", brl(total_remaining), f"Calculado em {fmt_date_long(date.today())}", "amber"),
+        ("Remanescente estimado", brl(total_remaining), f"Calculado em {fmt_date_long(today_brt())}", "amber"),
         ("Vencimentos em 90 dias", str(int(expiring)), "Contratos próximos do fim", "red" if expiring else "green"),
     ])
 
@@ -1922,7 +1929,7 @@ def page_dashboard():
             st.caption("Sem dados suficientes para este gráfico.")
     with chart_col2:
         st.markdown("##### Valor vencendo por mês (próximos 12 meses)")
-        horizon_start = date.today().replace(day=1)
+        horizon_start = today_brt().replace(day=1)
         month_labels, month_starts = [], []
         cursor_month = horizon_start
         for _ in range(12):
@@ -2084,7 +2091,7 @@ def page_dashboard():
             list(summary[["Modalidade", "Contratos"]].itertuples(index=False, name=None)),
             formatter=lambda value: f"{int(value)} contrato(s)",
         )
-    start_year = date.today().year
+    start_year = today_brt().year
     annual = pd.DataFrame(backlog_rows(contracts.to_dict("records"), start_year, 6))
     year_columns = [str(y) for y in range(start_year, start_year + 6)]
     st.subheader("Remanescente previsto ano a ano")
@@ -2294,7 +2301,7 @@ def page_contracts():
     if not rows:
         st.info("Nenhum contrato encontrado.")
         return
-    start_year = st.number_input("Primeiro ano da projeção", min_value=2020, max_value=2100, value=date.today().year)
+    start_year = st.number_input("Primeiro ano da projeção", min_value=2020, max_value=2100, value=today_brt().year)
     backlog = pd.DataFrame(backlog_rows(rows, int(start_year), 6))
     backlog.insert(
         backlog.columns.get_loc("Fim") + 1,
@@ -2329,7 +2336,7 @@ def page_contracts():
     st.download_button(
         "Exportar backlog em Excel",
         data=workbook_bytes({"Contratos": excel_backlog}),
-        file_name=f"backlog_contratos_{date.today().isoformat()}.xlsx",
+        file_name=f"backlog_contratos_{today_brt().isoformat()}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
     backlog_pdf_export(backlog, f"contracts_{scope}_{int(start_year)}", contracts=rows)
@@ -2840,7 +2847,7 @@ def render_budget_dates_editor(contract_id):
 def render_guarantees_tab(contract_id, contract, effective_end_date):
     instrument_options = guarantee_instrument_options(contract_id)
     guarantees = load_contract_guarantees(contract_id, effective_end_date)
-    today = date.today()
+    today = today_brt()
     pending_documents = sum(
         1 for item in guarantees
         if item["request_status"] not in {"DISPENSADA", "CANCELADA", "ACEITA"}
@@ -4584,7 +4591,7 @@ def page_contract_detail():
         st.markdown("#### Parâmetros de cálculo")
         labor_rows = [dict(r) for r in query("SELECT * FROM labor_parameters ORDER BY year DESC")]
         labor_map = {r["year"]: float(r["minimum_wage"] or 0) for r in labor_rows}
-        current_year = date.today().year
+        current_year = today_brt().year
         current_minimum = labor_map.get(current_year, 0)
         c1, c2 = st.columns(2)
         c1.write(f"**Ano-base da insalubridade:** {current_year}")
@@ -5038,7 +5045,7 @@ def page_contract_detail():
         obligations = [dict(r) for r in query(
             "SELECT * FROM obligations WHERE contract_id=? ORDER BY due_date", (cid,)
         )]
-        today_iso = date.today().isoformat()
+        today_iso = today_brt().isoformat()
         pending_obligations = [
             row for row in obligations
             if str(row["status"] or "").upper() not in
@@ -5252,7 +5259,7 @@ def page_contract_detail():
                      "GARANTIA", "ART", "OUTRA"],
                 )
                 due = c2.date_input(
-                    "Vencimento", value=date.today() + timedelta(days=30),
+                    "Vencimento", value=today_brt() + timedelta(days=30),
                     format="DD/MM/YYYY",
                 )
                 priority = c3.selectbox("Prioridade", ["BAIXA", "MÉDIA", "ALTA", "CRÍTICA"], index=1)
@@ -6591,7 +6598,7 @@ def page_new_contract():
                             VALUES(?,?,?,?,?,?,?,?)""",
                             (cid, title, int(numeric("Quantidade", 1)), numeric("Salário-base"),
                              numeric("Periculosidade (%)"), numeric("Insalubridade (%)"),
-                             int(numeric("Ano-base insalubridade", date.today().year)), union_id),
+                             int(numeric("Ano-base insalubridade", today_brt().year)), union_id),
                         )
                     log_action(user["id"], "CRIAR", "contrato", cid, cost_center)
                     if guarantee_percent > 0 or additional_guarantee_applies:
@@ -7141,7 +7148,7 @@ def page_indices():
             indices_pdf,
             file_name=(
                 "Declaracao_Indices_ENGEMIL_"
-                f"{date.today().strftime('%Y-%m-%d')}.pdf"
+                f"{today_brt().strftime('%Y-%m-%d')}.pdf"
             ),
             mime="application/pdf",
             width="stretch",
@@ -7242,7 +7249,7 @@ def page_company_documents():
                 else:
                     try:
                         sequence = next_document_sequence(
-                            template["document_type"], date.today().year
+                            template["document_type"], today_brt().year
                         )
                         document_number = format_document_number(
                             template["document_type"],
@@ -7264,14 +7271,14 @@ def page_company_documents():
                             "NUMERO_CARTA": document_number,
                             "NUMERO_PROC": document_number,
                             "NUMERO_DOCUMENTO": document_number,
-                            "DATA": date.today().strftime("%d/%m/%Y"),
+                            "DATA": today_brt().strftime("%d/%m/%Y"),
                             "DATA_EXTENSO": date_in_words(),
                             "RESPONSAVEL": signatory.get("name") or "",
                             "DADOS": signature_data,
                             "CARGO": signatory.get("title") or "",
                         }
                         destination = (
-                            UPLOAD_DIR / "company_documents" / str(date.today().year)
+                            UPLOAD_DIR / "company_documents" / str(today_brt().year)
                             / uuid.uuid4().hex
                         )
                         destination.mkdir(parents=True, exist_ok=True)
@@ -8167,7 +8174,7 @@ def backlog_pdf_export(backlog, key_prefix, contracts=None):
     st.download_button(
         "Baixar Backlog oficial em PDF",
         result["pdf"],
-        file_name=f"Backlog_ENGEMIL_{date.today().isoformat()}.pdf",
+        file_name=f"Backlog_ENGEMIL_{today_brt().isoformat()}.pdf",
         mime="application/pdf",
         key=f"{key_prefix}_download_backlog_pdf",
     )
@@ -8807,8 +8814,8 @@ def page_bids():
             "localizar e conferir processos antes de cadastrá-los abaixo."
         )
         pc1, pc2, pc3 = st.columns(3)
-        pncp_start = pc1.date_input("Publicados a partir de", value=date.today() - timedelta(days=30))
-        pncp_end = pc2.date_input("Até", value=date.today())
+        pncp_start = pc1.date_input("Publicados a partir de", value=today_brt() - timedelta(days=30))
+        pncp_end = pc2.date_input("Até", value=today_brt())
         pncp_modality = pc3.selectbox(
             "Modalidade", list(PNCP_MODALIDADES), format_func=lambda code: f"{code} — {PNCP_MODALIDADES[code]}",
             index=list(PNCP_MODALIDADES).index(6),
@@ -9041,7 +9048,7 @@ def page_bids():
                     st.download_button(
                         "Baixar Licitações vigentes em PDF",
                         pdf_bytes,
-                        file_name=f"Licitacoes_ENGEMIL_{date.today().isoformat()}.pdf",
+                        file_name=f"Licitacoes_ENGEMIL_{today_brt().isoformat()}.pdf",
                         mime="application/pdf",
                         key="download_bid_pdf",
                     )
@@ -9462,10 +9469,10 @@ def page_bids():
         else:
             vc1, vc2 = st.columns(2)
             check_start = vc1.date_input(
-                "Publicados a partir de", value=date.today() - timedelta(days=180),
+                "Publicados a partir de", value=today_brt() - timedelta(days=180),
                 key=f"check_start_{bid_id}",
             )
-            check_end = vc2.date_input("Até", value=date.today(), key=f"check_end_{bid_id}")
+            check_end = vc2.date_input("Até", value=today_brt(), key=f"check_end_{bid_id}")
             if st.button("Verificar no PNCP", key=f"check_pncp_{bid_id}"):
                 try:
                     matches = pncp_check_awarded_contracts(
@@ -10116,8 +10123,8 @@ def page_sesmt():
     )
     all_professionals = load_sesmt_professionals()
     professional_ids = [p["id"] for p in all_professionals]
-    today_iso = date.today().isoformat()
-    soon_iso = (date.today() + timedelta(days=30)).isoformat()
+    today_iso = today_brt().isoformat()
+    soon_iso = (today_brt() + timedelta(days=30)).isoformat()
     if professional_ids:
         placeholders = ",".join("?" * len(professional_ids))
         expired_exams = query(
@@ -10323,7 +10330,7 @@ def page_sesmt():
                 with st.form(f"new_exam_{professional_id}", clear_on_submit=True):
                     x1, x2, x3 = st.columns(3)
                     exam_type = x1.selectbox("Tipo de exame", SESMT_EXAM_TYPES)
-                    exam_date = x2.date_input("Data do exame", value=date.today(), format="DD/MM/YYYY")
+                    exam_date = x2.date_input("Data do exame", value=today_brt(), format="DD/MM/YYYY")
                     result = x3.selectbox("Resultado", SESMT_EXAM_RESULTS)
                     valid_until = st.date_input("Válido até (ASO)", value=None, format="DD/MM/YYYY")
                     exam_notes = st.text_area("Observações", key=f"exam_notes_{professional_id}")
@@ -10379,7 +10386,7 @@ def page_sesmt():
                     t1, t2, t3 = st.columns(3)
                     provider = t1.text_input("Instituição/instrutor")
                     workload_hours = t2.number_input("Carga horária (h)", min_value=0.0, step=1.0)
-                    issue_date = t3.date_input("Data de emissão", value=date.today(), format="DD/MM/YYYY")
+                    issue_date = t3.date_input("Data de emissão", value=today_brt(), format="DD/MM/YYYY")
                     valid_until = st.date_input("Válido até", value=None, format="DD/MM/YYYY")
                     training_notes = st.text_area("Observações", key=f"training_notes_{professional_id}")
                     training_upload = st.file_uploader(
@@ -10429,8 +10436,8 @@ def page_exports():
         contract for contract in contracts
         if days_until(contract["end_date"]) is not None and days_until(contract["end_date"]) >= 0
     ]
-    backlog = pd.DataFrame(backlog_rows(contracts, date.today().year, 6))
-    excel_backlog = expand_backlog_with_ata_children(backlog, contracts, date.today().year)
+    backlog = pd.DataFrame(backlog_rows(contracts, today_brt().year, 6))
+    excel_backlog = expand_backlog_with_ata_children(backlog, contracts, today_brt().year)
     summary = pd.DataFrame(
         vigent_contracts
     ).groupby("category", dropna=False).agg(
@@ -10450,26 +10457,26 @@ def page_exports():
     st.download_button(
         "Exportar Visão Geral",
         workbook_bytes({"Visão Geral": summary}),
-        f"visao_geral_{date.today().isoformat()}.xlsx",
+        f"visao_geral_{today_brt().isoformat()}.xlsx",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
     st.download_button(
         "Exportar Contratos/Backlog",
         workbook_bytes({"Contratos": excel_backlog}),
-        f"contratos_backlog_{date.today().isoformat()}.xlsx",
+        f"contratos_backlog_{today_brt().isoformat()}.xlsx",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
     backlog_pdf_export(backlog, "exports", contracts=contracts)
     st.download_button(
         "Exportar Índices",
         workbook_bytes({"Índices": indices}),
-        f"indices_{date.today().isoformat()}.xlsx",
+        f"indices_{today_brt().isoformat()}.xlsx",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
     st.download_button(
         "Exportar histórico de documentos",
         workbook_bytes({"Documentos padronizados": document_history}),
-        f"historico_documentos_{date.today().isoformat()}.xlsx",
+        f"historico_documentos_{today_brt().isoformat()}.xlsx",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
     st.subheader("Ficha individual")
@@ -10493,7 +10500,7 @@ def page_exports():
     st.download_button(
         "Exportar todas as abas",
         workbook_bytes(all_sheets),
-        f"gestao_contratual_completa_{date.today().isoformat()}.xlsx",
+        f"gestao_contratual_completa_{today_brt().isoformat()}.xlsx",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
     if user["role"] in {"admin", "gestor"}:
@@ -10884,7 +10891,7 @@ if current_user["must_change_password"]:
                 must_change_password=0 WHERE id=?""",
                 (
                     hash_password(required_password),
-                    datetime.now().isoformat(),
+                    now_brt().isoformat(),
                     current_user["id"],
                 ),
             )
@@ -10938,12 +10945,8 @@ if "bid_schedule_checked" not in st.session_state:
     # horário num dia útil também aciona o envio — a reserva atômica em
     # notification_log (ver send_daily_bid_schedule em alerts.py) garante
     # que isso nunca duplica e-mail, mesmo com múltiplos gatilhos
-    # concorrentes. O servidor do Streamlit Cloud roda em UTC, não em
-    # horário de Brasília (UTC-3, sem horário de verão desde 2019) — sem
-    # esse ajuste, datetime.now() já passaria das "6h50" três horas mais
-    # cedo do que o pretendido.
-    now_brt = datetime.now(timezone.utc) - timedelta(hours=3)
-    if now_brt.time() >= time(6, 50):
+    # concorrentes.
+    if now_brt().time() >= time(6, 50):
         send_daily_bid_schedule()
 selected_theme = st.sidebar.radio(
     "Aparência",
@@ -10986,7 +10989,7 @@ with st.sidebar.expander("Alterar minha senha"):
             execute(
                 """UPDATE users SET password_hash=?,password_changed_at=?,
                 must_change_password=0 WHERE id=?""",
-                (hash_password(new_password), datetime.now().isoformat(), user["id"]),
+                (hash_password(new_password), now_brt().isoformat(), user["id"]),
             )
             revoke_user_sessions(
                 user["id"],

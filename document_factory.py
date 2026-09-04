@@ -10,7 +10,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 from lxml import etree
 
-from contract_utils import extract_agency_acronym
+from contract_utils import extract_agency_acronym, today_brt
 
 BASE_DIR = Path(__file__).resolve().parent
 WORD_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -46,7 +46,7 @@ def safe_filename(value: str) -> str:
 
 
 def date_in_words(value: date | None = None) -> str:
-    value = value or date.today()
+    value = value or today_brt()
     months = (
         "janeiro", "fevereiro", "março", "abril", "maio", "junho",
         "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
@@ -61,7 +61,7 @@ def format_document_number(
     agency_acronym: str = "",
     year: int | None = None,
 ) -> str:
-    year = year or date.today().year
+    year = year or today_brt().year
     document_type = str(document_type or "DIVERSO").upper()
     prefix = {
         "OFICIO": "OF",

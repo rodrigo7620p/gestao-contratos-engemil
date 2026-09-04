@@ -1,4 +1,28 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 73 Beta
+Data: 04/09/2026
+
+Principais alterações:
+- datas e horas do sistema passam a seguir sempre o horário de Brasília
+  (UTC-3), não mais o relógio do próprio servidor (o Streamlit Cloud roda
+  em UTC, então "hoje"/"agora" ficavam até 3 horas adiantados em relação
+  ao horário local — era o que explicava, por exemplo, a Visão Geral
+  mostrar "Atualizado em ... às 10:41" quando na verdade eram 07:41 em
+  Brasília). Isso afeta tanto os cálculos internos que usam a data/hora
+  atual (prazos, vencimentos, nome de arquivos exportados, data de
+  assinatura em documentos gerados, o "hoje" dos formulários) quanto a
+  exibição de carimbos de data e hora já gravados (registro de auditoria,
+  "Enviado em", "Atualizado em", "Gerado em" etc.) — nesses casos a
+  conversão acontece só na hora de mostrar na tela, sem alterar o que já
+  está gravado no banco;
+- o horário de reforço do envio de licitações do dia (o acesso ao sistema
+  depois das 6h50 que reenvia caso o gatilho da nuvem não tenha rodado)
+  também passa a usar esse mesmo horário de Brasília, corrigindo o mesmo
+  problema já identificado na versão anterior.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 72 Beta
 Data: 03/09/2026
 

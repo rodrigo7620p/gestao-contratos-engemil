@@ -39,7 +39,7 @@ from pathlib import Path
 import requests
 from PIL import Image, ImageDraw, ImageFont
 
-from contract_utils import extract_agency_acronym
+from contract_utils import extract_agency_acronym, today_brt
 from reports import brl
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -582,7 +582,7 @@ def generate_ranking_image(process: dict, rankings: list[dict], logo_path=None) 
     cursor_y += 24
     footer = (
         f"Gerado pelo Sistema de Gestão Contratual ENGEMIL em "
-        f"{date.today().strftime('%d/%m/%Y')} · uso interno, para acompanhamento gerencial."
+        f"{today_brt().strftime('%d/%m/%Y')} · uso interno, para acompanhamento gerencial."
     )
     draw.text((padding, cursor_y), footer, font=font_footer, fill=(120, 120, 120))
 

@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
 from io import BytesIO
 
 import pandas as pd
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
+
+from contract_utils import today_brt
 
 
 def parse_date(value):
@@ -33,7 +35,7 @@ def annual_allocation(start_value, end_value, total_value, year: int) -> float:
 
 def remaining_value(start_value, end_value, total_value, as_of: date | None = None) -> float:
     start, end = parse_date(start_value), parse_date(end_value)
-    as_of = as_of or date.today()
+    as_of = as_of or today_brt()
     if not start or not end or end < start:
         return 0.0
     if as_of <= start:
@@ -46,7 +48,7 @@ def remaining_value(start_value, end_value, total_value, as_of: date | None = No
 
 
 def backlog_rows(contracts, start_year: int | None = None, years: int = 6):
-    start_year = start_year or date.today().year
+    start_year = start_year or today_brt().year
     result = []
     for item, contract in enumerate(contracts, start=1):
         row = {

@@ -2,7 +2,25 @@ from __future__ import annotations
 
 import math
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
+
+# Horário de Brasília: UTC-3 o ano inteiro (o Brasil aboliu o horário de
+# verão em 2019). O servidor do Streamlit Cloud roda em UTC, então
+# datetime.now()/date.today() "puros" ficam 3 horas adiantados em relação
+# ao horário local — todo o sistema deve usar estas funções em vez delas
+# para qualquer data/hora exibida ao usuário ou usada em regras de negócio
+# (prazos, "hoje", carimbos de data/hora). Definidas aqui (módulo sem
+# dependências internas) para poderem ser importadas por db.py e por todo
+# o resto do sistema sem risco de import circular.
+_BRAZIL_UTC_OFFSET = timedelta(hours=-3)
+
+
+def now_brt() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None) + _BRAZIL_UTC_OFFSET
+
+
+def today_brt() -> date:
+    return now_brt().date()
 
 
 _DASH_ACRONYM_PATTERN = re.compile(

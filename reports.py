@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from html import escape
 from io import BytesIO
 from pathlib import Path
@@ -21,7 +21,7 @@ from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas as pdf_canvas
 
-from contract_utils import extract_agency_acronym
+from contract_utils import extract_agency_acronym, today_brt
 from reportlab.platypus import Paragraph
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -65,9 +65,12 @@ def short_datetime(value) -> str:
     if not value:
         return ""
     try:
-        return datetime.fromisoformat(str(value)).strftime("%d/%m/%Y %H:%M")
+        parsed = datetime.fromisoformat(str(value))
     except ValueError:
         return str(value)
+    # Carimbos no banco são gravados em UTC — convertido para o horário de
+    # Brasília (UTC-3) só na exibição, sem alterar o que fica armazenado.
+    return (parsed - timedelta(hours=3)).strftime("%d/%m/%Y %H:%M")
 
 
 def _meaningful(value) -> bool:
@@ -525,7 +528,7 @@ def build_contract_overview_summary(contracts, total_remaining_value=None):
     `load_contracts()`) para alimentar a página de visão geral do PDF do
     Backlog. Mantém a lógica de agregação fora de reports.py para que este
     módulo só cuide de desenhar."""
-    today = date.today()
+    today = today_brt()
     total_contracts = len(contracts)
     total_current_value = sum(float(c.get("current_value") or 0) for c in contracts)
     expiring_90_days = 0
@@ -870,7 +873,7 @@ def generate_backlog_pdf(
     em A4 horizontal é acrescentada com um dashboard de uma página só, pensado
     para impressão em preto e branco.
     """
-    reference_date = reference_date or date.today()
+    reference_date = reference_date or today_brt()
     rows = [dict(row) for row in rows]
     signatory = dict(signatory or {})
     if overview_summary and additional_page_renderer is None:
@@ -1299,7 +1302,7 @@ def generate_bid_processes_pdf(
     Colunas marcadas para quebra de linha (hoje, Objeto) nunca diminuem a
     fonte para caber — em vez disso, a linha da tabela cresce em altura
     conforme o texto precisa de mais linhas, mantendo tudo legível."""
-    reference_date = reference_date or date.today()
+    reference_date = reference_date or today_brt()
     rows = [dict(row) for row in rows]
     columns = [
         (key, *BID_PDF_COLUMN_CATALOG[key])
@@ -1503,7 +1506,7 @@ def generate_indices_pdf(rows, parameters, reference_date=None, logo_path=None):
     A primeira página usa a mesma tabela oficial do Backlog. A segunda concentra
     as fórmulas, a justificativa e a assinatura, evitando mudanças de orientação.
     """
-    reference_date = reference_date or date.today()
+    reference_date = reference_date or today_brt()
     parameters = dict(parameters or {})
     report_title = "DECLARAÇÃO DE CONTRATOS E ÍNDICES ECONÔMICO-FINANCEIROS"
 

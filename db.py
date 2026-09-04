@@ -13,7 +13,7 @@ from contextlib import contextmanager
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-from contract_utils import contract_duration_months
+from contract_utils import contract_duration_months, now_brt, today_brt
 
 try:
     import libsql_client
@@ -1252,7 +1252,7 @@ def init_db() -> None:
                 )
         conn.execute(
             "INSERT OR IGNORE INTO labor_parameters(year,minimum_wage,notes) VALUES(?,?,?)",
-            (datetime.now().year, 0, "Informe o salário mínimo oficial antes de calcular a insalubridade."),
+            (now_brt().year, 0, "Informe o salário mínimo oficial antes de calcular a insalubridade."),
         )
         # Só marca como concluído depois que TODA a migração rodar sem erro.
         # Marcar antes (como era) deixava o processo "travado" num schema
@@ -1391,7 +1391,7 @@ def refresh_contract_lifecycle(contract_id: int, grace_days: int = 30) -> str:
             end_date = date.fromisoformat(str(effective_end)[:10])
         except ValueError:
             return "PRAZO_INVALIDO"
-        if end_date >= date.today():
+        if end_date >= today_brt():
             conn.execute(
                 """UPDATE contracts SET archived=0,archived_at=NULL,archived_by=NULL,
                 status=CASE WHEN status='ENCERRADO' THEN 'ATIVO' ELSE status END,
@@ -1399,7 +1399,7 @@ def refresh_contract_lifecycle(contract_id: int, grace_days: int = 30) -> str:
                 (contract_id,),
             )
             return "ATIVO"
-        if end_date <= date.today() - timedelta(days=grace_days):
+        if end_date <= today_brt() - timedelta(days=grace_days):
             conn.execute(
                 """UPDATE contracts SET archived=1,archived_at=COALESCE(archived_at,CURRENT_TIMESTAMP),
                 archived_by=NULL,status='ENCERRADO',updated_at=CURRENT_TIMESTAMP WHERE id=?""",
@@ -1422,14 +1422,14 @@ def archive_expired_contracts(grace_days: int = 30) -> list[int]:
     limitamos a varredura a uma vez por dia por processo.
     """
     global _last_archive_scan_date
-    today = date.today()
+    today = today_brt()
     if _last_archive_scan_date == today:
         return []
     _last_archive_scan_date = today
     archived_ids = []
     with connect() as conn:
         rows = conn.execute("SELECT id FROM contracts WHERE archived=0").fetchall()
-        cutoff = date.today() - timedelta(days=grace_days)
+        cutoff = today_brt() - timedelta(days=grace_days)
         for row in rows:
             effective_end = _effective_contract_end(conn, row["id"])
             if not effective_end:

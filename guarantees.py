@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 
+from contract_utils import today_brt
+
 
 GUARANTEE_TYPES = (
     "GARANTIA CONTRATUAL",
@@ -92,7 +94,7 @@ def coverage_gap(required_amount, guaranteed_amount) -> float:
 def days_to_expiry(end_date, today: date | None = None) -> int | None:
     if not end_date:
         return None
-    today = today or date.today()
+    today = today or today_brt()
     try:
         target = date.fromisoformat(str(end_date)[:10])
     except (TypeError, ValueError):

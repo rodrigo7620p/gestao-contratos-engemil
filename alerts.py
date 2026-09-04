@@ -9,7 +9,7 @@ from bids import (
     bid_process_structure_label,
     format_estimated_value_display,
 )
-from contract_utils import extract_agency_acronym, humanize_remaining
+from contract_utils import extract_agency_acronym, humanize_remaining, today_brt
 from db import archive_expired_contracts, connect, execute, init_db, query
 from notifications import send_email, send_test_email, smtp_status
 
@@ -47,7 +47,7 @@ def standardized_email_subject(row, situation):
 
 
 def obligation_notification_text(row, today=None):
-    today = today or date.today()
+    today = today or today_brt()
     due = date.fromisoformat(str(row["due_date"])[:10])
     days = (due - today).days
     if days < 0:
@@ -76,7 +76,7 @@ def obligation_notification_text(row, today=None):
 
 
 def send_obligation_alert(obligation_id, force=False, today=None):
-    today = today or date.today()
+    today = today or today_brt()
     rows = query(
         """SELECT o.*,c.client,c.contract_number,c.cost_center
         FROM obligations o JOIN contracts c ON c.id=o.contract_id
@@ -131,7 +131,7 @@ def send_obligation_alert(obligation_id, force=False, today=None):
 
 
 def process_obligation_alerts(today=None):
-    today = today or date.today()
+    today = today or today_brt()
     rows = query(
         """SELECT o.id,o.status,o.due_date FROM obligations o
         JOIN contracts c ON c.id=o.contract_id
@@ -156,7 +156,7 @@ def process_obligation_alerts(today=None):
 
 
 def contract_expiry_notification_text(row, alert_days, today=None):
-    today = today or date.today()
+    today = today or today_brt()
     end_date = date.fromisoformat(str(row["effective_end"])[:10])
     contract_reference = row["contract_number"] or row["cost_center"] or "não informado"
     remaining_days = max(0, (end_date - today).days)
@@ -192,7 +192,7 @@ def contract_expiry_notification_text(row, alert_days, today=None):
 
 def process_contract_expiry_alerts(today=None):
     """Envia uma comunicação única nas janelas de 30 e 15 dias da vigência atual."""
-    today = today or date.today()
+    today = today or today_brt()
     rows = query(
         """SELECT c.id,c.cost_center,c.client,c.contract_number,
         c.manager_email,c.engineer_name,c.engineer_email,
@@ -283,7 +283,7 @@ def process_contract_expiry_alerts(today=None):
 
 
 def guarantee_expiry_notification_text(row, today=None):
-    today = today or date.today()
+    today = today or today_brt()
     end_date = date.fromisoformat(str(row["end_date"])[:10])
     days = (end_date - today).days
     if days < 0:
@@ -319,7 +319,7 @@ def guarantee_expiry_notification_text(row, today=None):
 
 def process_guarantee_alerts(today=None):
     """Processa alertas de vigência e de prazo para apresentação de garantias."""
-    today = today or date.today()
+    today = today or today_brt()
     rows = [dict(row) for row in query(
         """SELECT g.*,c.client,c.contract_number,c.cost_center,c.engineer_name,
         c.engineer_email,c.manager_name,c.manager_email
@@ -437,7 +437,7 @@ def process_guarantee_alerts(today=None):
 
 def sesmt_notification_text(kind, row, today=None):
     """kind: 'EXAME' (exame ocupacional/ASO) ou 'TREINAMENTO' (NR/certificado)."""
-    today = today or date.today()
+    today = today or today_brt()
     end_date = date.fromisoformat(str(row["valid_until"])[:10])
     days = (end_date - today).days
     noun = "EXAME OCUPACIONAL" if kind == "EXAME" else "TREINAMENTO/CERTIFICADO"
@@ -482,7 +482,7 @@ def process_sesmt_alerts(today=None):
     responsável (ou, na falta dele, o responsável administrativo) do
     contrato ao qual o profissional está vinculado — mesmo padrão de
     fallback já usado nos alertas de garantias."""
-    today = today or date.today()
+    today = today or today_brt()
     exam_rows = [dict(row) for row in query(
         """SELECT e.id,e.exam_type,e.result,e.valid_until,
         p.full_name,p.role_title,p.contract_id,
@@ -554,7 +554,7 @@ def process_sesmt_alerts(today=None):
 
 def process_repactuation_alerts():
     init_db()
-    today = date.today()
+    today = today_brt()
     archived_ids = archive_expired_contracts()
     rows = query(
         """SELECT u.*,c.client,c.contract_number,c.cost_center,c.manager_name,c.manager_email,
@@ -671,7 +671,7 @@ def todays_bid_schedule_rows(today=None):
     objeto, valor estimado. Reaproveita o mesmo cálculo de valor agregado e
     estrutura (grupos/itens) usado na tela de Licitações, para os números
     do e-mail nunca divergirem dos exibidos no sistema."""
-    today = today or date.today()
+    today = today or today_brt()
     processes = [
         dict(row) for row in query(
             """SELECT * FROM bid_processes WHERE dispute_date=? ORDER BY dispute_time""",
@@ -776,7 +776,7 @@ def send_daily_bid_schedule(today=None, force=False):
     permitiu reservar a vaga duas vezes; o problema era o CC repetido a
     cada mensagem individual)."""
     init_db()
-    today = today or date.today()
+    today = today or today_brt()
     result = {"sent": 0, "skipped_weekend": False, "recipients": 0, "bids_today": 0}
     if not force and today.weekday() >= 5:
         result["skipped_weekend"] = True
