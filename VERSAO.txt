@@ -1,4 +1,27 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 76 Beta
+Data: 04/09/2026
+
+Principais alterações:
+- corrigido o assunto do e-mail de ATA/contrato decorrente: quando o
+  número já é digitado com o prefixo "ATA-" (ex.: "ATA-12/2026"), esse
+  prefixo saía repetido no assunto (ex.: "..._ATA_..._ATA-12-2026_...");
+  agora só o número em si aparece depois do código do instrumento, sem
+  repetir "ATA"/"CTR" que já aparece logo no início do assunto;
+- o aviso de registro de uma ATA deixa de ser um simples "nenhuma ação
+  necessária": agora pede, como primeira providência, que o responsável
+  designado ative o novo contrato no TOTVS para futuras movimentações de
+  controle — no mesmo formato de pedido individual já usado para garantia
+  e ART (precisa de um responsável cadastrado em "Responsáveis por
+  providências iniciais", agora também com a opção "Ativação no TOTVS");
+- pelo mesmo motivo, todo cadastro de contrato novo ou de contrato
+  decorrente de ATA (não um aditivo) passa a pedir a ativação no TOTVS
+  como item 1 da lista de providências, com garantia como item 2 e ART
+  como item 3 — antes só garantia e ART eram cobradas.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 75 Beta
 Data: 04/09/2026
 

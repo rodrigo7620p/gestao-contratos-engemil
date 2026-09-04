@@ -22,11 +22,13 @@ import re
 from db import query
 from notifications import send_email
 
+TASK_TOTVS = "TOTVS"
 TASK_GARANTIA = "GARANTIA"
 TASK_ART = "ART"
 TASK_LABELS = {
-    TASK_GARANTIA: "providenciar a garantia contratual",
-    TASK_ART: "providenciar a atualização das ARTs",
+    TASK_TOTVS: "ativar o novo contrato no TOTVS, para futuras movimentações de controle",
+    TASK_GARANTIA: "providenciar a garantia contratual correspondente",
+    TASK_ART: "providenciar a atualização das ARTs correspondente",
 }
 
 DOCUMENT_TYPE_CODES = {
@@ -64,6 +66,17 @@ def _agency_subject_token(agency: str) -> str:
     return re.sub(r"\s+", "-", sigla) or "ORGAO"
 
 
+_REDUNDANT_NUMBER_PREFIX = re.compile(r"^(ATA|CTR)[\s\-_/]+", re.IGNORECASE)
+
+
+def _clean_subject_number(contract_number: str) -> str:
+    """Tira um prefixo redundante como "ATA-" ou "CTR-" do número, quando a
+    pessoa já digita o número dessa forma (ex.: "ATA-12/2026") — o assunto
+    já identifica o instrumento no código anterior (ATA, CTR, ATA-CTR...),
+    então repetir a sigla no número também fica redundante."""
+    return _REDUNDANT_NUMBER_PREFIX.sub("", str(contract_number or "").strip())
+
+
 def build_task_email_subject(
     cost_center, kind_label, ordinal, agency, contract_number, action_tag="ASSINADO",
     ata_derived: bool = False,
@@ -71,7 +84,7 @@ def build_task_email_subject(
     cost_center_part = re.sub(r"\s+", "_", str(cost_center or "").strip()).strip("_")
     instrument_code = _instrument_code(kind_label, ordinal, ata_derived)
     acronym = _agency_subject_token(agency)
-    contract_part = str(contract_number or "").replace("/", "-").replace(" ", "")
+    contract_part = _clean_subject_number(contract_number).replace("/", "-").replace(" ", "")
     return "_".join(filter(None, [
         cost_center_part, instrument_code, acronym, contract_part, action_tag,
     ]))
@@ -162,12 +175,20 @@ def notify_contract_task_needs(
     para o corpo do e-mail deixar claro tanto o número da ATA quanto o do
     contrato decorrente). `extra_recipients` recebe cópia do mesmo e-mail
     (ex.: engenheiro e responsável administrativo do contrato) além dos
-    e-mails de grupo/individuais já cadastrados."""
+    e-mails de grupo/individuais já cadastrados.
+
+    Todo cadastro NOVO (não um aditivo/apostilamento) também pede a
+    ativação no TOTVS como item 1, antes de garantia e ART — diferente
+    delas, não há tabela própria para checar se isso já foi feito, então
+    é sempre solicitada de novo em cada contrato/contrato decorrente
+    recém-cadastrado."""
     missing = _missing_tasks(contract_id, amendment_id, ata_contract_id, ata_amendment_id)
-    if not missing:
-        return []
     is_ata_derived = ata_contract_id is not None
     is_amendment = bool(amendment_id or ata_amendment_id)
+    if not is_amendment:
+        missing = [TASK_TOTVS] + missing
+    if not missing:
+        return []
     instrument_label = (
         f"{ordinal} {kind_label}".strip().title() if is_amendment else "novo contrato"
     )
@@ -186,7 +207,7 @@ def notify_contract_task_needs(
             task_lines.append(
                 f"{len(task_lines) + 1:02d} - {person['responsible_name']}, conforme "
                 f"{instrument_label} do contrato {contract_reference} "
-                f"({client}), favor {TASK_LABELS[task_type]} correspondente."
+                f"({client}), favor {TASK_LABELS[task_type]}."
             )
             if person.get("notify_individually"):
                 individual_recipients.append(person["responsible_email"])
@@ -236,28 +257,51 @@ def notify_ata_registration(
     extra_recipients: list[str] | None = None,
 ) -> list[str]:
     """Avisa a equipe que um novo centro de custo foi reservado para uma
-    ATA — só para conhecimento, SEM cobrar garantia contratual nem ART. A
-    ATA em si não gera essas obrigações; elas só passam a valer quando os
-    contratos decorrentes dela forem cadastrados e assinados, ocasião em
-    que o fluxo normal (notify_contract_task_needs) passa a valer para
-    cada um deles."""
-    recipients = list(dict.fromkeys(active_group_recipients()))
+    ATA — SEM cobrar garantia contratual nem ART, já que a ATA em si não
+    gera essas obrigações (elas só passam a valer quando os contratos
+    decorrentes dela forem cadastrados e assinados, ocasião em que o fluxo
+    normal — notify_contract_task_needs — passa a valer para cada um
+    deles). Mas a ATA em si já pede UMA ação: ativar o novo contrato no
+    TOTVS, para futuras movimentações de controle — igual ao pedido de
+    garantia/ART, precisa de um responsável cadastrado
+    (contract_task_responsibles, task_type TOTVS) para o e-mail sair."""
+    task_lines = []
+    individual_recipients = []
+    for person in active_task_responsibles(TASK_TOTVS):
+        task_lines.append(
+            f"{len(task_lines) + 1:02d} - {person['responsible_name']}, conforme ATA "
+            f"{contract_number or cost_center} ({client}), favor {TASK_LABELS[TASK_TOTVS]}."
+        )
+        if person.get("notify_individually"):
+            individual_recipients.append(person["responsible_email"])
+    if not task_lines:
+        return []
+
+    recipients = list(dict.fromkeys(active_group_recipients() + individual_recipients))
+    if not recipients:
+        recipients = list(dict.fromkeys(
+            person["responsible_email"] for person in active_task_responsibles(TASK_TOTVS)
+        ))
     if not recipients:
         return []
+
     subject = build_task_email_subject(
         cost_center, "ATA", None, client, contract_number, action_tag="REGISTRADA",
     )
     body = (
         "Prezado(a),\n\n"
-        f"Foi reservado o centro de custo {cost_center} para a ATA de registro de "
-        f"preços firmada com {client}"
-        + (f" (nº {contract_number})" if contract_number else "") + ".\n\n"
-        "Este cadastro é só para conhecimento da equipe — a ATA, por si só, não gera "
-        "obrigação de garantia contratual nem de ART. Essas providências só serão "
-        "cobradas quando os contratos decorrentes dela forem cadastrados; assim que a "
-        "ATA e cada contrato oriundo dela forem assinados, seguimos normalmente os "
+        + "\n\n".join(task_lines) +
+        "\n\n"
+        f"Centro de custo: {cost_center}\n"
+        f"Contratante: {client}\n"
+        "Instrumento: nova ATA\n\n"
+        "Esta ATA, por si só, não gera obrigação de garantia contratual nem de ART — "
+        "essas providências só serão cobradas quando os contratos decorrentes dela "
+        "forem cadastrados; assim que cada um for assinado, seguimos normalmente os "
         "passos de garantia e ART.\n\n"
-        "Nenhuma ação é necessária neste momento."
+        "Após a providência, responda a este e-mail com a confirmação e as evidências "
+        "da execução, assegurando o registro e a rastreabilidade do cumprimento da "
+        "providência."
     )
     ok, _ = send_email(recipients, subject, body, cc=extra_recipients)
     return recipients if ok else []

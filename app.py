@@ -107,7 +107,7 @@ from reports import (
 from notifications import MAX_ATTACHMENTS_BYTES, send_email, send_test_email, smtp_status
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "75"
+APP_VERSION = "76"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -2120,18 +2120,22 @@ def page_contracts():
             "por permanecerem vencidos por 30 dias sem novo aditivo."
         )
     if can_edit():
-        with st.expander("Responsáveis por providências iniciais (garantia e ART)"):
+        with st.expander("Responsáveis por providências iniciais (TOTVS, garantia e ART)"):
             st.caption(
-                "Sempre que um contrato novo é cadastrado, ou um aditivo/apostilamento tem "
-                "seu documento anexado, o sistema confere se já existe garantia e ART "
-                "vinculadas — faltando alguma, envia um único e-mail listando todas as "
-                "providências pendentes (mencionando o nome de cada responsável na "
-                "mensagem) para o(s) e-mail(is) de grupo cadastrados abaixo. Um "
-                "responsável marcado para \"envio individual\" também recebe cópia no "
-                "próprio e-mail — assim como o engenheiro e o responsável administrativo "
-                "cadastrados na ficha do contrato, quando preenchidos."
+                "Sempre que um contrato novo é cadastrado (contrato, contrato decorrente "
+                "de ATA, ou a própria ATA), ou um aditivo/apostilamento tem seu documento "
+                "anexado, o sistema monta um único e-mail listando as providências "
+                "pendentes (mencionando o nome de cada responsável na mensagem) para o(s) "
+                "e-mail(is) de grupo cadastrados abaixo. Um contrato/contrato decorrente "
+                "recém-cadastrado sempre pede a ativação no TOTVS como primeiro item (não "
+                "há como checar isso automaticamente, então é pedida de novo em cada "
+                "cadastro); garantia e ART entram na lista só quando ainda não há registro "
+                "vinculado ao instrumento. Um responsável marcado para \"envio individual\" "
+                "também recebe cópia no próprio e-mail — assim como o engenheiro e o "
+                "responsável administrativo cadastrados na ficha do contrato, quando "
+                "preenchidos."
             )
-            task_labels = {"GARANTIA": "Garantia contratual", "ART": "ART"}
+            task_labels = {"TOTVS": "Ativação no TOTVS", "GARANTIA": "Garantia contratual", "ART": "ART"}
             responsibles = [
                 dict(row) for row in query(
                     "SELECT * FROM contract_task_responsibles ORDER BY task_type,active DESC,responsible_name"
