@@ -1,4 +1,24 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 74 Beta
+Data: 04/09/2026
+
+Principais alterações:
+- ao cadastrar um contrato de modalidade ATA (com número preenchido), o
+  sistema não cobra mais garantia contratual nem ART, já que a ATA por si
+  só não gera essas obrigações — passa a enviar um aviso diferente,
+  avisando a equipe que o centro de custo da ATA foi reservado e que os
+  passos de garantia e ART só serão cobrados quando os contratos
+  decorrentes dela forem cadastrados e assinados;
+- ao alterar (ou cadastrar) uma licitação com o status "SUSPENSA", o campo
+  Observações passa a ser obrigatório, com a justificativa da suspensão;
+  essa observação agora aparece no e-mail de "Licitações do dia" como um
+  aviso destacado logo abaixo do quadro (que continua exatamente igual),
+  sinalizando aos gestores que aquela disputa específica não vai ocorrer
+  no horário indicado.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 73 Beta
 Data: 04/09/2026
 

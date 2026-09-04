@@ -33,6 +33,7 @@ DOCUMENT_TYPE_CODES = {
     "CONTRATO": "CTR",
     "TERMO ADITIVO": "TA",
     "TERMO DE APOSTILAMENTO": "TAP",
+    "ATA": "ATA",
 }
 
 _AGENCY_SIGLA_DASH_PATTERN = re.compile(r"[-–—]\s*(?P<sigla>[^-–—]+?)\s*$")
@@ -208,4 +209,36 @@ def notify_contract_task_needs(
         f"cumprimento da{'s' if len(task_lines) > 1 else ''} {closing_object}."
     )
     ok, _ = send_email(recipients, subject, body, cc=extra_recipients, attachments=attachments)
+    return recipients if ok else []
+
+
+def notify_ata_registration(
+    *, cost_center: str, client: str, contract_number: str,
+    extra_recipients: list[str] | None = None,
+) -> list[str]:
+    """Avisa a equipe que um novo centro de custo foi reservado para uma
+    ATA — só para conhecimento, SEM cobrar garantia contratual nem ART. A
+    ATA em si não gera essas obrigações; elas só passam a valer quando os
+    contratos decorrentes dela forem cadastrados e assinados, ocasião em
+    que o fluxo normal (notify_contract_task_needs) passa a valer para
+    cada um deles."""
+    recipients = list(dict.fromkeys(active_group_recipients()))
+    if not recipients:
+        return []
+    subject = build_task_email_subject(
+        cost_center, "ATA", None, client, contract_number, action_tag="REGISTRADA",
+    )
+    body = (
+        "Prezado(a),\n\n"
+        f"Foi reservado o centro de custo {cost_center} para a ATA de registro de "
+        f"preços firmada com {client}"
+        + (f" (nº {contract_number})" if contract_number else "") + ".\n\n"
+        "Este cadastro é só para conhecimento da equipe — a ATA, por si só, não gera "
+        "obrigação de garantia contratual nem de ART. Essas providências só serão "
+        "cobradas quando os contratos decorrentes dela forem cadastrados; assim que a "
+        "ATA e cada contrato oriundo dela forem assinados, seguimos normalmente os "
+        "passos de garantia e ART.\n\n"
+        "Nenhuma ação é necessária neste momento."
+    )
+    ok, _ = send_email(recipients, subject, body, cc=extra_recipients)
     return recipients if ok else []

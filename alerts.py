@@ -698,6 +698,8 @@ def todays_bid_schedule_rows(today=None):
             "estrutura": bid_process_structure_label(lots),
             "objeto": process.get("object") or "—",
             "valor_estimado": format_estimated_value_display(aggregate),
+            "status": str(process.get("status") or "").strip().upper(),
+            "observacao": process.get("notes") or "",
         })
     return rows
 
@@ -724,6 +726,34 @@ def _bid_schedule_email_content(rows, today):
                 for v in values
             ) + "</tr>"
         )
+    # A licitação suspensa continua aparecendo no quadro normalmente (não é
+    # excluída como REVOGADA/DESERTA) — mas ganha um aviso à parte, abaixo
+    # da tabela, com a justificativa cadastrada, para o gestor não achar
+    # que a disputa vai mesmo acontecer no horário indicado.
+    suspended = [row for row in rows if row.get("status") == "SUSPENSA"]
+    suspension_plain = []
+    suspension_html = ""
+    if suspended:
+        suspension_plain.append("AVISO — LICITAÇÕES SUSPENSAS NO QUADRO ACIMA:")
+        suspension_items_html = []
+        for row in suspended:
+            justification = row.get("observacao") or "Sem justificativa cadastrada."
+            suspension_plain.append(
+                f"- {row['numero']} ({row['orgao']}) foi suspensa: {justification}"
+            )
+            suspension_items_html.append(
+                f'<li><strong>{escape(str(row["numero"]))}</strong> '
+                f'({escape(str(row["orgao"]))}) foi suspensa: {escape(str(justification))}</li>'
+            )
+        suspension_plain.append("")
+        suspension_html = f"""
+        <div style="background:#fff4e5;border:1px solid #f0b429;border-radius:6px;
+             padding:12px 16px;margin-top:16px;">
+            <strong style="color:#8a5a00;">Aviso — licitações suspensas no quadro acima:</strong>
+            <ul style="margin:8px 0 0;padding-left:20px;">{"".join(suspension_items_html)}</ul>
+        </div>
+        """
+    plain_lines.extend(suspension_plain)
     plain_lines.append(
         "Mensagem automática do Sistema de Gestão Contratual ENGEMIL — "
         "não é necessário responder."
@@ -741,6 +771,7 @@ def _bid_schedule_email_content(rows, today):
             <thead><tr>{header_html}</tr></thead>
             <tbody>{"".join(html_rows)}</tbody>
         </table>
+        {suspension_html}
         <p style="color:#6b7280;font-size:12px;margin-top:16px;">
             Mensagem automática do Sistema de Gestão Contratual ENGEMIL —
             não é necessário responder.

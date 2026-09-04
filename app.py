@@ -41,7 +41,7 @@ from bids import (
 )
 from bid_viability import build_pncp_documents_zip, parse_pncp_control_number
 from contract_announcement import announcement_attachments_available, build_announcement_email
-from contract_tasks import notify_contract_task_needs
+from contract_tasks import notify_ata_registration, notify_contract_task_needs
 from contract_utils import (
     agency_document_fields,
     contract_duration_months,
@@ -107,7 +107,7 @@ from reports import (
 from notifications import MAX_ATTACHMENTS_BYTES, send_email, send_test_email, smtp_status
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "73"
+APP_VERSION = "74"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -6677,13 +6677,24 @@ def page_new_contract():
                         document_filename = contract_document_upload.name
                     notified = []
                     if formalized:
-                        notified = notify_contract_task_needs(
-                            contract_id=cid, amendment_id=None, kind_label="CONTRATO",
-                            ordinal=None, cost_center=cost_center.strip(),
-                            client=normalize_agency_name(client), contract_number=contract_number.strip(),
-                            document_bytes=document_bytes, document_filename=document_filename,
-                            extra_recipients=[engineer_email, manager_email],
-                        )
+                        if category == "ATA":
+                            # A ATA em si não gera garantia contratual nem ART — isso só
+                            # passa a valer para os contratos decorrentes dela, quando
+                            # forem cadastrados e assinados (fluxo normal, mais abaixo).
+                            notified = notify_ata_registration(
+                                cost_center=cost_center.strip(),
+                                client=normalize_agency_name(client),
+                                contract_number=contract_number.strip(),
+                                extra_recipients=[engineer_email, manager_email],
+                            )
+                        else:
+                            notified = notify_contract_task_needs(
+                                contract_id=cid, amendment_id=None, kind_label="CONTRATO",
+                                ordinal=None, cost_center=cost_center.strip(),
+                                client=normalize_agency_name(client), contract_number=contract_number.strip(),
+                                document_bytes=document_bytes, document_filename=document_filename,
+                                extra_recipients=[engineer_email, manager_email],
+                            )
                     for reset_key in (
                         "new_contract_engineer_pick", "new_contract_manager_pick",
                         "new_contract_engineer_applied", "new_contract_manager_applied",
@@ -6695,7 +6706,13 @@ def page_new_contract():
                         st.session_state.pop(reset_key, None)
                     if formalized:
                         success_message = "Contrato, sindicatos e equipe cadastrados. Complete os demais dados na Ficha do Contrato."
-                        if notified:
+                        if notified and category == "ATA":
+                            success_message += (
+                                f" Aviso de novo centro de custo de ATA enviado para "
+                                f"{len(notified)} destinatário(s) (sem cobrança de garantia/ART "
+                                "neste momento)."
+                            )
+                        elif notified:
                             success_message += (
                                 f" Aviso de providências iniciais enviado para "
                                 f"{len(notified)} responsável(is)."
@@ -9191,6 +9208,12 @@ def page_bids():
                 if st.form_submit_button("Cadastrar licitação", width="stretch"):
                     if not process_number.strip() or not agency.strip():
                         st.error("Preencha ao menos o número do processo e o órgão.")
+                    elif status == "SUSPENSA" and not notes.strip():
+                        st.error(
+                            "Preencha o campo Observações explicando o motivo da suspensão — "
+                            "esse texto vai junto no e-mail de licitações do dia para avisar os "
+                            "gestores."
+                        )
                     elif duplicate_matches and not confirm_duplicate:
                         st.error(
                             "Este Edital + UASG já está cadastrado (veja o aviso acima). Marque "
@@ -9415,6 +9438,12 @@ def page_bids():
                     else:
                         if not edit_process_number.strip() or not edit_agency.strip():
                             st.error("Preencha ao menos o número do processo e o órgão.")
+                        elif edit_status == "SUSPENSA" and not edit_notes.strip():
+                            st.error(
+                                "Preencha o campo Observações explicando o motivo da suspensão — "
+                                "esse texto vai junto no e-mail de licitações do dia para avisar "
+                                "os gestores."
+                            )
                         else:
                             estimated_value = edit_estimated_value_number or None
                             discount = None
