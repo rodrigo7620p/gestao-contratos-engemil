@@ -107,7 +107,7 @@ from reports import (
 from notifications import MAX_ATTACHMENTS_BYTES, send_email, send_test_email, smtp_status
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "74"
+APP_VERSION = "75"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -4209,6 +4209,7 @@ def page_contract_detail():
                                 notified = notify_contract_task_needs(
                                     ata_contract_id=ata_contract_id,
                                     ata_amendment_id=new_ata_amendment_id,
+                                    ata_number=contract["contract_number"],
                                     kind_label=resolved_ata_kind, ordinal=ata_ordinal,
                                     cost_center=contract["cost_center"],
                                     client=ata_contract["client"] or contract["client"],
@@ -4435,6 +4436,7 @@ def page_contract_detail():
                                     ata_document_filename = new_ata_document_upload.name
                                 notified = notify_contract_task_needs(
                                     ata_contract_id=new_ata_contract_id, ata_amendment_id=None,
+                                    ata_number=contract["contract_number"],
                                     kind_label="CONTRATO", ordinal=None,
                                     cost_center=contract["cost_center"],
                                     client=normalize_agency_name(new_ata_client),

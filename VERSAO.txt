@@ -1,4 +1,19 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 75 Beta
+Data: 04/09/2026
+
+Principais alterações:
+- ao cadastrar um contrato decorrente de ATA (ou lançar um aditivo dele),
+  o assunto do e-mail de providências passa a usar "ATA-CTR" (ou
+  "ATA-1ºTA"/"ATA-1ºTAP" etc.) em vez de só "CTR" — associando os dois no
+  código do instrumento — mantendo no número apenas o do contrato
+  decorrente em si (não o da ATA); o corpo do e-mail passa a detalhar
+  explicitamente tanto o número da ATA de origem quanto o do contrato
+  decorrente, para não haver dúvida de qual é qual.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 74 Beta
 Data: 04/09/2026
 

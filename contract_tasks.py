@@ -40,10 +40,15 @@ _AGENCY_SIGLA_DASH_PATTERN = re.compile(r"[-–—]\s*(?P<sigla>[^-–—]+?)\s*
 _AGENCY_SIGLA_PAREN_PATTERN = re.compile(r"\((?P<sigla>[^()]+)\)\s*$")
 
 
-def _instrument_code(kind_label: str, ordinal: str | None) -> str:
+def _instrument_code(kind_label: str, ordinal: str | None, ata_derived: bool = False) -> str:
     base_code = DOCUMENT_TYPE_CODES.get(str(kind_label or "").strip().upper(), "DOC")
     ordinal_prefix = str(ordinal or "").strip()
-    return f"{ordinal_prefix}{base_code}" if ordinal_prefix and base_code != "CTR" else base_code
+    code = f"{ordinal_prefix}{base_code}" if ordinal_prefix and base_code != "CTR" else base_code
+    # Um contrato (ou aditivo) decorrente de uma ATA usa o código do
+    # instrumento normal, mas prefixado com "ATA-" no assunto — associa
+    # visualmente os dois sem confundir com o código "ATA" isolado, usado
+    # só no aviso de registro da própria ATA (notify_ata_registration).
+    return f"ATA-{code}" if ata_derived else code
 
 
 def _agency_subject_token(agency: str) -> str:
@@ -61,9 +66,10 @@ def _agency_subject_token(agency: str) -> str:
 
 def build_task_email_subject(
     cost_center, kind_label, ordinal, agency, contract_number, action_tag="ASSINADO",
+    ata_derived: bool = False,
 ) -> str:
     cost_center_part = re.sub(r"\s+", "_", str(cost_center or "").strip()).strip("_")
-    instrument_code = _instrument_code(kind_label, ordinal)
+    instrument_code = _instrument_code(kind_label, ordinal, ata_derived)
     acronym = _agency_subject_token(agency)
     contract_part = str(contract_number or "").replace("/", "-").replace(" ", "")
     return "_".join(filter(None, [
@@ -131,6 +137,7 @@ def notify_contract_task_needs(
     amendment_id: int | None = None,
     ata_contract_id: int | None = None,
     ata_amendment_id: int | None = None,
+    ata_number: str | None = None,
     kind_label: str,
     ordinal: str | None,
     cost_center: str,
@@ -149,18 +156,27 @@ def notify_contract_task_needs(
 
     Aceita tanto contratos/aditivos regulares (contract_id/amendment_id)
     quanto contratos decorrentes de ATA e seus aditivos
-    (ata_contract_id/ata_amendment_id). `extra_recipients` recebe cópia do
-    mesmo e-mail (ex.: engenheiro e responsável administrativo do
-    contrato) além dos e-mails de grupo/individuais já cadastrados."""
+    (ata_contract_id/ata_amendment_id — quando presentes, o assunto ganha o
+    prefixo "ATA-" no código do instrumento, ex. "ATA-CTR", associando os
+    dois visualmente, e `ata_number` deve trazer o número da própria ATA
+    para o corpo do e-mail deixar claro tanto o número da ATA quanto o do
+    contrato decorrente). `extra_recipients` recebe cópia do mesmo e-mail
+    (ex.: engenheiro e responsável administrativo do contrato) além dos
+    e-mails de grupo/individuais já cadastrados."""
     missing = _missing_tasks(contract_id, amendment_id, ata_contract_id, ata_amendment_id)
     if not missing:
         return []
+    is_ata_derived = ata_contract_id is not None
     is_amendment = bool(amendment_id or ata_amendment_id)
     instrument_label = (
         f"{ordinal} {kind_label}".strip().title() if is_amendment else "novo contrato"
     )
     document_label = (
         instrument_label if is_amendment else str(kind_label or "Contrato").strip().title()
+    )
+    contract_reference = (
+        f"{contract_number or cost_center} (decorrente da ATA {ata_number})"
+        if is_ata_derived and ata_number else (contract_number or cost_center)
     )
 
     task_lines = []
@@ -169,7 +185,7 @@ def notify_contract_task_needs(
         for person in active_task_responsibles(task_type):
             task_lines.append(
                 f"{len(task_lines) + 1:02d} - {person['responsible_name']}, conforme "
-                f"{instrument_label} do contrato {contract_number or cost_center} "
+                f"{instrument_label} do contrato {contract_reference} "
                 f"({client}), favor {TASK_LABELS[task_type]} correspondente."
             )
             if person.get("notify_individually"):
@@ -191,10 +207,12 @@ def notify_contract_task_needs(
 
     subject = build_task_email_subject(
         cost_center, kind_label, ordinal, client, contract_number, action_tag,
+        ata_derived=is_ata_derived,
     )
     attachments = [(document_filename, document_bytes)] if document_bytes and document_filename else None
     intro = f"Segue em anexo o {document_label} assinado entre as partes.\n\n" if attachments else ""
     closing_object = "providências" if len(task_lines) > 1 else "providência"
+    ata_line = f"ATA de origem: {ata_number}\n" if is_ata_derived and ata_number else ""
     body = (
         "Prezado(a),\n\n"
         f"{intro}"
@@ -202,6 +220,7 @@ def notify_contract_task_needs(
         "\n\n"
         f"Centro de custo: {cost_center}\n"
         f"Contratante: {client}\n"
+        f"{ata_line}"
         f"Instrumento: {instrument_label}\n"
         + ("\nDocumento em anexo.\n" if attachments else "\n") +
         "\nApós a providência, responda a este e-mail com a confirmação e as "
