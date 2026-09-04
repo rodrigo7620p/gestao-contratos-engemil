@@ -42,11 +42,16 @@ def _pct(value) -> str:
 
 
 def build_announcement_subject(contract: dict) -> str:
+    # Este e-mail só existe para pré-contratos (formalized=0) — ou seja, é
+    # sempre um registro pendente de assinatura, seja ATA ou contrato
+    # comum. O sufixo "REGISTRADA" deixa isso visível já no assunto, sem
+    # precisar abrir o e-mail, no mesmo padrão usado pelos avisos de
+    # providências (notify_ata_registration/notify_contract_task_needs).
     cost_center_part = re.sub(r"\s+", "_", str(contract.get("cost_center") or "").strip())
     sigla = _agency_subject_token(contract.get("client"))
     category = re.sub(r"\s+", "-", str(contract.get("category") or "").strip())
     object_tag = re.sub(r"\s+", "-", str(contract.get("object_identifier") or "").strip())
-    return "_".join(filter(None, [cost_center_part, sigla, category, object_tag]))
+    return "_".join(filter(None, [cost_center_part, sigla, category, object_tag, "REGISTRADA"]))
 
 
 def announcement_attachments_available(contract_id: int) -> list[dict]:

@@ -1,4 +1,18 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 77 Beta
+Data: 04/09/2026
+
+Principais alterações:
+- o e-mail de anúncio de contrato (Pré-contratos) — que só existe para
+  registros ainda sem número de contrato, seja ATA ou contrato comum —
+  passa a terminar o assunto em "REGISTRADA", mesmo padrão já usado nos
+  avisos de providências, para ficar visível de cara que é um registro
+  novo pendente de assinatura, sem precisar abrir o e-mail (antes o
+  assunto não tinha nenhum sufixo de situação).
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 76 Beta
 Data: 04/09/2026
 
