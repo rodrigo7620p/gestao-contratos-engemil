@@ -1,4 +1,25 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 79 Beta
+Data: 08/09/2026
+
+Principais alterações:
+- novo backup diário automático e local: backup_diario.py copia o banco
+  de dados inteiro (todas as tabelas, direto do Turso) e todos os
+  documentos anexados (ARTs, editais, contratos assinados etc., extraídos
+  de onde ficam guardados para sobreviver ao disco temporário do Streamlit
+  Cloud) para Backups/AAAA-MM-DD dentro desta mesma pasta do sistema — que
+  já sincroniza com o OneDrive, ganhando de brinde uma cópia também na
+  nuvem. O resultado é autônomo: dá para apontar o sistema para essa pasta
+  e rodar tudo localmente, sem depender do Turso, em caso de necessidade;
+- configurar_backup_diario.bat cria uma tarefa agendada do Windows para
+  rodar esse backup todo dia às 8h (independente de licitações/alertas);
+  backups com mais de 30 dias são apagados automaticamente a cada execução
+  para não crescer sem limite. Já validado com um backup real de produção:
+  41 tabelas, 2.261 linhas, 43 documentos, 40 MB.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 78 Beta
 Data: 08/09/2026
 
