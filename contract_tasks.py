@@ -192,12 +192,18 @@ def notify_contract_task_needs(
     instrument_label = (
         f"{ordinal} {kind_label}".strip().title() if is_amendment else "novo contrato"
     )
-    document_label = (
-        instrument_label if is_amendment else str(kind_label or "Contrato").strip().title()
-    )
     contract_reference = (
         f"{contract_number or cost_center} (decorrente da ATA {ata_number})"
         if is_ata_derived and ata_number else (contract_number or cost_center)
+    )
+    # O instrumento/contrato já é identificado UMA vez, logo no início do
+    # corpo (e também no assunto) — repetir "conforme <instrumento> do
+    # contrato <número> (<contratante>)" em cada linha numerada ficava
+    # cansativo quando há várias providências pendentes. Cada linha agora
+    # só traz o nome do responsável e a ação dele.
+    reference_phrase = (
+        f"{instrument_label} do contrato {contract_reference} ({client})"
+        if is_amendment else f"contrato {contract_reference} ({client})"
     )
 
     task_lines = []
@@ -205,9 +211,8 @@ def notify_contract_task_needs(
     for task_type in missing:
         for person in active_task_responsibles(task_type):
             task_lines.append(
-                f"{len(task_lines) + 1:02d} - {person['responsible_name']}, conforme "
-                f"{instrument_label} do contrato {contract_reference} "
-                f"({client}), favor {TASK_LABELS[task_type]}."
+                f"{len(task_lines) + 1:02d} - {person['responsible_name']}, favor "
+                f"{TASK_LABELS[task_type]}."
             )
             if person.get("notify_individually"):
                 individual_recipients.append(person["responsible_email"])
@@ -231,7 +236,12 @@ def notify_contract_task_needs(
         ata_derived=is_ata_derived,
     )
     attachments = [(document_filename, document_bytes)] if document_bytes and document_filename else None
-    intro = f"Segue em anexo o {document_label} assinado entre as partes.\n\n" if attachments else ""
+    intro = (
+        f"Segue em anexo o documento assinado entre as partes, referente ao "
+        f"{reference_phrase}.\n\n"
+        if attachments else
+        f"Seguem as providências pendentes referentes ao {reference_phrase}:\n\n"
+    )
     closing_object = "providências" if len(task_lines) > 1 else "providência"
     ata_line = f"ATA de origem: {ata_number}\n" if is_ata_derived and ata_number else ""
     body = (
@@ -269,8 +279,8 @@ def notify_ata_registration(
     individual_recipients = []
     for person in active_task_responsibles(TASK_TOTVS):
         task_lines.append(
-            f"{len(task_lines) + 1:02d} - {person['responsible_name']}, conforme ATA "
-            f"{contract_number or cost_center} ({client}), favor {TASK_LABELS[TASK_TOTVS]}."
+            f"{len(task_lines) + 1:02d} - {person['responsible_name']}, favor "
+            f"{TASK_LABELS[TASK_TOTVS]}."
         )
         if person.get("notify_individually"):
             individual_recipients.append(person["responsible_email"])
@@ -290,6 +300,8 @@ def notify_ata_registration(
     )
     body = (
         "Prezado(a),\n\n"
+        f"Segue a providência pendente referente à ATA {contract_number or cost_center} "
+        f"({client}):\n\n"
         + "\n\n".join(task_lines) +
         "\n\n"
         f"Centro de custo: {cost_center}\n"

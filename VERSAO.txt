@@ -1,4 +1,18 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 78 Beta
+Data: 08/09/2026
+
+Principais alterações:
+- e-mail de providências (TOTVS/garantia/ART, para contrato novo, ATA,
+  contrato decorrente ou aditivo) deixa de repetir "conforme <instrumento>
+  do contrato <número> (<contratante>)" em toda linha numerada — essa
+  identificação agora aparece uma única vez, logo no início do e-mail, e
+  cada linha traz só o nome do responsável e a providência dele. Ficava
+  repetitivo principalmente quando há mais de uma providência pendente.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 77 Beta
 Data: 04/09/2026
 
