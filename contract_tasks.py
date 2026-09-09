@@ -27,7 +27,10 @@ TASK_GARANTIA = "GARANTIA"
 TASK_ART = "ART"
 TASK_LABELS = {
     TASK_TOTVS: "ativar o novo contrato no TOTVS, para futuras movimentações de controle",
-    TASK_GARANTIA: "providenciar a garantia contratual correspondente",
+    # A partir de agora quem recebe este pedido é a própria corretora de
+    # seguros (cadastrada em "Responsáveis por providências iniciais" com
+    # o e-mail dela), não mais um funcionário intermediando a cotação.
+    TASK_GARANTIA: "realizar cotação para endosso de garantia contratual correspondente",
     TASK_ART: "providenciar a atualização das ARTs correspondente",
 }
 

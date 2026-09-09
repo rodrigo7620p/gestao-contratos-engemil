@@ -1,4 +1,21 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 80 Beta
+Data: 09/09/2026
+
+Principais alterações:
+- texto do pedido de providência de garantia contratual passa de
+  "providenciar a garantia contratual correspondente" para "realizar
+  cotação para endosso de garantia contratual correspondente" — a ideia é
+  que esse e-mail vá direto para a corretora de seguros cadastrada,
+  pedindo a cotação diretamente a ela, em vez de pedir a um funcionário
+  para intermediar o contato com a corretora. A providência de ART segue
+  igual, e o cadastro em "Responsáveis por providências iniciais" continua
+  funcionando do mesmo jeito — só troque o e-mail cadastrado para
+  "Garantia contratual" pelo da corretora designada.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 79 Beta
 Data: 08/09/2026
 
