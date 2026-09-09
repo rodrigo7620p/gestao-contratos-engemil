@@ -1,4 +1,21 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 81 Beta
+Data: 09/09/2026
+
+Principais alterações:
+- em "Responsáveis por providências iniciais", agora dá para cadastrar
+  mais de um e-mail para o mesmo responsável (separados por vírgula ou
+  ponto e vírgula) — útil para uma corretora de seguros com vários
+  contatos: todos recebem a mensagem, mas continuam aparecendo como um
+  único nome numa só linha no texto do e-mail (ex.: "01 - ART-Consultoria,
+  favor..."), nunca uma linha repetida por endereço;
+- também ficou possível editar o nome e o(s) e-mail(is) de um responsável
+  já cadastrado sem precisar excluir e recadastrar (o que antes fazia
+  perder o histórico e as configurações de envio individual/grupo).
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 80 Beta
 Data: 09/09/2026
 

@@ -104,10 +104,12 @@ from reports import (
     generate_contract_dossier,
     generate_indices_pdf,
 )
-from notifications import MAX_ATTACHMENTS_BYTES, send_email, send_test_email, smtp_status
+from notifications import (
+    MAX_ATTACHMENTS_BYTES, normalize_recipients, send_email, send_test_email, smtp_status,
+)
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "80"
+APP_VERSION = "81"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -2133,7 +2135,9 @@ def page_contracts():
                 "vinculado ao instrumento. Um responsável marcado para \"envio individual\" "
                 "também recebe cópia no próprio e-mail — assim como o engenheiro e o "
                 "responsável administrativo cadastrados na ficha do contrato, quando "
-                "preenchidos."
+                "preenchidos. Um mesmo responsável pode ter mais de um e-mail cadastrado "
+                "(ex.: uma corretora de seguros com vários contatos) — todos recebem a "
+                "mensagem, mas aparecem como um único nome no texto do e-mail."
             )
             task_labels = {"TOTVS": "Ativação no TOTVS", "GARANTIA": "Garantia contratual", "ART": "ART"}
             responsibles = [
@@ -2189,29 +2193,66 @@ def page_contracts():
                     log_action(user["id"], "REMOVER", "responsável de providência contratual", target_id, remove_label)
                     st.success("Registro removido.")
                     rerun()
+                st.markdown("###### Editar nome/e-mail(s) deste responsável")
+                edit_responsible_name = st.text_input(
+                    "Nome do responsável", value=target_row["responsible_name"],
+                    key=f"edit_responsible_name_{target_id}",
+                )
+                edit_responsible_email = st.text_input(
+                    "E-mail(s) do responsável", value=target_row["responsible_email"],
+                    key=f"edit_responsible_email_{target_id}",
+                    help="Separe por vírgula ou ponto e vírgula se houver mais de um "
+                    "endereço (ex.: uma corretora com vários contatos) — todos recebem a "
+                    "mensagem, mas continuam aparecendo como este único responsável no "
+                    "texto do e-mail.",
+                )
+                if st.button("Salvar alterações", key=f"save_contract_task_responsible_{target_id}"):
+                    normalized_emails = normalize_recipients(edit_responsible_email)
+                    if not edit_responsible_name.strip():
+                        st.error("Informe o nome do responsável.")
+                    elif not normalized_emails:
+                        st.error("Informe ao menos um e-mail válido.")
+                    else:
+                        execute(
+                            "UPDATE contract_task_responsibles SET responsible_name=?,"
+                            "responsible_email=? WHERE id=?",
+                            (edit_responsible_name.strip(), "; ".join(normalized_emails), target_id),
+                        )
+                        log_action(
+                            user["id"], "EDITAR", "responsável de providência contratual",
+                            target_id, edit_responsible_name.strip(),
+                        )
+                        st.success("Registro atualizado.")
+                        rerun()
             else:
                 st.info("Nenhum responsável cadastrado ainda.")
             with st.form("new_contract_task_responsible", clear_on_submit=True):
                 new_task_type = st.selectbox("Providência", list(task_labels), format_func=lambda k: task_labels[k])
                 new_responsible_name = st.text_input("Nome do responsável")
-                new_responsible_email = st.text_input("E-mail do responsável")
+                new_responsible_email = st.text_input(
+                    "E-mail(s) do responsável",
+                    help="Separe por vírgula ou ponto e vírgula se houver mais de um "
+                    "endereço (ex.: uma corretora com vários contatos) — todos recebem a "
+                    "mensagem, mas aparecem como um único responsável no texto do e-mail.",
+                )
                 new_notify_individually = st.checkbox(
                     "Também enviar uma cópia individual do e-mail para este responsável",
                     value=False,
                 )
                 if st.form_submit_button("Adicionar"):
-                    normalized_email = new_responsible_email.strip().lower()
+                    normalized_emails = normalize_recipients(new_responsible_email)
                     if not new_responsible_name.strip():
                         st.error("Informe o nome do responsável.")
-                    elif not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", normalized_email):
-                        st.error("Informe um endereço de e-mail válido.")
+                    elif not normalized_emails:
+                        st.error("Informe ao menos um e-mail válido.")
                     else:
                         execute(
                             """INSERT INTO contract_task_responsibles(
                             task_type,responsible_name,responsible_email,notify_individually)
                             VALUES(?,?,?,?)""",
                             (
-                                new_task_type, new_responsible_name.strip(), normalized_email,
+                                new_task_type, new_responsible_name.strip(),
+                                "; ".join(normalized_emails),
                                 1 if new_notify_individually else 0,
                             ),
                         )

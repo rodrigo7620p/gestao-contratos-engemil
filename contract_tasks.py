@@ -20,7 +20,7 @@ departamentos: {centro_de_custo}_{código_do_instrumento}_{sigla_do_órgão}_
 import re
 
 from db import query
-from notifications import send_email
+from notifications import normalize_recipients, send_email
 
 TASK_TOTVS = "TOTVS"
 TASK_GARANTIA = "GARANTIA"
@@ -94,6 +94,12 @@ def build_task_email_subject(
 
 
 def active_task_responsibles(task_type: str) -> list[dict]:
+    """`responsible_email` pode conter mais de um endereço (separados por
+    vírgula ou ponto e vírgula) — útil quando o "responsável" é, por
+    exemplo, uma corretora de seguros com vários contatos que devem
+    receber a mesma mensagem em cópia. Ainda assim gera só UMA linha
+    numerada por responsável (ver notify_contract_task_needs/
+    notify_ata_registration), nunca uma linha repetida por e-mail."""
     return [
         dict(row) for row in query(
             """SELECT responsible_name,responsible_email,notify_individually
@@ -218,7 +224,7 @@ def notify_contract_task_needs(
                 f"{TASK_LABELS[task_type]}."
             )
             if person.get("notify_individually"):
-                individual_recipients.append(person["responsible_email"])
+                individual_recipients.extend(normalize_recipients(person["responsible_email"]))
     if not task_lines:
         return []
 
@@ -227,9 +233,10 @@ def notify_contract_task_needs(
         # Sem e-mail de grupo nem responsável marcado para envio individual:
         # notifica direto cada responsável para o aviso não se perder.
         recipients = list(dict.fromkeys(
-            person["responsible_email"]
+            address
             for task_type in missing
             for person in active_task_responsibles(task_type)
+            for address in normalize_recipients(person["responsible_email"])
         ))
     if not recipients:
         return []
@@ -286,14 +293,16 @@ def notify_ata_registration(
             f"{TASK_LABELS[TASK_TOTVS]}."
         )
         if person.get("notify_individually"):
-            individual_recipients.append(person["responsible_email"])
+            individual_recipients.extend(normalize_recipients(person["responsible_email"]))
     if not task_lines:
         return []
 
     recipients = list(dict.fromkeys(active_group_recipients() + individual_recipients))
     if not recipients:
         recipients = list(dict.fromkeys(
-            person["responsible_email"] for person in active_task_responsibles(TASK_TOTVS)
+            address
+            for person in active_task_responsibles(TASK_TOTVS)
+            for address in normalize_recipients(person["responsible_email"])
         ))
     if not recipients:
         return []
