@@ -10,7 +10,7 @@ import sqlite3
 import threading
 import zipfile
 from contextlib import contextmanager
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 
 from contract_utils import contract_duration_months, now_brt, today_brt
@@ -1631,6 +1631,12 @@ def iso(value) -> str | None:
         return None
     if isinstance(value, datetime):
         return value.date().isoformat()
+    if isinstance(value, time):
+        # Uma célula do Excel formatada só como hora (sem parte de data) é
+        # lida pelo openpyxl como datetime.time — isoformat() devolveria
+        # "00:00:00" (ou outro horário) como se fosse uma data válida,
+        # corrompendo o campo silenciosamente. Sem data de verdade aqui.
+        return None
     if hasattr(value, "isoformat"):
         return value.isoformat()
     text = str(value).strip()

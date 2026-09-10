@@ -95,7 +95,7 @@ from guarantees import (
     guarantee_issues,
     operational_status,
 )
-from portfolio import annual_allocation, backlog_rows, remaining_value, workbook_bytes
+from portfolio import annual_allocation, backlog_rows, parse_date, remaining_value, workbook_bytes
 from reports import (
     BID_PDF_COLUMN_CATALOG,
     build_contract_overview_summary,
@@ -109,7 +109,7 @@ from notifications import (
 )
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "81"
+APP_VERSION = "82"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -6163,6 +6163,25 @@ def page_contract_detail():
                     if contract["end_date"] else None,
                     format="DD/MM/YYYY",
                 )
+                c1, c2 = st.columns(2)
+                original_start = c1.date_input(
+                    "Início original do contrato (opcional)",
+                    value=date.fromisoformat(contract["original_start_date"])
+                    if contract.get("original_start_date") else None,
+                    format="DD/MM/YYYY",
+                    help="Alimenta o quadro \"Início original\" da ficha. Deixe em "
+                    "branco para usar automaticamente o Início da vigência acima — só "
+                    "preencha se precisar corrigir um valor errado (ex.: vindo de uma "
+                    "planilha antiga importada) ou registrar uma data histórica "
+                    "diferente da vigência atual.",
+                )
+                original_end = c2.date_input(
+                    "Fim original do contrato (opcional)",
+                    value=date.fromisoformat(contract["original_end_date"])
+                    if contract.get("original_end_date") else None,
+                    format="DD/MM/YYYY",
+                    help="Mesma lógica do campo ao lado, para o quadro \"Fim original\".",
+                )
                 c1, c2, c3 = st.columns(3)
                 original_value_text = currency_input(
                     c1, "Valor original", contract["original_value"], f"edit_original_value_{cid}"
@@ -6214,6 +6233,7 @@ def page_contract_detail():
                         execute(
                             """UPDATE contracts SET cost_center=?,contract_number=?,category=?,client=?,object=?,
                             bid_number=?,process_number=?,uasg=?,procurement_method=?,signature_date=?,start_date=?,end_date=?,
+                            original_start_date=?,original_end_date=?,
                             original_value=?,current_value=?,status=?,tax_regime=?,manager_name=?,manager_email=?,
                             engineer_name=?,engineer_email=?,repactuation_date=?,
                             observations=?,formalized=?,updated_at=CURRENT_TIMESTAMP WHERE id=?""",
@@ -6222,6 +6242,8 @@ def page_contract_detail():
                              normalize_agency_name(client), object_text, bid_number, process_number, uasg,
                              procurement_method, signature.isoformat() if signature else None,
                              start.isoformat() if start else None, end.isoformat() if end else None,
+                             original_start.isoformat() if original_start else None,
+                             original_end.isoformat() if original_end else None,
                              original_value, current_value, status, tax_regime,
                              manager_name, manager_email,
                              engineer_name, engineer_email,
@@ -8112,6 +8134,35 @@ def backlog_pdf_export(backlog, key_prefix, contracts=None):
         (row for row in signatories if row["id"] == signatory_id),
         {},
     )
+    period_controls = st.columns(2)
+    period_from = period_controls[0].date_input(
+        "Só contratos iniciados a partir de (opcional)", value=None, format="DD/MM/YYYY",
+        key=f"{key_prefix}_backlog_period_from",
+        help="Deixe em branco para não aplicar limite — útil para excluir do relatório "
+        "contratos mais antigos, ex.: preencher 01/01/2026 aqui para não aparecerem "
+        "contratos iniciados até 31/12/2025.",
+    )
+    period_to = period_controls[1].date_input(
+        "até (opcional)", value=None, format="DD/MM/YYYY",
+        key=f"{key_prefix}_backlog_period_to",
+    )
+
+    def _starts_in_period(value) -> bool:
+        if not period_from and not period_to:
+            return True
+        parsed = parse_date(value)
+        if not parsed:
+            return False
+        if period_from and parsed < period_from:
+            return False
+        if period_to and parsed > period_to:
+            return False
+        return True
+
+    if period_from or period_to:
+        official_backlog = official_backlog[official_backlog["Início"].apply(_starts_in_period)]
+        if contracts is not None:
+            contracts = [c for c in contracts if _starts_in_period(c.get("start_date"))]
     if user["role"] == "admin":
         with st.expander("Cadastrar outro diretor, gestor ou responsável pela assinatura"):
             st.caption(
@@ -8172,6 +8223,13 @@ def backlog_pdf_export(backlog, key_prefix, contracts=None):
         "Valor atual, Instrumento vigente e Remanescente total. As projeções anuais não são "
         "incluídas neste relatório."
     )
+    if period_from or period_to:
+        st.caption(
+            f"Filtro de período aplicado: {len(official_backlog)} contrato(s) com início "
+            + (f"a partir de {period_from.strftime('%d/%m/%Y')}" if period_from else "")
+            + (" e " if period_from and period_to else "")
+            + (f"até {period_to.strftime('%d/%m/%Y')}" if period_to else "") + "."
+        )
     if signatory:
         professional_data = " · ".join(
             value for value in (
@@ -8217,11 +8275,17 @@ def backlog_pdf_export(backlog, key_prefix, contracts=None):
                 "pdf": report_pdf,
                 "sort_criterion": sort_criterion,
                 "signatory_id": signatory_id,
+                "period_from": period_from,
+                "period_to": period_to,
             }
             log_action(
                 user["id"], "GERAR EXPORTAÇÃO", "backlog", None,
                 f"{len(official_backlog)} contrato(s) · PDF oficial · "
-                f"{sort_label} · assinatura: {signatory['name']}",
+                f"{sort_label} · assinatura: {signatory['name']}"
+                + (
+                    f" · início entre {period_from or '—'} e {period_to or '—'}"
+                    if period_from or period_to else ""
+                ),
             )
     result = st.session_state.get(session_key)
     if not result:
@@ -8229,10 +8293,12 @@ def backlog_pdf_export(backlog, key_prefix, contracts=None):
     if (
         result.get("sort_criterion") != sort_criterion
         or result.get("signatory_id") != signatory_id
+        or result.get("period_from") != period_from
+        or result.get("period_to") != period_to
     ):
         st.info(
-            "A ordenação ou o responsável foi alterado. Gere o PDF novamente "
-            "para atualizar o arquivo."
+            "A ordenação, o responsável ou o período foi alterado. Gere o PDF "
+            "novamente para atualizar o arquivo."
         )
         return
     st.download_button(

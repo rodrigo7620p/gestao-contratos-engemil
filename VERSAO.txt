@@ -1,4 +1,28 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 82 Beta
+Data: 10/09/2026
+
+Principais alterações:
+- Backlog oficial em PDF (Contratos e Exportações) ganhou um filtro de
+  período pela data de início do contrato, no mesmo estilo do "Responsável
+  pela assinatura" — dá para excluir contratos antigos do relatório (ex.:
+  só contratos iniciados a partir de 01/01/2026) ou limitar a um período
+  específico, sem afetar as outras exportações;
+- corrigida a causa de "Início original"/"Fim original" não atualizarem
+  na ficha do contrato mesmo depois de editar a vigência: esses dois
+  quadros vêm de colunas próprias (original_start_date/original_end_date),
+  separadas de Início/Fim da vigência, e não existia nenhum campo na tela
+  para corrigi-las — agora aparecem como campos opcionais na aba Editar,
+  logo abaixo de Início/Fim da vigência;
+- corrigida a causa raiz de uma dessas datas aparecer como "00:00:00": a
+  rotina de importação de planilha, ao ler uma célula do Excel formatada
+  só como horário (sem parte de data), gravava o horário como se fosse a
+  data — isso não acontece mais, e o contrato 00.06.00000 (que tinha esse
+  problema) foi corrigido diretamente no banco.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 81 Beta
 Data: 09/09/2026
 
