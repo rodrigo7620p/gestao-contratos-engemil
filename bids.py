@@ -39,7 +39,7 @@ from pathlib import Path
 import requests
 from PIL import Image, ImageDraw, ImageFont
 
-from contract_utils import extract_agency_acronym, today_brt
+from contract_utils import extract_agency_acronym, format_cnpj_or_cpf, today_brt
 from reports import brl
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -544,12 +544,10 @@ def generate_ranking_image(process: dict, rankings: list[dict], logo_path=None) 
             strike_y = text_top + 9
             draw.line([x + 12, strike_y, x + 12 + company_w, strike_y], fill=text_color, width=1)
         if row.get("company_cnpj"):
-            cnpj_digits = re.sub(r"\D", "", str(row["company_cnpj"]))
-            cnpj_fmt = (
-                f"{cnpj_digits[0:2]}.{cnpj_digits[2:5]}.{cnpj_digits[5:8]}/"
-                f"{cnpj_digits[8:12]}-{cnpj_digits[12:14]}"
-                if len(cnpj_digits) == 14 else str(row["company_cnpj"])
-            )
+            # format_cnpj_or_cpf() cobre tanto empresa (CNPJ) quanto pessoa
+            # física participando diretamente (CPF, ex.: um MEI) — sem
+            # isso, um CPF saía na imagem sem ponto nem traço.
+            cnpj_fmt = format_cnpj_or_cpf(row["company_cnpj"])
             draw.text((x + 12, text_top + 20), cnpj_fmt, font=font_cnpj, fill=(130, 130, 130))
         x += columns[1][1]
 

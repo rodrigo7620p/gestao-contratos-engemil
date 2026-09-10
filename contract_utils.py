@@ -135,6 +135,21 @@ def format_cnpj(value) -> str:
     return f"{digits[0:2]}.{digits[2:5]}.{digits[5:8]}/{digits[8:12]}-{digits[12:14]}"
 
 
+def format_cnpj_or_cpf(value) -> str:
+    """Mesma ideia de format_cnpj(), mas para um campo que pode conter
+    CNPJ (empresa) OU CPF (pessoa física participando diretamente, ex.:
+    um MEI, licitante identificado por CPF em vez de CNPJ na classificação
+    de uma licitação) — formata XX.XXX.XXX/XXXX-XX ou XXX.XXX.XXX-XX
+    conforme a quantidade de dígitos; devolve o valor original nos
+    demais casos."""
+    digits = re.sub(r"\D", "", str(value or ""))
+    if len(digits) == 14:
+        return f"{digits[0:2]}.{digits[2:5]}.{digits[5:8]}/{digits[8:12]}-{digits[12:14]}"
+    if len(digits) == 11:
+        return f"{digits[0:3]}.{digits[3:6]}.{digits[6:9]}-{digits[9:11]}"
+    return str(value or "")
+
+
 def extract_agency_acronym(client_name: str) -> str:
     """Extrai uma sigla explicitamente informada no final do contratante."""
     text = re.sub(r"\s+", " ", str(client_name or "")).strip()

@@ -1,4 +1,16 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 85 Beta
+Data: 10/09/2026
+
+Principais alterações:
+- CPF de um licitante pessoa física agora sai formatado com ponto e traço
+  (092.183.171-48), no mesmo padrão do CNPJ — tanto na imagem de
+  classificação gerada quanto na prévia da tabela na tela; antes saía só
+  com os números, sem nenhuma formatação.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 84 Beta
 Data: 10/09/2026
 

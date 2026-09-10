@@ -47,6 +47,7 @@ from contract_utils import (
     contract_duration_months,
     extract_agency_acronym,
     format_cnpj,
+    format_cnpj_or_cpf,
     humanize_remaining,
     normalize_agency_name,
     now_brt,
@@ -109,7 +110,7 @@ from notifications import (
 )
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "84"
+APP_VERSION = "85"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -10051,7 +10052,7 @@ def page_bids():
         ranking_df = pd.DataFrame([
             {
                 "SEQ": r["seq"], "Empresa": r["company_name"],
-                "CNPJ": r.get("company_cnpj") or "",
+                "CNPJ": format_cnpj_or_cpf(r.get("company_cnpj")) if r.get("company_cnpj") else "",
                 "Lance final": brl(r["final_bid_value"]) if r["final_bid_value"] is not None else "",
                 "Desconto (%)": r["discount_percent"],
                 "Nota técnica": r.get("technical_score"),
