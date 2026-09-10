@@ -1,4 +1,18 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 83 Beta
+Data: 10/09/2026
+
+Principais alterações:
+- correção urgente: os campos novos "Início original"/"Fim original" da
+  V82 derrubavam a ficha de qualquer contrato cujo valor já estivesse
+  inválido no banco (ex.: o próprio "00:00:00" que essa atualização
+  deveria corrigir) — a tela quebrava antes mesmo de dar para corrigir o
+  valor. Agora um valor inválido já existente é tratado como "em branco"
+  na tela, sem derrubar a ficha.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 82 Beta
 Data: 10/09/2026
 

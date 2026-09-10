@@ -109,7 +109,7 @@ from notifications import (
 )
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "82"
+APP_VERSION = "83"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -6166,8 +6166,11 @@ def page_contract_detail():
                 c1, c2 = st.columns(2)
                 original_start = c1.date_input(
                     "Início original do contrato (opcional)",
-                    value=date.fromisoformat(contract["original_start_date"])
-                    if contract.get("original_start_date") else None,
+                    # parse_date() tolera valores inválidos já gravados (ex.: o bug do
+                    # "00:00:00" corrigido nesta mesma atualização) devolvendo None em
+                    # vez de derrubar a página — date.fromisoformat() direto quebrava
+                    # a ficha desses contratos.
+                    value=parse_date(contract.get("original_start_date")),
                     format="DD/MM/YYYY",
                     help="Alimenta o quadro \"Início original\" da ficha. Deixe em "
                     "branco para usar automaticamente o Início da vigência acima — só "
@@ -6177,8 +6180,7 @@ def page_contract_detail():
                 )
                 original_end = c2.date_input(
                     "Fim original do contrato (opcional)",
-                    value=date.fromisoformat(contract["original_end_date"])
-                    if contract.get("original_end_date") else None,
+                    value=parse_date(contract.get("original_end_date")),
                     format="DD/MM/YYYY",
                     help="Mesma lógica do campo ao lado, para o quadro \"Fim original\".",
                 )
