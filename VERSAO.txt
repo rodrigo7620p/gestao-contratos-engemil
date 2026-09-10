@@ -1,4 +1,19 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 84 Beta
+Data: 10/09/2026
+
+Principais alterações:
+- corrigida a colagem de classificação: um licitante identificado por CPF
+  em vez de CNPJ (pessoa física participando diretamente, sem empresa —
+  ex.: um MEI) não era reconhecido como um participante novo e acabava
+  grudado no bloco da empresa anterior, sumindo da lista e corrompendo os
+  dados dela. Testado com o caso real relatado (FAGNER NANCIEL VIRGOLINO
+  DOS SANTOS, identificado por CPF): agora reconhecido corretamente, sem
+  afetar o participante anterior.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 83 Beta
 Data: 10/09/2026
 

@@ -109,7 +109,7 @@ from notifications import (
 )
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "83"
+APP_VERSION = "84"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -8522,9 +8522,13 @@ def parse_pasted_ranking(text):
     alinhado). Reconhece cada valor pelo formato (CNPJ, percentual, valor
     monetário, situação, selo de porte da empresa, data/hora do lance) em
     vez de depender de uma ordem fixa de colunas, para funcionar com
-    layouts diferentes."""
+    layouts diferentes. Também reconhece um licitante pessoa física
+    (identificado por CPF, não CNPJ) — comum em MEI que participa
+    diretamente sem CNPJ."""
     rows = []
-    cnpj_pattern = re.compile(r"^\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}$")
+    cnpj_pattern = re.compile(
+        r"^(?:\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}|\d{3}\.?\d{3}\.?\d{3}-?\d{2})$"
+    )
     for raw_line in text.strip().splitlines():
         line = raw_line.strip()
         if not line:
@@ -8676,7 +8680,13 @@ def parse_pasted_ranking_cards(text):
     pela quantidade informada da licitação para chegar ao valor global
     — necessário porque o valor estimado cadastrado é sempre o total."""
     lines = [line.strip() for line in text.strip().splitlines() if line.strip()]
-    cnpj_pattern = re.compile(r"^\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}$")
+    # Cada bloco também pode começar por CPF em vez de CNPJ — um licitante
+    # pessoa física (ex.: MEI) participando diretamente, sem CNPJ. Sem isso,
+    # o bloco desse licitante não era reconhecido como início de um novo
+    # participante e acabava grudado no bloco anterior.
+    cnpj_pattern = re.compile(
+        r"^(?:\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}|\d{3}\.\d{3}\.\d{3}-\d{2})$"
+    )
     block_starts = [index for index, line in enumerate(lines) if cnpj_pattern.fullmatch(line)]
     rows = []
     for position, start in enumerate(block_starts):
