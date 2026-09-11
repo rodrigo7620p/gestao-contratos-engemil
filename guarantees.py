@@ -122,14 +122,20 @@ def guarantee_issues(item, contract_end_date=None, today: date | None = None) ->
     issues = []
     status = str(item.get("request_status") or "").strip().upper()
     if status not in {"DISPENSADA", "CANCELADA"}:
-        if not item.get("policy_number") and str(item.get("modality") or "").upper() in {
-            "SEGURO-GARANTIA",
-            "APÓLICE DE RISCOS DE ENGENHARIA",
-            "APÓLICE DE RESPONSABILIDADE CIVIL",
-        }:
-            issues.append("número da apólice não informado")
-        if not item.get("end_date"):
-            issues.append("fim da vigência não informado")
+        # Enquanto a garantia ainda está só solicitada (antes da assinatura
+        # do contrato ou aguardando resposta da seguradora), apólice e
+        # vigência realmente ainda não existem — não são "pendências para
+        # conferência" nesse estágio, só passam a fazer sentido depois que
+        # algo é efetivamente recebido/analisado.
+        if status not in {"A SOLICITAR", "SOLICITADA"}:
+            if not item.get("policy_number") and str(item.get("modality") or "").upper() in {
+                "SEGURO-GARANTIA",
+                "APÓLICE DE RISCOS DE ENGENHARIA",
+                "APÓLICE DE RESPONSABILIDADE CIVIL",
+            }:
+                issues.append("número da apólice não informado")
+            if not item.get("end_date"):
+                issues.append("fim da vigência não informado")
         days = days_to_expiry(item.get("end_date"), today)
         if days is not None and days < 0:
             issues.append("garantia vencida")

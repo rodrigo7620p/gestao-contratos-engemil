@@ -116,7 +116,7 @@ from notifications import (
 )
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "92"
+APP_VERSION = "93"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -2972,6 +2972,12 @@ def render_guarantees_tab(contract_id, contract, effective_end_date):
             "Documentos": item["document_count"],
         } for item in guarantees])
         modern_table(table, max_height=440)
+        st.caption(
+            "Para atualizar um registro já existente (ex.: preencher apólice e vigência "
+            "assim que a seguradora responder), abra-o na lista abaixo — a seção "
+            "\"Cadastrar garantia ou seguro\" é só para lançar um registro novo, não edita "
+            "os já existentes."
+        )
     else:
         st.info("Nenhuma garantia ou seguro cadastrado para este contrato.")
 
@@ -3330,7 +3336,8 @@ def render_guarantees_tab(contract_id, contract, effective_end_date):
             f"{item['display_type'] or 'Garantia'} · {item['instrument_reference']} · "
             f"{item['operational_status']}"
         )
-        with st.expander(title):
+        pending_item = str(item.get("request_status") or "").upper() in GUARANTEE_REQUEST_PENDING_STATUSES
+        with st.expander(title, expanded=pending_item and len(guarantees) == 1):
             details, coverage_tab, endorsement_tab, document_tab = st.tabs(
                 ["Dados e edição", "Coberturas e franquias", "Endossos e renovações", "Documentos"]
             )

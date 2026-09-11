@@ -1,4 +1,24 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 93 Beta
+Data: 11/09/2026
+
+Principais alterações:
+- correção: enquanto uma garantia ainda está só "A solicitar" ou
+  "Solicitada" (antes da assinatura, aguardando resposta da seguradora),
+  os "Pontos para conferência" não acusam mais "número da apólice não
+  informado" nem "fim da vigência não informado" — esses dados realmente
+  ainda não existem nesse estágio e serão preenchidos quando a seguradora
+  responder e o contrato for lançado. Passam a valer normalmente assim que
+  a garantia avança para Recebida/Em análise/Aceita.
+- ajuste: registro de garantia pendente (único registro) agora abre
+  expandido automaticamente na aba Garantias e seguros, com uma legenda
+  deixando claro que a seção "Cadastrar garantia ou seguro" é só para
+  lançar um registro novo — para atualizar um já existente (apólice,
+  vigência etc.), o caminho é abrir o registro na lista, não criar outro.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 92 Beta
 Data: 11/09/2026
 
