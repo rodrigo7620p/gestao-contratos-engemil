@@ -1,4 +1,28 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 87 Beta
+Data: 11/09/2026
+
+Principais alterações:
+- incremento: "Solicitar garantia contratual ao responsável" agora permite
+  anexar os documentos que a seguradora precisa para calcular e preparar a
+  minuta — Edital, Minuta do contrato (novo), Proposta e Planilha de
+  valores — tanto reaproveitando documentos já cadastrados no contrato
+  quanto anexando novos ali mesmo (mais de um documento sai compactado em
+  um único .zip). O corpo do e-mail também passou a incluir automaticamente
+  o número do certame, processo, UASG, objeto e o prazo/observação
+  informados, para orientar melhor os próximos passos.
+- correção: a solicitação de garantia não desaparecia mais depois do
+  primeiro envio, mesmo quando a informação enviada estava incompleta —
+  agora continua disponível (como "Reenviar/complementar solicitação")
+  enquanto a garantia não for efetivamente recebida/aceita/dispensada,
+  permitindo corrigir e reenviar sem excluir e recadastrar nada.
+- novo: o cadastro de "Novo contrato" ganhou o mesmo campo "Referência do
+  valor-base" (total/anual) da aba Garantias, e um uploader para a Minuta
+  do contrato junto dos demais anexos do certame.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 86 Beta
 Data: 11/09/2026
 

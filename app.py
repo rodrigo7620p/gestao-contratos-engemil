@@ -111,7 +111,7 @@ from notifications import (
 )
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "86"
+APP_VERSION = "87"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -2914,6 +2914,12 @@ def render_budget_dates_editor(contract_id):
             rerun()
 
 
+GUARANTEE_REQUEST_DOCUMENT_CATEGORIES = (
+    "EDITAL", "MINUTA DO CONTRATO", "TERMO DE REFERÊNCIA", "PLANILHA", "PROPOSTA HOMOLOGADA",
+)
+GUARANTEE_REQUEST_PENDING_STATUSES = {"A SOLICITAR", "SOLICITADA"}
+
+
 def render_guarantees_tab(contract_id, contract, effective_end_date):
     instrument_options = guarantee_instrument_options(contract_id)
     guarantees = load_contract_guarantees(contract_id, effective_end_date)
@@ -2967,9 +2973,22 @@ def render_guarantees_tab(contract_id, contract, effective_end_date):
         and not g.get("ata_amendment_id")
         and str(g.get("guarantee_type") or "").upper() == "GARANTIA CONTRATUAL"
     ]
-    guarantee_already_requested = main_guarantee_rows and any(
-        str(g.get("request_status") or "").upper() != "A SOLICITAR" for g in main_guarantee_rows
+    # Uma vez que o corretor/responsável já respondeu de fato (recebida, em
+    # análise, aceita, dispensada ou cancelada), a solicitação inicial deixa
+    # de fazer sentido — a partir daí a garantia é acompanhada normalmente
+    # pela aba (edição do registro, documentos). Enquanto ainda está só "a
+    # solicitar" ou "solicitada", o formulário continua disponível, para dar
+    # para complementar informação/documento esquecido e reenviar, sem
+    # precisar excluir e recadastrar nada.
+    pending_guarantee = next(
+        (g for g in main_guarantee_rows
+         if str(g.get("request_status") or "A SOLICITAR").upper() in GUARANTEE_REQUEST_PENDING_STATUSES),
+        None,
     )
+    guarantee_finalized = main_guarantee_rows and not pending_guarantee
+    already_sent = bool(pending_guarantee) and str(
+        pending_guarantee.get("request_status") or ""
+    ).upper() == "SOLICITADA"
     total_value = contract.get("current_value") or contract.get("original_value")
     annual_value = annualized_value(
         total_value,
@@ -2981,81 +3000,166 @@ def render_guarantees_tab(contract_id, contract, effective_end_date):
         f"total {brl(total_value)} · anual estimado {brl(annual_value)}."
     )
 
-    if can_create() and not guarantee_already_requested:
+    if can_create() and not guarantee_finalized:
         with st.expander(
+            "Reenviar/complementar solicitação de garantia contratual"
+            if already_sent else
             "Solicitar garantia contratual ao responsável (antes da assinatura, quando o "
             "órgão exigir antecedência)",
             expanded=not contract.get("formalized"),
         ):
             st.caption(
                 "Envia o mesmo pedido de cotação/minuta já usado nas providências iniciais, "
-                "isolado das demais — útil quando o órgão exige a indicação da modalidade de "
-                "garantia antes da assinatura do contrato, para aprovação prévia da minuta."
+                "isolado das demais, com os documentos que a seguradora precisa para calcular "
+                "e preparar a minuta — útil quando o órgão exige a indicação da modalidade de "
+                "garantia antes da assinatura do contrato, para aprovação prévia da minuta. "
+                "Pode ser reenviada quantas vezes precisar até a garantia ser recebida."
             )
+            existing_docs = [
+                dict(row) for row in query(
+                    f"""SELECT * FROM documents WHERE contract_id=? AND category IN
+                    ({",".join("?" for _ in GUARANTEE_REQUEST_DOCUMENT_CATEGORIES)})
+                    ORDER BY uploaded_at DESC""",
+                    (contract_id, *GUARANTEE_REQUEST_DOCUMENT_CATEGORIES),
+                )
+            ]
+            existing_doc_options = {
+                f"{doc['title'] or doc['category']} · {doc['filename']}": doc for doc in existing_docs
+            }
             with st.form(f"request_guarantee_{contract_id}"):
                 request_due_date = st.date_input(
                     "Prazo do órgão para apresentação/indicação (opcional)",
-                    value=None, format="DD/MM/YYYY",
+                    value=_date_value(pending_guarantee.get("request_due_date")) if pending_guarantee else None,
+                    format="DD/MM/YYYY",
                 )
-                request_note = st.text_input(
-                    "Observação (opcional, ex.: referência ao ofício do órgão)"
+                request_note = st.text_area(
+                    "Observação (ex.: referência ao ofício do órgão, condições especiais)",
+                    value=str((pending_guarantee or {}).get("notes") or ""),
                 )
-                if st.form_submit_button("Enviar solicitação"):
-                    existing = next(
-                        (g for g in main_guarantee_rows
-                         if str(g.get("request_status") or "").upper() == "A SOLICITAR"),
-                        None,
+                picked_existing_labels = []
+                if existing_doc_options:
+                    picked_existing_labels = st.multiselect(
+                        "Anexar documentos já cadastrados no contrato",
+                        list(existing_doc_options), default=list(existing_doc_options),
                     )
-                    if existing:
-                        execute(
-                            """UPDATE contract_guarantees SET request_status='SOLICITADA',
-                            request_date=?,request_due_date=?,notes=?,
-                            updated_at=CURRENT_TIMESTAMP WHERE id=?""",
-                            (
-                                today_brt().isoformat(),
-                                request_due_date.isoformat() if request_due_date else None,
-                                request_note.strip() or existing.get("notes"),
-                                existing["id"],
-                            ),
+                st.caption(
+                    "Anexar novos documentos (se ainda não estiverem salvos no contrato acima):"
+                )
+                c1, c2 = st.columns(2)
+                edital_upload = c1.file_uploader("Edital", key=f"guarantee_req_edital_{contract_id}")
+                minuta_upload = c2.file_uploader(
+                    "Minuta do contrato", key=f"guarantee_req_minuta_{contract_id}"
+                )
+                c1, c2 = st.columns(2)
+                proposal_upload = c1.file_uploader(
+                    "Proposta", key=f"guarantee_req_proposal_{contract_id}"
+                )
+                spreadsheet_upload = c2.file_uploader(
+                    "Planilha de valores", key=f"guarantee_req_spreadsheet_{contract_id}"
+                )
+                if st.form_submit_button("Reenviar solicitação" if already_sent else "Enviar solicitação"):
+                    attachment_items = []
+                    for label in picked_existing_labels:
+                        doc = existing_doc_options[label]
+                        stored_name = Path(str(doc["stored_path"]).replace("\\", "/")).name
+                        doc_path = portable_project_path(
+                            doc["stored_path"], UPLOAD_DIR / str(doc["contract_id"]) / stored_name,
+                        )
+                        if doc_path.exists():
+                            attachment_items.append((doc["filename"], doc_path.read_bytes()))
+                    new_uploads = [
+                        (upload, category, title)
+                        for upload, category, title in (
+                            (edital_upload, "EDITAL", "Edital"),
+                            (minuta_upload, "MINUTA DO CONTRATO", "Minuta do contrato"),
+                            (proposal_upload, "PROPOSTA HOMOLOGADA", "Proposta"),
+                            (spreadsheet_upload, "PLANILHA", "Planilha de valores"),
+                        )
+                        if upload
+                    ]
+                    attachment_items.extend((upload.name, upload.getvalue()) for upload, _, _ in new_uploads)
+                    total_size = sum(len(content) for _, content in attachment_items)
+                    if total_size > MAX_ATTACHMENTS_BYTES:
+                        st.error(
+                            f"Anexos somam {total_size / (1024 * 1024):.1f} MB, acima do "
+                            f"limite de {MAX_ATTACHMENTS_BYTES / (1024 * 1024):.0f} MB — "
+                            "desmarque ou remova algum documento antes de enviar."
                         )
                     else:
-                        execute(
-                            """INSERT INTO contract_guarantees(
-                            contract_id,guarantee_type,instrument_scope,legal_basis,
-                            request_status,request_date,request_due_date,notes)
-                            VALUES(?,?,?,?,?,?,?,?)""",
-                            (
-                                contract_id, "GARANTIA CONTRATUAL", "CONTRATO INICIAL",
-                                default_legal_basis("GARANTIA CONTRATUAL"), "SOLICITADA",
-                                today_brt().isoformat(),
-                                request_due_date.isoformat() if request_due_date else None,
-                                request_note.strip() or None,
-                            ),
+                        for upload, category, title in new_uploads:
+                            save_document(contract_id, upload, category, title)
+                        context_lines = []
+                        if contract.get("bid_number"):
+                            context_lines.append(f"Número do Certame: {contract['bid_number']}")
+                        if contract.get("process_number"):
+                            context_lines.append(f"Número do Processo: {contract['process_number']}")
+                        if contract.get("uasg"):
+                            context_lines.append(f"UASG: {contract['uasg']}")
+                        if contract.get("object"):
+                            context_lines.append(f"Objeto: {contract['object']}")
+                        if request_due_date:
+                            context_lines.append(
+                                f"Prazo do órgão para apresentação/indicação: "
+                                f"{request_due_date.strftime('%d/%m/%Y')}"
+                            )
+                        if request_note.strip():
+                            context_lines.append(f"Observação: {request_note.strip()}")
+                        if context_lines:
+                            context_lines.append("")
+                        if pending_guarantee:
+                            execute(
+                                """UPDATE contract_guarantees SET request_status='SOLICITADA',
+                                request_date=?,request_due_date=?,notes=?,
+                                updated_at=CURRENT_TIMESTAMP WHERE id=?""",
+                                (
+                                    today_brt().isoformat(),
+                                    request_due_date.isoformat() if request_due_date else None,
+                                    request_note.strip() or None,
+                                    pending_guarantee["id"],
+                                ),
+                            )
+                        else:
+                            execute(
+                                """INSERT INTO contract_guarantees(
+                                contract_id,guarantee_type,instrument_scope,legal_basis,
+                                request_status,request_date,request_due_date,notes)
+                                VALUES(?,?,?,?,?,?,?,?)""",
+                                (
+                                    contract_id, "GARANTIA CONTRATUAL", "CONTRATO INICIAL",
+                                    default_legal_basis("GARANTIA CONTRATUAL"), "SOLICITADA",
+                                    today_brt().isoformat(),
+                                    request_due_date.isoformat() if request_due_date else None,
+                                    request_note.strip() or None,
+                                ),
+                            )
+                        notified = notify_contract_task_needs(
+                            contract_id=contract_id, amendment_id=None, kind_label="CONTRATO",
+                            ordinal=None, cost_center=contract["cost_center"], client=contract["client"],
+                            contract_number=contract.get("contract_number") or contract["cost_center"],
+                            action_tag="SOLICITACAO-GARANTIA", only_tasks=[TASK_GARANTIA],
+                            extra_recipients=[
+                                contract.get("engineer_email"), contract.get("manager_email"),
+                            ],
+                            extra_attachments=attachment_items or None,
+                            context_lines=context_lines or None,
                         )
-                    notified = notify_contract_task_needs(
-                        contract_id=contract_id, amendment_id=None, kind_label="CONTRATO",
-                        ordinal=None, cost_center=contract["cost_center"], client=contract["client"],
-                        contract_number=contract.get("contract_number") or contract["cost_center"],
-                        action_tag="SOLICITACAO-GARANTIA", only_tasks=[TASK_GARANTIA],
-                        extra_recipients=[
-                            contract.get("engineer_email"), contract.get("manager_email"),
-                        ],
-                    )
-                    log_action(
-                        st.session_state.user["id"], "SOLICITAR", "garantia contratual",
-                        contract_id, contract["cost_center"],
-                    )
-                    success_message = "Solicitação de garantia registrada."
-                    if notified:
-                        success_message += f" E-mail enviado para {len(notified)} responsável(is)."
-                    else:
-                        success_message += (
-                            " Nenhum responsável cadastrado para garantia contratual em "
-                            "\"Responsáveis por providências iniciais\" — cadastre um e-mail "
-                            "lá para o aviso sair."
+                        log_action(
+                            st.session_state.user["id"], "SOLICITAR", "garantia contratual",
+                            contract_id, contract["cost_center"],
                         )
-                    st.success(success_message)
-                    rerun()
+                        success_message = "Solicitação de garantia registrada."
+                        if notified:
+                            success_message += f" E-mail enviado para {len(notified)} responsável(is)."
+                            if attachment_items:
+                                success_message += f" com {len(attachment_items)} documento(s) anexado(s)."
+                        else:
+                            success_message += (
+                                " Nenhum responsável cadastrado para garantia contratual em "
+                                "\"Responsáveis por providências iniciais\" — cadastre um e-mail "
+                                "lá para o aviso sair."
+                            )
+                        st.success(success_message)
+                        rerun()
 
     if can_create():
         with st.expander("Cadastrar garantia ou seguro", expanded=not guarantees):
@@ -6682,6 +6786,15 @@ def page_new_contract():
             help="Só é usado quando a garantia adicional acima está marcada — o valor exigido "
             "é a diferença entre o estimado e o valor do contrato.",
         )
+        guarantee_base_reference = st.selectbox(
+            "Referência do valor-base da garantia contratual acima",
+            list(BASE_REFERENCE_OPTIONS),
+            index=_option_index(list(BASE_REFERENCE_OPTIONS), "TOTAL"),
+            format_func=lambda option: BASE_REFERENCE_LABELS[option],
+            help="Só registra, para consulta futura, se o percentual acima incide sobre o "
+            "valor total do contrato ou uma estimativa anual — sinaliza qual situação foi "
+            "adotada, sem recalcular nada sozinho.",
+        )
         st.markdown("#### Anexos do certame (opcional)")
         c1, c2 = st.columns(2)
         edital_upload = c1.file_uploader("Edital")
@@ -6689,6 +6802,7 @@ def page_new_contract():
         c1, c2 = st.columns(2)
         spreadsheet_upload = c1.file_uploader("Planilha")
         proposal_upload = c2.file_uploader("Proposta homologada")
+        minuta_upload = st.file_uploader("Minuta do contrato")
         st.markdown("#### Sindicatos e datas-base iniciais")
         union_rows = st.data_editor(
             pd.DataFrame(columns=[
@@ -6814,13 +6928,14 @@ def page_new_contract():
                         execute(
                             """INSERT INTO contract_guarantees(
                             contract_id,guarantee_type,instrument_scope,legal_basis,
-                            calculation_method,calculation_base,percentage,required_amount)
-                            VALUES(?,?,?,?,?,?,?,?)""",
+                            calculation_method,calculation_base,calculation_base_reference,
+                            percentage,required_amount)
+                            VALUES(?,?,?,?,?,?,?,?,?)""",
                             (
                                 cid, "GARANTIA CONTRATUAL", "CONTRATO INICIAL",
                                 default_legal_basis("GARANTIA CONTRATUAL"),
-                                "PERCENTUAL_BASE", original_value, guarantee_percent,
-                                required_amount,
+                                "PERCENTUAL_BASE", original_value, guarantee_base_reference,
+                                guarantee_percent, required_amount,
                             ),
                         )
                         if additional_guarantee_applies:
@@ -6869,6 +6984,7 @@ def page_new_contract():
                         (tr_upload, "TERMO DE REFERÊNCIA", "Termo de Referência"),
                         (spreadsheet_upload, "PLANILHA", "Planilha"),
                         (proposal_upload, "PROPOSTA HOMOLOGADA", "Proposta homologada"),
+                        (minuta_upload, "MINUTA DO CONTRATO", "Minuta do contrato"),
                     ):
                         if upload:
                             save_document(cid, upload, doc_category, doc_title)

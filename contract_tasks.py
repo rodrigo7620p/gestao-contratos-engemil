@@ -18,6 +18,8 @@ departamentos: {centro_de_custo}_{código_do_instrumento}_{sigla_do_órgão}_
 {número_do_contrato}_{ação}, ex.: "01_01_00001_1ºTA_ANA_25-2026_ASSINADO"."""
 
 import re
+import zipfile
+from io import BytesIO
 
 from db import query
 from notifications import normalize_recipients, send_email
@@ -170,6 +172,8 @@ def notify_contract_task_needs(
     action_tag: str = "ASSINADO",
     extra_recipients: list[str] | None = None,
     only_tasks: list[str] | None = None,
+    extra_attachments: list[tuple[str, bytes]] | None = None,
+    context_lines: list[str] | None = None,
 ) -> list[str]:
     """Verifica garantia/ART pendentes para o instrumento recém-lançado e
     envia UM único e-mail consolidado listando cada providência pendente e
@@ -197,7 +201,21 @@ def notify_contract_task_needs(
     dessa lista (ex.: [TASK_GARANTIA]) — usado para solicitar só a
     garantia contratual antes da assinatura, em um pré-contrato, sem
     cobrar TOTVS/ART, que só fazem sentido depois de o contrato existir
-    de fato."""
+    de fato.
+
+    `extra_attachments` recebe uma lista de (nome_do_arquivo, conteúdo) —
+    além do documento único já suportado por document_bytes/
+    document_filename (ex.: edital, minuta do contrato, planilha de
+    valores, proposta), para dar à seguradora/responsável o material
+    necessário para calcular e preparar a garantia. Quando há mais de um
+    anexo ao todo, eles são compactados em um único .zip (mesmo padrão já
+    usado no envio do e-mail de anúncio de novo contrato).
+
+    `context_lines`, quando informado, é inserido no corpo do e-mail logo
+    após a introdução e antes das linhas de providência — usado para
+    identificar o certame/processo e informar um prazo dado pelo órgão,
+    sem alterar o texto padrão dos demais avisos que não passam esse
+    parâmetro."""
     missing = _missing_tasks(contract_id, amendment_id, ata_contract_id, ata_amendment_id)
     is_ata_derived = ata_contract_id is not None
     is_amendment = bool(amendment_id or ata_amendment_id)
@@ -254,25 +272,38 @@ def notify_contract_task_needs(
         cost_center, kind_label, ordinal, client, contract_number, action_tag,
         ata_derived=is_ata_derived,
     )
-    attachments = [(document_filename, document_bytes)] if document_bytes and document_filename else None
+    attachment_items = (
+        [(document_filename, document_bytes)] if document_bytes and document_filename else []
+    )
+    attachment_items.extend(extra_attachments or [])
+    if len(attachment_items) > 1:
+        zip_buffer = BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+            for filename, content in attachment_items:
+                zf.writestr(filename, content)
+        attachment_items = [("Documentos_anexos.zip", zip_buffer.getvalue())]
+    attachments = attachment_items or None
+    has_signed_document = bool(document_bytes and document_filename)
     intro = (
         f"Segue em anexo o documento assinado entre as partes, referente ao "
         f"{reference_phrase}.\n\n"
-        if attachments else
+        if has_signed_document else
         f"Seguem as providências pendentes referentes ao {reference_phrase}:\n\n"
     )
+    context_block = ("\n".join(context_lines) + "\n\n") if context_lines else ""
     closing_object = "providências" if len(task_lines) > 1 else "providência"
     ata_line = f"ATA de origem: {ata_number}\n" if is_ata_derived and ata_number else ""
     body = (
         "Prezado(a),\n\n"
         f"{intro}"
+        f"{context_block}"
         + "\n\n".join(task_lines) +
         "\n\n"
         f"Centro de custo: {cost_center}\n"
         f"Contratante: {client}\n"
         f"{ata_line}"
         f"Instrumento: {instrument_label}\n"
-        + ("\nDocumento em anexo.\n" if attachments else "\n") +
+        + ("\nDocumento(s) em anexo.\n" if attachments else "\n") +
         "\nApós a providência, responda a este e-mail com a confirmação e as "
         "evidências da execução, assegurando o registro e a rastreabilidade do "
         f"cumprimento da{'s' if len(task_lines) > 1 else ''} {closing_object}."
