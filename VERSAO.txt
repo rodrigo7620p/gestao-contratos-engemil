@@ -1,4 +1,39 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 96 Beta
+Data: 11/09/2026
+
+Principais alterações:
+- instrumento assinado (contrato novo, aditivo/apostilamento, contrato
+  decorrente de ATA ou aditivo dele) agora dispara DOIS e-mails em vez de
+  um: primeiro o de "ASSINADO", com as demais providências (TOTVS/ART)
+  para o grupo cadastrado + engenheiro/responsável, como já era feito;
+  alguns segundos depois, um segundo e-mail "SOLICITACAO-GARANTIA",
+  exclusivo para os responsáveis cadastrados na providência de garantia
+  contratual + engenheiro (sem o e-mail de grupo, que não trata de
+  seguro/garantia) — o intervalo garante que o "assinado" sempre fique
+  registrado primeiro no histórico das caixas de entrada;
+- a solicitação de garantia só sai quando ela ainda não tiver sido pedida
+  para aquele instrumento especificamente (reconhece quando já foi
+  solicitada antes — inclusive em um pré-contrato — para não pedir de
+  novo) E quando o instrumento contratual ANTERIOR do mesmo contrato já
+  tiver a garantia dele registrada no sistema com um documento anexado;
+  faltando isso, a garantia não é enviada, e o e-mail de "assinado" e a
+  tela avisam que é necessário cadastrar antes a apólice do instrumento
+  anterior — mecanismo pensado para o período de transição, enquanto o
+  histórico de garantias ainda está sendo alimentado no sistema;
+- quando enviada, a solicitação de garantia agora sempre leva em anexo,
+  além do instrumento contratual em questão, o último documento de
+  garantia já registrado (do contrato inicial ou do aditivo anterior) —
+  para a corretora ter a referência de continuidade da apólice ao montar
+  o novo endosso;
+- o e-mail de "assinado" ganhou uma linha informativa sobre a garantia
+  (em vez do pedido de cotação de antes) — confirma que a solicitação
+  exclusiva já foi enviada à corretora, ou explica por que ainda não pôde
+  sair, quando bloqueada pelo item acima.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 95 Beta
 Data: 11/09/2026
 

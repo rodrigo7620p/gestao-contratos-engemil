@@ -180,35 +180,159 @@ def active_group_recipients() -> list[str]:
     ]
 
 
+def _instrument_scope_filter(
+    contract_id: int | None,
+    amendment_id: int | None,
+    ata_contract_id: int | None = None,
+    ata_amendment_id: int | None = None,
+):
+    """Devolve (filtro_garantia, filtro_art, parâmetro) para localizar os
+    registros de contract_guarantees/arts ligados a ESTE instrumento
+    específico (contrato inicial, aditivo, contrato decorrente de ATA ou
+    aditivo dele) — mesmo escopo usado tanto para decidir o que falta
+    quanto para localizar o instrumento anterior (ver
+    previous_instrument_guarantee_check)."""
+    if ata_contract_id is not None:
+        if ata_amendment_id:
+            return "ata_amendment_id=?", "ata_amendment_id=?", ata_amendment_id
+        return (
+            "ata_contract_id=? AND ata_amendment_id IS NULL",
+            "ata_contract_id=? AND ata_amendment_id IS NULL",
+            ata_contract_id,
+        )
+    if amendment_id:
+        return "amendment_id=?", "amendment_id=?", amendment_id
+    return (
+        "contract_id=? AND amendment_id IS NULL",
+        "contract_id=? AND amendment_id IS NULL",
+        contract_id,
+    )
+
+
+def guarantee_pending(
+    contract_id: int | None = None,
+    amendment_id: int | None = None,
+    ata_contract_id: int | None = None,
+    ata_amendment_id: int | None = None,
+) -> bool:
+    """True quando a garantia contratual deste instrumento específico ainda
+    não foi solicitada (nenhum registro, ou só registros ainda "A
+    SOLICITAR") — exposta à parte (além de _missing_tasks usar a mesma
+    checagem) para quem precisa decidir ANTES de montar o e-mail se vale a
+    pena preparar a solicitação exclusiva de garantia, sem duplicar a
+    lógica de reconhecimento "já foi pedida"."""
+    guarantee_filter, _, param = _instrument_scope_filter(
+        contract_id, amendment_id, ata_contract_id, ata_amendment_id,
+    )
+    guarantees = query(
+        f"SELECT request_status FROM contract_guarantees WHERE {guarantee_filter}", (param,),
+    )
+    return not guarantees or all(
+        str(row["request_status"] or "").strip().upper() == "A SOLICITAR" for row in guarantees
+    )
+
+
+def previous_instrument_guarantee_check(
+    contract_id: int | None = None,
+    amendment_id: int | None = None,
+    ata_contract_id: int | None = None,
+    ata_amendment_id: int | None = None,
+) -> tuple[bool, dict | None, str]:
+    """Localiza o instrumento contratual imediatamente anterior (o aditivo
+    anterior, por ordem de cadastro, ou o contrato/contrato decorrente
+    inicial quando este é o primeiro aditivo) e verifica se a garantia
+    contratual dele já está registrada no sistema com um documento
+    (apólice/endosso) anexado — a corretora precisa dessa referência de
+    continuidade para analisar o novo pedido.
+
+    Devolve (ok, documento_anterior, detalhe):
+    - primeiro instrumento do contrato (sem histórico anterior):
+      (True, None, "") — nada para anexar, sem pendência de continuidade;
+    - instrumento anterior com garantia e documento registrados:
+      (True, <linha de documents>, "");
+    - instrumento anterior sem garantia registrada, ou registrada mas sem
+      documento anexado: (False, None, "<motivo para mostrar na tela>") —
+      a solicitação de garantia NÃO deve ser enviada nesse caso, até o
+      cadastro anterior ser completado."""
+    if ata_amendment_id:
+        rows = query(
+            "SELECT id,ata_contract_id FROM ata_contract_amendments WHERE id=?",
+            (ata_amendment_id,),
+        )
+        if not rows:
+            return True, None, ""
+        current_ata_contract_id = rows[0]["ata_contract_id"]
+        siblings = query(
+            """SELECT id FROM ata_contract_amendments WHERE ata_contract_id=? AND id<?
+            ORDER BY id DESC LIMIT 1""",
+            (current_ata_contract_id, ata_amendment_id),
+        )
+        if siblings:
+            previous_filter, previous_param = "ata_amendment_id=?", siblings[0]["id"]
+        else:
+            previous_filter = "ata_contract_id=? AND ata_amendment_id IS NULL"
+            previous_param = current_ata_contract_id
+    elif ata_contract_id is not None:
+        # Contrato decorrente de ATA recém-cadastrado — é o primeiro
+        # instrumento dele, não há garantia anterior para referenciar.
+        return True, None, ""
+    elif amendment_id:
+        rows = query("SELECT id,contract_id FROM amendments WHERE id=?", (amendment_id,))
+        if not rows:
+            return True, None, ""
+        current_contract_id = rows[0]["contract_id"]
+        siblings = query(
+            "SELECT id FROM amendments WHERE contract_id=? AND id<? ORDER BY id DESC LIMIT 1",
+            (current_contract_id, amendment_id),
+        )
+        if siblings:
+            previous_filter, previous_param = "amendment_id=?", siblings[0]["id"]
+        else:
+            previous_filter = "contract_id=? AND amendment_id IS NULL"
+            previous_param = current_contract_id
+    else:
+        # Contrato inicial — primeiro instrumento, nada anterior a checar.
+        return True, None, ""
+
+    guarantee_rows = query(
+        f"""SELECT id FROM contract_guarantees WHERE {previous_filter}
+        AND guarantee_type='GARANTIA CONTRATUAL' ORDER BY id DESC LIMIT 1""",
+        (previous_param,),
+    )
+    if not guarantee_rows:
+        return False, None, (
+            "o instrumento contratual anterior ainda não tem a garantia contratual "
+            "cadastrada no sistema — cadastre a apólice/garantia dele na aba \"Garantias "
+            "e seguros\" antes de solicitar a garantia deste novo instrumento, para a "
+            "corretora ter a referência de continuidade."
+        )
+    doc_rows = query(
+        """SELECT * FROM documents WHERE guarantee_id=? ORDER BY uploaded_at DESC,id DESC
+        LIMIT 1""",
+        (guarantee_rows[0]["id"],),
+    )
+    if not doc_rows:
+        return False, None, (
+            "a garantia contratual do instrumento anterior está cadastrada, mas sem "
+            "nenhum documento (apólice/endosso) anexado a ela — anexe o documento na aba "
+            "\"Garantias e seguros\" antes de solicitar a garantia deste novo instrumento, "
+            "para a corretora ter a referência de continuidade."
+        )
+    return True, dict(doc_rows[0]), ""
+
+
 def _missing_tasks(
     contract_id: int | None,
     amendment_id: int | None,
     ata_contract_id: int | None = None,
     ata_amendment_id: int | None = None,
 ) -> list[str]:
-    if ata_contract_id is not None:
-        if ata_amendment_id:
-            guarantee_filter, art_filter, param = (
-                "ata_amendment_id=?", "ata_amendment_id=?", ata_amendment_id,
-            )
-        else:
-            guarantee_filter = "ata_contract_id=? AND ata_amendment_id IS NULL"
-            art_filter = "ata_contract_id=? AND ata_amendment_id IS NULL"
-            param = ata_contract_id
-    elif amendment_id:
-        guarantee_filter, art_filter, param = "amendment_id=?", "amendment_id=?", amendment_id
-    else:
-        guarantee_filter = "contract_id=? AND amendment_id IS NULL"
-        art_filter = "contract_id=? AND amendment_id IS NULL"
-        param = contract_id
-    guarantees = query(
-        f"SELECT request_status FROM contract_guarantees WHERE {guarantee_filter}", (param,),
-    )
     missing = []
-    if not guarantees or all(
-        str(row["request_status"] or "").strip().upper() == "A SOLICITAR" for row in guarantees
-    ):
+    if guarantee_pending(contract_id, amendment_id, ata_contract_id, ata_amendment_id):
         missing.append(TASK_GARANTIA)
+    _, art_filter, param = _instrument_scope_filter(
+        contract_id, amendment_id, ata_contract_id, ata_amendment_id,
+    )
     arts = query(f"SELECT id FROM arts WHERE {art_filter}", (param,))
     if not arts:
         missing.append(TASK_ART)
@@ -233,6 +357,7 @@ def notify_contract_task_needs(
     extra_recipients: list[str] | None = None,
     only_tasks: list[str] | None = None,
     force_tasks: list[str] | None = None,
+    note_tasks: dict[str, str] | None = None,
     extra_attachments: list[tuple[str, bytes]] | None = None,
     context_lines: list[str] | None = None,
 ) -> tuple[list[str], str]:
@@ -291,7 +416,16 @@ def notify_contract_task_needs(
     após a introdução e antes das linhas de providência — usado para
     identificar o certame/processo e informar um prazo dado pelo órgão,
     sem alterar o texto padrão dos demais avisos que não passam esse
-    parâmetro."""
+    parâmetro.
+
+    `note_tasks` mapeia task_type -> texto informativo. Quando uma
+    providência de `missing` está nesse dicionário, a linha correspondente
+    do e-mail usa esse texto diretamente (sem "responsável, favor ...") e o
+    responsável dela NÃO entra na lista de destinatários — usado no aviso
+    combinado de instrumento assinado para avisar, só como observação, que
+    a garantia contratual já foi (ou ainda não pôde ser) solicitada em um
+    e-mail exclusivo separado, sem duplicar o pedido de ação para quem
+    trata da garantia nem incluir esse responsável nesse e-mail geral."""
     missing = _missing_tasks(contract_id, amendment_id, ata_contract_id, ata_amendment_id)
     is_ata_derived = ata_contract_id is not None
     is_amendment = bool(amendment_id or ata_amendment_id)
@@ -320,9 +454,14 @@ def notify_contract_task_needs(
         if is_amendment else f"contrato {contract_reference} ({client})"
     )
 
+    note_tasks = note_tasks or {}
     task_lines = []
     individual_recipients = []
     for task_type in missing:
+        note_text = note_tasks.get(task_type)
+        if note_text:
+            task_lines.append(f"{len(task_lines) + 1:02d} - {note_text}")
+            continue
         for person in active_task_responsibles(task_type):
             task_lines.append(
                 f"{len(task_lines) + 1:02d} - {person['responsible_name']}, favor "
@@ -347,18 +486,19 @@ def notify_contract_task_needs(
     task_recipients = list(dict.fromkeys(
         address
         for task_type in missing
+        if task_type not in note_tasks
         for person in active_task_responsibles(task_type)
         for address in normalize_recipients(person["responsible_email"])
     ))
     if only_tasks is not None:
-        # Pedido isolado para uma única providência (ex.: só garantia, antes
-        # da assinatura) — sempre inclui todos os e-mails cadastrados para
-        # essa providência especificamente, com ou sem "envio individual"
-        # marcado, além de eventual e-mail de grupo. Diferente do aviso
-        # combinado de várias providências (abaixo), aqui não faz sentido o
-        # responsável ficar de fora só porque não está marcado para cópia
-        # individual — ele É o destinatário principal do pedido.
-        recipients = list(dict.fromkeys(active_group_recipients() + task_recipients))
+        # Pedido isolado para uma única providência (ex.: só garantia — seja
+        # antes da assinatura ou logo depois dela) — vai exclusivamente para
+        # os e-mails cadastrados nessa providência especificamente, com ou
+        # sem "envio individual" marcado, SEM o e-mail de grupo geral (que
+        # trata de outras providências, como TOTVS/ART, e não deve ser
+        # acionado para um pedido de garantia que é exclusivo da corretora/
+        # responsável cadastrado para ela).
+        recipients = list(dict.fromkeys(task_recipients))
     else:
         recipients = list(dict.fromkeys(active_group_recipients() + individual_recipients))
         if not recipients:
