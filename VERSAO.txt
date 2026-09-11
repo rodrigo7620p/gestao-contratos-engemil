@@ -1,4 +1,30 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 86 Beta
+Data: 11/09/2026
+
+Principais alterações:
+- novo: na ficha do contrato (inclusive pré-contratos), aba "Garantias e
+  seguros" ganhou a opção "Solicitar garantia contratual ao responsável",
+  para pedir a cotação/minuta de garantia ANTES da assinatura do contrato,
+  quando o órgão exigir antecedência (caso real: TCU pedindo indicação da
+  modalidade com até 1 mês da homologação, para aprovar a minuta antes de
+  assinar). Reaproveita o mesmo texto e destinatários já usados no aviso de
+  providências iniciais, mas isolado (só garantia, sem TOTVS/ART).
+- novo: a garantia contratual ganhou um campo "Referência do valor-base"
+  (Total do contrato / Anual estimado / Outro), para registrar se o valor
+  usado no cálculo é o total do contrato ou uma estimativa anual — exibido
+  na tabela de garantias e com os dois valores de referência do contrato
+  disponíveis para consulta ao cadastrar.
+- ajuste: a lista de "Pré-contratos" agora mostra se a garantia contratual
+  já foi solicitada e o prazo do órgão, quando houver, sem precisar abrir a
+  ficha de cada um.
+- ajuste: a "Identificação curta do objeto" (usada no assunto do e-mail de
+  anúncio) agora pode ser corrigida na aba Editar da ficha — antes só
+  podia ser preenchida no cadastro do contrato.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 85 Beta
 Data: 10/09/2026
 

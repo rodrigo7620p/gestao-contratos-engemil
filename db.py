@@ -333,6 +333,7 @@ CREATE TABLE IF NOT EXISTS contract_guarantees (
     legal_basis TEXT,
     calculation_method TEXT NOT NULL DEFAULT 'PERCENTUAL_BASE',
     calculation_base REAL NOT NULL DEFAULT 0,
+    calculation_base_reference TEXT,
     percentage REAL NOT NULL DEFAULT 0,
     estimated_budget REAL NOT NULL DEFAULT 0,
     proposal_value REAL NOT NULL DEFAULT 0,
@@ -964,6 +965,10 @@ def init_db() -> None:
         if "ata_amendment_id" not in guarantee_columns:
             conn.execute(
                 "ALTER TABLE contract_guarantees ADD COLUMN ata_amendment_id INTEGER"
+            )
+        if "calculation_base_reference" not in guarantee_columns:
+            conn.execute(
+                "ALTER TABLE contract_guarantees ADD COLUMN calculation_base_reference TEXT"
             )
         art_columns = {row["name"] for row in conn.execute("PRAGMA table_info(arts)")}
         if "professional_title" not in art_columns:

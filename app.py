@@ -41,9 +41,10 @@ from bids import (
 )
 from bid_viability import build_pncp_documents_zip, parse_pncp_control_number
 from contract_announcement import announcement_attachments_available, build_announcement_email
-from contract_tasks import notify_ata_registration, notify_contract_task_needs
+from contract_tasks import TASK_GARANTIA, notify_ata_registration, notify_contract_task_needs
 from contract_utils import (
     agency_document_fields,
+    annualized_value,
     contract_duration_months,
     extract_agency_acronym,
     format_cnpj,
@@ -110,7 +111,7 @@ from notifications import (
 )
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "85"
+APP_VERSION = "86"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -2513,6 +2514,14 @@ def load_contract_guarantees(contract_id, contract_end_date=None):
     return result
 
 
+BASE_REFERENCE_OPTIONS = ("TOTAL", "ANUAL", "MANUAL")
+BASE_REFERENCE_LABELS = {
+    "TOTAL": "Valor total do contrato",
+    "ANUAL": "Valor anual estimado",
+    "MANUAL": "Outro/informado manualmente",
+}
+
+
 def guarantee_form(form_key, instrument_options, values=None, submit_label="Salvar garantia"):
     values = dict(values or {})
     with st.form(form_key):
@@ -2580,6 +2589,19 @@ def guarantee_form(form_key, instrument_options, values=None, submit_label="Salv
         )
         informed_amount = currency_input(
             c3, "Valor exigido", values.get("required_amount", 0), f"{form_key}_required"
+        )
+        current_base_reference = str(values.get("calculation_base_reference") or "TOTAL").upper()
+        if current_base_reference not in BASE_REFERENCE_OPTIONS:
+            current_base_reference = "MANUAL"
+        base_reference = st.selectbox(
+            "Referência do valor-base usado acima",
+            list(BASE_REFERENCE_OPTIONS),
+            index=_option_index(list(BASE_REFERENCE_OPTIONS), current_base_reference),
+            format_func=lambda option: BASE_REFERENCE_LABELS[option],
+            help="Não recalcula nada sozinho — só registra, para consulta futura, se a "
+            "\"Base contratual\" digitada representa o valor total do contrato ou uma "
+            "estimativa anual (útil quando a exigência de garantia do edital é sobre "
+            "um dos dois e não sobre o outro).",
         )
         c1, c2, c3 = st.columns(3)
         provider_name = c1.text_input(
@@ -2685,6 +2707,7 @@ def guarantee_form(form_key, instrument_options, values=None, submit_label="Salv
         "legal_basis": legal_basis.strip() or default_legal_basis(guarantee_type),
         "calculation_method": method,
         "calculation_base": monetary["calculation_base"],
+        "calculation_base_reference": base_reference,
         "percentage": percentage,
         "estimated_budget": float(values.get("estimated_budget") or 0),
         "proposal_value": float(values.get("proposal_value") or 0),
@@ -2725,7 +2748,8 @@ def guarantee_form(form_key, instrument_options, values=None, submit_label="Salv
 GUARANTEE_DB_FIELDS = (
     "amendment_id", "ata_contract_id", "ata_amendment_id", "guarantee_type",
     "custom_type", "instrument_scope", "modality", "legal_basis",
-    "calculation_method", "calculation_base", "percentage", "estimated_budget",
+    "calculation_method", "calculation_base", "calculation_base_reference",
+    "percentage", "estimated_budget",
     "proposal_value", "required_amount", "guaranteed_amount", "provider_name",
     "broker_name", "policy_number", "susep_registration", "insured_name",
     "co_insured_name", "object_description", "issue_date", "start_date", "end_date",
@@ -2924,6 +2948,9 @@ def render_guarantees_tab(contract_id, contract, effective_end_date):
             "Modalidade": item["modality"],
             "Situação": item["operational_status"],
             "Apólice/garantia": item["policy_number"],
+            "Base": BASE_REFERENCE_LABELS.get(
+                item.get("calculation_base_reference"), "Não informado"
+            ),
             "Valor exigido": brl(item["required_amount"]),
             "Início": fmt_date(item["start_date"]),
             "Fim": fmt_date(item["end_date"]),
@@ -2933,6 +2960,102 @@ def render_guarantees_tab(contract_id, contract, effective_end_date):
         modern_table(table, max_height=440)
     else:
         st.info("Nenhuma garantia ou seguro cadastrado para este contrato.")
+
+    main_guarantee_rows = [
+        g for g in guarantees
+        if not g.get("amendment_id") and not g.get("ata_contract_id")
+        and not g.get("ata_amendment_id")
+        and str(g.get("guarantee_type") or "").upper() == "GARANTIA CONTRATUAL"
+    ]
+    guarantee_already_requested = main_guarantee_rows and any(
+        str(g.get("request_status") or "").upper() != "A SOLICITAR" for g in main_guarantee_rows
+    )
+    total_value = contract.get("current_value") or contract.get("original_value")
+    annual_value = annualized_value(
+        total_value,
+        contract.get("start_date") or contract.get("original_start_date"),
+        contract.get("end_date") or contract.get("original_end_date"),
+    )
+    st.caption(
+        f"Valores de referência do contrato para a base de cálculo da garantia: "
+        f"total {brl(total_value)} · anual estimado {brl(annual_value)}."
+    )
+
+    if can_create() and not guarantee_already_requested:
+        with st.expander(
+            "Solicitar garantia contratual ao responsável (antes da assinatura, quando o "
+            "órgão exigir antecedência)",
+            expanded=not contract.get("formalized"),
+        ):
+            st.caption(
+                "Envia o mesmo pedido de cotação/minuta já usado nas providências iniciais, "
+                "isolado das demais — útil quando o órgão exige a indicação da modalidade de "
+                "garantia antes da assinatura do contrato, para aprovação prévia da minuta."
+            )
+            with st.form(f"request_guarantee_{contract_id}"):
+                request_due_date = st.date_input(
+                    "Prazo do órgão para apresentação/indicação (opcional)",
+                    value=None, format="DD/MM/YYYY",
+                )
+                request_note = st.text_input(
+                    "Observação (opcional, ex.: referência ao ofício do órgão)"
+                )
+                if st.form_submit_button("Enviar solicitação"):
+                    existing = next(
+                        (g for g in main_guarantee_rows
+                         if str(g.get("request_status") or "").upper() == "A SOLICITAR"),
+                        None,
+                    )
+                    if existing:
+                        execute(
+                            """UPDATE contract_guarantees SET request_status='SOLICITADA',
+                            request_date=?,request_due_date=?,notes=?,
+                            updated_at=CURRENT_TIMESTAMP WHERE id=?""",
+                            (
+                                today_brt().isoformat(),
+                                request_due_date.isoformat() if request_due_date else None,
+                                request_note.strip() or existing.get("notes"),
+                                existing["id"],
+                            ),
+                        )
+                    else:
+                        execute(
+                            """INSERT INTO contract_guarantees(
+                            contract_id,guarantee_type,instrument_scope,legal_basis,
+                            request_status,request_date,request_due_date,notes)
+                            VALUES(?,?,?,?,?,?,?,?)""",
+                            (
+                                contract_id, "GARANTIA CONTRATUAL", "CONTRATO INICIAL",
+                                default_legal_basis("GARANTIA CONTRATUAL"), "SOLICITADA",
+                                today_brt().isoformat(),
+                                request_due_date.isoformat() if request_due_date else None,
+                                request_note.strip() or None,
+                            ),
+                        )
+                    notified = notify_contract_task_needs(
+                        contract_id=contract_id, amendment_id=None, kind_label="CONTRATO",
+                        ordinal=None, cost_center=contract["cost_center"], client=contract["client"],
+                        contract_number=contract.get("contract_number") or contract["cost_center"],
+                        action_tag="SOLICITACAO-GARANTIA", only_tasks=[TASK_GARANTIA],
+                        extra_recipients=[
+                            contract.get("engineer_email"), contract.get("manager_email"),
+                        ],
+                    )
+                    log_action(
+                        st.session_state.user["id"], "SOLICITAR", "garantia contratual",
+                        contract_id, contract["cost_center"],
+                    )
+                    success_message = "Solicitação de garantia registrada."
+                    if notified:
+                        success_message += f" E-mail enviado para {len(notified)} responsável(is)."
+                    else:
+                        success_message += (
+                            " Nenhum responsável cadastrado para garantia contratual em "
+                            "\"Responsáveis por providências iniciais\" — cadastre um e-mail "
+                            "lá para o aviso sair."
+                        )
+                    st.success(success_message)
+                    rerun()
 
     if can_create():
         with st.expander("Cadastrar garantia ou seguro", expanded=not guarantees):
@@ -6142,8 +6265,15 @@ def page_contract_detail():
                     help="Número do processo administrativo/licitatório de origem do contrato.",
                 )
                 uasg = c3.text_input("UASG", contract["uasg"] or "")
-                procurement_method = st.text_input(
+                c1, c2 = st.columns(2)
+                procurement_method = c1.text_input(
                     "Modalidade da licitação", contract["procurement_method"] or ""
+                )
+                object_identifier = c2.text_input(
+                    "Identificação curta do objeto",
+                    contract.get("object_identifier") or "",
+                    help="Usada no assunto do e-mail de anúncio de novo contrato "
+                    "(ex.: \"VRF\", \"Manutenção Predial\").",
                 )
                 c1, c2, c3 = st.columns(3)
                 signature = c1.date_input(
@@ -6235,6 +6365,7 @@ def page_contract_detail():
                         formalized = 1 if (contract["formalized"] or contract_number.strip()) else 0
                         execute(
                             """UPDATE contracts SET cost_center=?,contract_number=?,category=?,client=?,object=?,
+                            object_identifier=?,
                             bid_number=?,process_number=?,uasg=?,procurement_method=?,signature_date=?,start_date=?,end_date=?,
                             original_start_date=?,original_end_date=?,
                             original_value=?,current_value=?,status=?,tax_regime=?,manager_name=?,manager_email=?,
@@ -6242,7 +6373,9 @@ def page_contract_detail():
                             observations=?,formalized=?,updated_at=CURRENT_TIMESTAMP WHERE id=?""",
                             (
                              cost_center, contract_number, category,
-                             normalize_agency_name(client), object_text, bid_number, process_number, uasg,
+                             normalize_agency_name(client), object_text,
+                             object_identifier.strip() or None,
+                             bid_number, process_number, uasg,
                              procurement_method, signature.isoformat() if signature else None,
                              start.isoformat() if start else None, end.isoformat() if end else None,
                              original_start.isoformat() if original_start else None,
@@ -6896,6 +7029,21 @@ def page_precontracts():
                 )
             if item.get("object"):
                 st.caption(item["object"])
+            guarantee_row = query(
+                """SELECT request_status,request_due_date FROM contract_guarantees
+                WHERE contract_id=? AND amendment_id IS NULL AND ata_contract_id IS NULL
+                AND ata_amendment_id IS NULL AND guarantee_type='GARANTIA CONTRATUAL'
+                ORDER BY id DESC LIMIT 1""",
+                (item["id"],),
+            )
+            if not guarantee_row or guarantee_row[0]["request_status"] == "A SOLICITAR":
+                st.warning("Garantia contratual ainda não solicitada.")
+            else:
+                due_date = guarantee_row[0]["request_due_date"]
+                st.caption(
+                    f"Garantia contratual: {guarantee_row[0]['request_status'].title()}"
+                    + (f" · prazo do órgão: {fmt_date(due_date)}" if due_date else "")
+                )
             if not can_edit():
                 continue
             with st.expander("Preparar e-mail de anúncio"):

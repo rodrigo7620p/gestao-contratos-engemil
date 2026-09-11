@@ -150,6 +150,24 @@ def format_cnpj_or_cpf(value) -> str:
     return str(value or "")
 
 
+def annualized_value(total_value, start_value, end_value) -> float:
+    """Anualiza um valor total a partir do período de vigência informado
+    (total_value * 365 / dias do período) — usado como referência de apoio
+    ao lançar uma garantia contratual cuja exigência é sobre o valor ANUAL
+    em vez do valor total do instrumento. Sem datas válidas, devolve o
+    próprio total_value (nada a anualizar)."""
+    start = _as_date(start_value)
+    end = _as_date(end_value)
+    try:
+        total = float(total_value or 0)
+    except (TypeError, ValueError):
+        total = 0.0
+    if not start or not end or end <= start:
+        return total
+    days = (end - start).days + 1
+    return round(total * 365 / days, 2)
+
+
 def extract_agency_acronym(client_name: str) -> str:
     """Extrai uma sigla explicitamente informada no final do contratante."""
     text = re.sub(r"\s+", " ", str(client_name or "")).strip()

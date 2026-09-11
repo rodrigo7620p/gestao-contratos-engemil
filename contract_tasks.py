@@ -169,6 +169,7 @@ def notify_contract_task_needs(
     document_filename: str | None = None,
     action_tag: str = "ASSINADO",
     extra_recipients: list[str] | None = None,
+    only_tasks: list[str] | None = None,
 ) -> list[str]:
     """Verifica garantia/ART pendentes para o instrumento recém-lançado e
     envia UM único e-mail consolidado listando cada providência pendente e
@@ -190,12 +191,20 @@ def notify_contract_task_needs(
     ativação no TOTVS como item 1, antes de garantia e ART — diferente
     delas, não há tabela própria para checar se isso já foi feito, então
     é sempre solicitada de novo em cada contrato/contrato decorrente
-    recém-cadastrado."""
+    recém-cadastrado.
+
+    `only_tasks`, quando informado, restringe o e-mail às providências
+    dessa lista (ex.: [TASK_GARANTIA]) — usado para solicitar só a
+    garantia contratual antes da assinatura, em um pré-contrato, sem
+    cobrar TOTVS/ART, que só fazem sentido depois de o contrato existir
+    de fato."""
     missing = _missing_tasks(contract_id, amendment_id, ata_contract_id, ata_amendment_id)
     is_ata_derived = ata_contract_id is not None
     is_amendment = bool(amendment_id or ata_amendment_id)
     if not is_amendment:
         missing = [TASK_TOTVS] + missing
+    if only_tasks is not None:
+        missing = [task for task in missing if task in only_tasks]
     if not missing:
         return []
     instrument_label = (
