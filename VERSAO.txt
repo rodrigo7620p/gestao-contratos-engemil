@@ -1,4 +1,27 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 97 Beta
+Data: 11/09/2026
+
+Principais alterações:
+- nova cobrança automática de cadastro: quando a garantia contratual ou a
+  ART de um instrumento (contrato, aditivo, contrato decorrente de ATA ou
+  aditivo dele) é solicitada e passam 30 dias corridos sem que o registro
+  correspondente seja lançado no sistema, o sistema envia um e-mail de
+  cobrança (assunto terminando em "COBRANCA-CADASTRO") para os mesmos
+  destinatários que receberam o pedido original — reenvios/"Reenviar
+  aviso" não contam como um novo pedido, só a primeira solicitação inicia
+  a contagem;
+- a cobrança se repete a cada 30 dias enquanto o cadastro continuar
+  pendente, e para automaticamente assim que a garantia ou a ART for
+  lançada no sistema — roda junto dos demais alertas periódicos, ao abrir
+  o sistema;
+- nova tabela task_request_log guarda desde quando cada providência foi
+  pedida e para quem, para a cobrança saber a quem avisar mesmo que o
+  cadastro de responsáveis mude depois.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 96 Beta
 Data: 11/09/2026
 

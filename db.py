@@ -396,6 +396,24 @@ CREATE TABLE IF NOT EXISTS guarantee_endorsements (
     notes TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS task_request_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_type TEXT NOT NULL,
+    contract_id INTEGER REFERENCES contracts(id) ON DELETE CASCADE,
+    amendment_id INTEGER REFERENCES amendments(id) ON DELETE CASCADE,
+    ata_contract_id INTEGER REFERENCES ata_contracts(id) ON DELETE CASCADE,
+    ata_amendment_id INTEGER REFERENCES ata_contract_amendments(id) ON DELETE CASCADE,
+    kind_label TEXT,
+    ordinal TEXT,
+    cost_center TEXT,
+    client TEXT,
+    contract_number TEXT,
+    ata_number TEXT,
+    recipients TEXT,
+    first_requested_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    reminder_sent_at TEXT,
+    reminder_count INTEGER NOT NULL DEFAULT 0
+);
 CREATE TABLE IF NOT EXISTS bid_processes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     process_number TEXT NOT NULL,

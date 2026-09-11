@@ -9,6 +9,7 @@ from bids import (
     bid_process_structure_label,
     format_estimated_value_display,
 )
+from contract_tasks import process_task_registration_reminders
 from contract_utils import extract_agency_acronym, humanize_remaining, today_brt
 from db import archive_expired_contracts, connect, execute, init_db, query
 from notifications import send_email, send_test_email, smtp_status
@@ -662,6 +663,10 @@ def process_repactuation_alerts():
     result["sesmt_expiry_sent_15"] = sesmt_result["expiry_sent_15"]
     result["sesmt_expiry_sent_0"] = sesmt_result["expiry_sent_0"]
     result["sesmt_missing_email"] = sesmt_result["missing_email"]
+    task_registration_result = process_task_registration_reminders(today)
+    result["task_registration_checked"] = task_registration_result["checked"]
+    result["task_registration_sent"] = task_registration_result["sent"]
+    result["task_registration_resolved"] = task_registration_result["resolved"]
     return result
 
 

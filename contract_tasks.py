@@ -19,10 +19,14 @@ departamentos: {centro_de_custo}_{código_do_instrumento}_{sigla_do_órgão}_
 
 import re
 import zipfile
+from datetime import date
 from io import BytesIO
 
-from db import query
+from contract_utils import today_brt
+from db import execute, query
 from notifications import normalize_recipients, send_email
+
+REGISTRATION_REMINDER_DAYS = 30
 
 TASK_TOTVS = "TOTVS"
 TASK_GARANTIA = "GARANTIA"
@@ -232,6 +236,23 @@ def guarantee_pending(
     )
 
 
+def art_pending(
+    contract_id: int | None = None,
+    amendment_id: int | None = None,
+    ata_contract_id: int | None = None,
+    ata_amendment_id: int | None = None,
+) -> bool:
+    """True quando ainda não existe nenhuma ART vinculada a este
+    instrumento específico — mesmo espírito de guarantee_pending, usado
+    pela cobrança de cadastro (process_task_registration_reminders) para
+    saber se a ART já foi lançada no sistema."""
+    _, art_filter, param = _instrument_scope_filter(
+        contract_id, amendment_id, ata_contract_id, ata_amendment_id,
+    )
+    arts = query(f"SELECT id FROM arts WHERE {art_filter}", (param,))
+    return not arts
+
+
 def previous_instrument_guarantee_check(
     contract_id: int | None = None,
     amendment_id: int | None = None,
@@ -330,13 +351,137 @@ def _missing_tasks(
     missing = []
     if guarantee_pending(contract_id, amendment_id, ata_contract_id, ata_amendment_id):
         missing.append(TASK_GARANTIA)
-    _, art_filter, param = _instrument_scope_filter(
-        contract_id, amendment_id, ata_contract_id, ata_amendment_id,
-    )
-    arts = query(f"SELECT id FROM arts WHERE {art_filter}", (param,))
-    if not arts:
+    if art_pending(contract_id, amendment_id, ata_contract_id, ata_amendment_id):
         missing.append(TASK_ART)
     return missing
+
+
+def record_task_request(
+    task_type: str,
+    *,
+    contract_id: int | None = None,
+    amendment_id: int | None = None,
+    ata_contract_id: int | None = None,
+    ata_amendment_id: int | None = None,
+    kind_label: str | None = None,
+    ordinal: str | None = None,
+    cost_center: str | None = None,
+    client: str | None = None,
+    contract_number: str | None = None,
+    ata_number: str | None = None,
+    recipients: list[str] | None = None,
+) -> None:
+    """Registra, só na primeira vez, que esta providência (garantia/ART) foi
+    pedida para este instrumento específico — usado pela cobrança de 30
+    dias (process_task_registration_reminders) para saber desde quando
+    cobrar e para quem cobrar (os mesmos e-mails do pedido original, mesmo
+    que o cadastro de responsáveis mude depois). Chamadas seguintes para o
+    mesmo instrumento/providência (reenvios) não sobrescrevem a data nem os
+    destinatários originais — só a primeira solicitação conta para o
+    prazo."""
+    filter_sql, _, param = _instrument_scope_filter(
+        contract_id, amendment_id, ata_contract_id, ata_amendment_id,
+    )
+    existing = query(
+        f"SELECT id FROM task_request_log WHERE task_type=? AND {filter_sql}",
+        (task_type, param),
+    )
+    if existing:
+        return
+    execute(
+        """INSERT INTO task_request_log(
+        task_type,contract_id,amendment_id,ata_contract_id,ata_amendment_id,
+        kind_label,ordinal,cost_center,client,contract_number,ata_number,recipients)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (
+            task_type, contract_id, amendment_id, ata_contract_id, ata_amendment_id,
+            kind_label, ordinal, cost_center, client, contract_number, ata_number,
+            ";".join(recipients) if recipients else None,
+        ),
+    )
+
+
+def _registration_reminder_text(row: dict, days_open: int) -> tuple[str, str]:
+    task_label = "garantia contratual" if row["task_type"] == TASK_GARANTIA else "ART"
+    is_amendment = bool(row["amendment_id"] or row["ata_amendment_id"])
+    instrument_label = (
+        f"{row['ordinal'] or ''} {row['kind_label'] or ''}".strip().title()
+        if is_amendment else "contrato"
+    )
+    contract_reference = row["contract_number"] or row["cost_center"] or "não informado"
+    if row["ata_number"]:
+        contract_reference += f" (decorrente da ATA {row['ata_number']})"
+    reference_phrase = (
+        f"{instrument_label} do contrato {contract_reference} ({row['client']})"
+        if is_amendment else f"contrato {contract_reference} ({row['client']})"
+    )
+    subject = build_task_email_subject(
+        row["cost_center"], row["kind_label"], row["ordinal"], row["client"],
+        row["contract_number"], action_tag="COBRANCA-CADASTRO",
+        ata_derived=bool(row["ata_contract_id"]),
+    )
+    body = (
+        "Prezado(a),\n\n"
+        f"Já se passaram {days_open} dias desde a solicitação de {task_label} referente "
+        f"ao {reference_phrase} e o registro correspondente ainda não foi lançado no "
+        "sistema de Gestão Contratual.\n\n"
+        f"Centro de custo: {row['cost_center']}\n"
+        f"Contratante: {row['client']}\n"
+        f"Instrumento: {instrument_label}\n\n"
+        "Providencie o lançamento no sistema o quanto antes, para manter o controle e a "
+        "rastreabilidade das providências contratuais em dia.\n\n"
+        "Assim que o cadastro for feito, esta cobrança automática deixa de ser enviada."
+    )
+    return subject, body
+
+
+def process_task_registration_reminders(today: date | None = None) -> dict:
+    """Cobra — a cada 30 dias corridos enquanto o cadastro continuar
+    pendente — os mesmos destinatários que receberam o pedido original de
+    garantia contratual ou ART, quando a providência ainda não foi lançada
+    no sistema (nenhuma garantia registrada além de "A SOLICITAR", ou
+    nenhuma ART vinculada). Roda junto dos demais alertas periódicos (ver
+    alerts.process_repactuation_alerts); usa task_request_log, alimentado
+    por record_task_request em cada notify_contract_task_needs bem
+    sucedido, para saber desde quando cada providência está pendente."""
+    today = today or today_brt()
+    rows = [dict(r) for r in query("SELECT * FROM task_request_log ORDER BY id")]
+    result = {"checked": len(rows), "sent": 0, "resolved": 0}
+    for row in rows:
+        pending_check = guarantee_pending if row["task_type"] == TASK_GARANTIA else art_pending
+        still_pending = pending_check(
+            contract_id=row["contract_id"], amendment_id=row["amendment_id"],
+            ata_contract_id=row["ata_contract_id"], ata_amendment_id=row["ata_amendment_id"],
+        )
+        if not still_pending:
+            result["resolved"] += 1
+            continue
+        recipients = [addr for addr in (row["recipients"] or "").split(";") if addr]
+        if not recipients:
+            continue
+        try:
+            first_requested = date.fromisoformat(str(row["first_requested_at"])[:10])
+        except (TypeError, ValueError):
+            continue
+        reference_date = first_requested
+        if row["reminder_sent_at"]:
+            try:
+                reference_date = date.fromisoformat(str(row["reminder_sent_at"])[:10])
+            except (TypeError, ValueError):
+                pass
+        if (today - reference_date).days < REGISTRATION_REMINDER_DAYS:
+            continue
+        days_open = (today - first_requested).days
+        subject, body = _registration_reminder_text(row, days_open)
+        ok, _ = send_email(recipients, subject, body)
+        if ok:
+            execute(
+                """UPDATE task_request_log SET reminder_sent_at=CURRENT_TIMESTAMP,
+                reminder_count=COALESCE(reminder_count,0)+1 WHERE id=?""",
+                (row["id"],),
+            )
+            result["sent"] += 1
+    return result
 
 
 def notify_contract_task_needs(
@@ -552,6 +697,16 @@ def notify_contract_task_needs(
         f"cumprimento da{'s' if len(task_lines) > 1 else ''} {closing_object}."
     )
     ok, message = send_email(recipients, subject, body, cc=extra_recipients, attachments=attachments)
+    if ok:
+        for task_type in missing:
+            if task_type in (TASK_GARANTIA, TASK_ART) and task_type not in note_tasks:
+                record_task_request(
+                    task_type, contract_id=contract_id, amendment_id=amendment_id,
+                    ata_contract_id=ata_contract_id, ata_amendment_id=ata_amendment_id,
+                    kind_label=kind_label, ordinal=ordinal, cost_center=cost_center,
+                    client=client, contract_number=contract_number, ata_number=ata_number,
+                    recipients=recipients,
+                )
     return (recipients if ok else []), message
 
 
