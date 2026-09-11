@@ -116,7 +116,7 @@ from notifications import (
 )
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "93"
+APP_VERSION = "94"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -2928,6 +2928,21 @@ GUARANTEE_REQUEST_DOCUMENT_CATEGORIES = (
 GUARANTEE_REQUEST_PENDING_STATUSES = {"A SOLICITAR", "SOLICITADA"}
 
 
+def amendment_context_lines(amendment) -> list[str]:
+    """Linhas de identificação do próprio instrumento (valor, descrição,
+    vigência final) para o aviso de providências de um aditivo/apostilamento
+    — deixa o e-mail autossuficiente, sem precisar abrir o sistema para
+    saber do que se trata."""
+    lines = []
+    if amendment.get("value"):
+        lines.append(f"Valor vigente do aditivo: {brl(amendment['value'])}")
+    if amendment.get("description"):
+        lines.append(f"Descrição: {amendment['description']}")
+    if amendment.get("end_date"):
+        lines.append(f"Vigência final: {fmt_date(amendment['end_date'])}")
+    return lines
+
+
 def render_guarantees_tab(contract_id, contract, effective_end_date):
     instrument_options = guarantee_instrument_options(contract_id)
     guarantees = load_contract_guarantees(contract_id, effective_end_date)
@@ -3956,8 +3971,11 @@ def page_contract_detail():
                             extra_recipients=[
                                 contract.get("engineer_email"), contract.get("manager_email"),
                             ],
-                            context_lines=guarantee_context_lines(
-                                contract_id=cid, amendment_id=amendment["id"],
+                            context_lines=(
+                                amendment_context_lines(amendment)
+                                + guarantee_context_lines(
+                                    contract_id=cid, amendment_id=amendment["id"],
+                                )
                             ) or None,
                         )
                         if resend_notified:
@@ -4016,8 +4034,11 @@ def page_contract_detail():
                             extra_recipients=[
                                 contract.get("engineer_email"), contract.get("manager_email"),
                             ],
-                            context_lines=guarantee_context_lines(
-                                contract_id=cid, amendment_id=selected_amendment_id,
+                            context_lines=(
+                                amendment_context_lines(selected_amendment)
+                                + guarantee_context_lines(
+                                    contract_id=cid, amendment_id=selected_amendment_id,
+                                )
                             ) or None,
                         )
                         success_message = "Documento vinculado ao instrumento."
@@ -4709,8 +4730,16 @@ def page_contract_detail():
                                             contract.get("engineer_email"),
                                             contract.get("manager_email"),
                                         ],
-                                        context_lines=guarantee_context_lines(
-                                            ata_amendment_id=new_ata_amendment_id,
+                                        context_lines=(
+                                            amendment_context_lines({
+                                                "value": ata_amendment_value,
+                                                "description": ata_description,
+                                                "end_date": ata_amendment_end.isoformat()
+                                                if ata_amendment_end else None,
+                                            })
+                                            + guarantee_context_lines(
+                                                ata_amendment_id=new_ata_amendment_id,
+                                            )
                                         ) or None,
                                     )
                                 success_message = "Instrumento do contrato decorrente registrado."

@@ -1,4 +1,17 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 94 Beta
+Data: 11/09/2026
+
+Principais alterações:
+- incremento: o aviso de providências de um aditivo/apostilamento (envio
+  normal, reenvio e o fluxo decorrente de ATA) agora também traz o valor
+  vigente do aditivo, a descrição e a vigência final — deixando o e-mail
+  autossuficiente para quem recebe, sem precisar abrir o sistema para
+  saber do que se trata o instrumento.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 93 Beta
 Data: 11/09/2026
 
