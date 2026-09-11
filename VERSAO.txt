@@ -1,4 +1,24 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 90 Beta
+Data: 11/09/2026
+
+Principais alterações:
+- incremento: o aviso de providências enviado ao anexar documento a um
+  aditivo/apostilamento (tanto no contrato normal quanto em contratos
+  decorrentes de ATA) agora também traz referência do valor-base, base
+  contratual considerada, percentual, valor exigido e modalidade — as
+  mesmas informações já incluídas na solicitação de garantia, buscadas da
+  garantia já registrada para aquele instrumento (ou, na falta dela, da
+  garantia do contrato principal).
+- novo: trava "Instrumento apenas informativo — não altera valor nem
+  prazo" nesses dois pontos de anexação de documento — quando marcada,
+  nenhum aviso de providências (garantia/ART) é enviado para aquele
+  instrumento, evitando cobrar garantia/ART de apostilamentos e aditivos
+  puramente formais que não alteram valor nem vigência do contrato.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 89 Beta
 Data: 11/09/2026
 

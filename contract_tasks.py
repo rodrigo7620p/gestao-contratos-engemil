@@ -43,6 +43,66 @@ DOCUMENT_TYPE_CODES = {
     "ATA": "ATA",
 }
 
+_BASE_REFERENCE_LABELS = {
+    "TOTAL": "Valor total do contrato",
+    "ANUAL": "Valor anual estimado",
+    "MANUAL": "Outro/informado manualmente",
+}
+
+
+def _brl(value) -> str:
+    return f"R$ {float(value or 0):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def guarantee_context_lines(
+    contract_id=None, amendment_id=None, ata_contract_id=None, ata_amendment_id=None,
+) -> list[str]:
+    """Monta as linhas de contexto (referência do valor-base, base
+    considerada, percentual, valor exigido, modalidade) a partir da
+    garantia contratual já registrada — primeiro tenta a garantia
+    específica do instrumento informado (aditivo/contrato decorrente),
+    e cai para a garantia do contrato principal quando não há uma
+    específica (a mesma % costuma valer para o contrato todo). Devolve []
+    quando não há nenhuma garantia contratual com percentual definido —
+    nada de útil para acrescentar ao e-mail nesse caso."""
+    row = None
+    if amendment_id:
+        rows = query(
+            """SELECT * FROM contract_guarantees WHERE amendment_id=?
+            AND guarantee_type='GARANTIA CONTRATUAL' ORDER BY id DESC LIMIT 1""",
+            (amendment_id,),
+        )
+        row = dict(rows[0]) if rows else None
+    elif ata_amendment_id:
+        rows = query(
+            """SELECT * FROM contract_guarantees WHERE ata_amendment_id=?
+            AND guarantee_type='GARANTIA CONTRATUAL' ORDER BY id DESC LIMIT 1""",
+            (ata_amendment_id,),
+        )
+        row = dict(rows[0]) if rows else None
+    if not row and contract_id:
+        rows = query(
+            """SELECT * FROM contract_guarantees WHERE contract_id=? AND amendment_id IS NULL
+            AND ata_contract_id IS NULL AND guarantee_type='GARANTIA CONTRATUAL'
+            ORDER BY id DESC LIMIT 1""",
+            (contract_id,),
+        )
+        row = dict(rows[0]) if rows else None
+    if not row or not row.get("percentage"):
+        return []
+    base_reference = _BASE_REFERENCE_LABELS.get(
+        str(row.get("calculation_base_reference") or "").upper(), "Valor total do contrato",
+    )
+    modality = str(row.get("modality") or "").strip()
+    return [
+        f"Referência do valor-base da garantia: {base_reference}",
+        f"Base contratual considerada: {_brl(row.get('calculation_base'))}",
+        f"Percentual de garantia exigido: {float(row['percentage']):.2f}%",
+        f"Valor exigido: {_brl(row.get('required_amount'))}",
+        f"Modalidade indicada: {modality}" if modality else
+        "Modalidade: a definir pela seguradora, conforme esta solicitação.",
+    ]
+
 _AGENCY_SIGLA_DASH_PATTERN = re.compile(r"[-–—]\s*(?P<sigla>[^-–—]+?)\s*$")
 _AGENCY_SIGLA_PAREN_PATTERN = re.compile(r"\((?P<sigla>[^()]+)\)\s*$")
 

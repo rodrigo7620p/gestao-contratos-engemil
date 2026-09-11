@@ -41,7 +41,12 @@ from bids import (
 )
 from bid_viability import build_pncp_documents_zip, parse_pncp_control_number
 from contract_announcement import announcement_attachments_available, build_announcement_email
-from contract_tasks import TASK_GARANTIA, notify_ata_registration, notify_contract_task_needs
+from contract_tasks import (
+    TASK_GARANTIA,
+    guarantee_context_lines,
+    notify_ata_registration,
+    notify_contract_task_needs,
+)
 from contract_utils import (
     agency_document_fields,
     annualized_value,
@@ -111,7 +116,7 @@ from notifications import (
 )
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "89"
+APP_VERSION = "90"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -3925,6 +3930,14 @@ def page_contract_detail():
                 amendment_label = st.selectbox("Instrumento relacionado", amendment_options)
                 document_title = st.text_input("Título do documento")
                 amendment_upload = st.file_uploader("Documento do contrato/aditivo/apostilamento")
+                informative_only = st.checkbox(
+                    "Instrumento apenas informativo — não altera valor nem prazo do contrato "
+                    "(não solicitar garantia/ART para ele)",
+                    help="Marque para apostilamentos e aditivos puramente formais/informativos "
+                    "(ex.: correção de dados, indicação de dotação orçamentária), sem "
+                    "acréscimo nem supressão de valor ou prazo — o aviso de providências "
+                    "(garantia contratual/ART) não é enviado para este instrumento.",
+                )
                 if st.form_submit_button("Anexar ao instrumento") and amendment_upload:
                     selected_amendment_id = amendment_options[amendment_label]
                     did = save_document(
@@ -3935,21 +3948,33 @@ def page_contract_detail():
                     selected_amendment = next(
                         a for a in amendments if a["id"] == selected_amendment_id
                     )
-                    notified = notify_contract_task_needs(
-                        contract_id=cid, amendment_id=selected_amendment_id,
-                        kind_label=selected_amendment.get("kind"),
-                        ordinal=selected_amendment.get("ordinal"),
-                        cost_center=contract["cost_center"], client=contract["client"],
-                        contract_number=contract["contract_number"],
-                        document_bytes=amendment_upload.getvalue(),
-                        document_filename=amendment_upload.name,
-                        extra_recipients=[contract.get("engineer_email"), contract.get("manager_email")],
-                    )
-                    success_message = "Documento vinculado ao instrumento."
-                    if notified:
-                        success_message += (
-                            f" Aviso de providências enviado para {len(notified)} responsável(is)."
+                    if informative_only:
+                        notified = []
+                        success_message = (
+                            "Documento vinculado ao instrumento. Marcado como informativo — "
+                            "sem solicitação de garantia/ART."
                         )
+                    else:
+                        notified = notify_contract_task_needs(
+                            contract_id=cid, amendment_id=selected_amendment_id,
+                            kind_label=selected_amendment.get("kind"),
+                            ordinal=selected_amendment.get("ordinal"),
+                            cost_center=contract["cost_center"], client=contract["client"],
+                            contract_number=contract["contract_number"],
+                            document_bytes=amendment_upload.getvalue(),
+                            document_filename=amendment_upload.name,
+                            extra_recipients=[
+                                contract.get("engineer_email"), contract.get("manager_email"),
+                            ],
+                            context_lines=guarantee_context_lines(
+                                contract_id=cid, amendment_id=selected_amendment_id,
+                            ) or None,
+                        )
+                        success_message = "Documento vinculado ao instrumento."
+                        if notified:
+                            success_message += (
+                                f" Aviso de providências enviado para {len(notified)} responsável(is)."
+                            )
                     st.success(success_message)
                     rerun()
         if can_delete() and amendments:
@@ -4566,6 +4591,11 @@ def page_contract_detail():
                             "responsável cadastrado para isso.",
                             key=f"ata_amendment_upload_{ata_contract_id}",
                         )
+                        ata_amendment_informative_only = st.checkbox(
+                            "Instrumento apenas informativo — não altera valor nem prazo "
+                            "(não solicitar garantia/ART para ele)",
+                            key=f"ata_amendment_informative_{ata_contract_id}",
+                        )
                         if st.form_submit_button("Adicionar aditivo ao contrato decorrente"):
                             resolved_ata_kind = (
                                 ata_custom_kind.strip()
@@ -4612,22 +4642,34 @@ def page_contract_detail():
                                     )
                                     ata_amendment_doc_bytes = ata_amendment_upload.getvalue()
                                     ata_amendment_doc_filename = ata_amendment_upload.name
-                                notified = notify_contract_task_needs(
-                                    ata_contract_id=ata_contract_id,
-                                    ata_amendment_id=new_ata_amendment_id,
-                                    ata_number=contract["contract_number"],
-                                    kind_label=resolved_ata_kind, ordinal=ata_ordinal,
-                                    cost_center=contract["cost_center"],
-                                    client=ata_contract["client"] or contract["client"],
-                                    contract_number=ata_contract["contract_number"],
-                                    document_bytes=ata_amendment_doc_bytes,
-                                    document_filename=ata_amendment_doc_filename,
-                                    extra_recipients=[
-                                        contract.get("engineer_email"), contract.get("manager_email"),
-                                    ],
-                                )
+                                if ata_amendment_informative_only:
+                                    notified = []
+                                else:
+                                    notified = notify_contract_task_needs(
+                                        ata_contract_id=ata_contract_id,
+                                        ata_amendment_id=new_ata_amendment_id,
+                                        ata_number=contract["contract_number"],
+                                        kind_label=resolved_ata_kind, ordinal=ata_ordinal,
+                                        cost_center=contract["cost_center"],
+                                        client=ata_contract["client"] or contract["client"],
+                                        contract_number=ata_contract["contract_number"],
+                                        document_bytes=ata_amendment_doc_bytes,
+                                        document_filename=ata_amendment_doc_filename,
+                                        extra_recipients=[
+                                            contract.get("engineer_email"),
+                                            contract.get("manager_email"),
+                                        ],
+                                        context_lines=guarantee_context_lines(
+                                            ata_amendment_id=new_ata_amendment_id,
+                                        ) or None,
+                                    )
                                 success_message = "Instrumento do contrato decorrente registrado."
-                                if notified:
+                                if ata_amendment_informative_only:
+                                    success_message += (
+                                        " Marcado como informativo — sem solicitação de "
+                                        "garantia/ART."
+                                    )
+                                elif notified:
                                     success_message += (
                                         f" Aviso de providências enviado para "
                                         f"{len(notified)} responsável(is)."
