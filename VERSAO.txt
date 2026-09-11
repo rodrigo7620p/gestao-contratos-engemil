@@ -1,4 +1,25 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 88 Beta
+Data: 11/09/2026
+
+Principais alterações:
+- correção: no teste real da V87, "Homologação da licitação" e "Previsão de
+  início da vigência contratual" apareciam no corpo do e-mail sem nenhum
+  campo correspondente para preenchê-las. A segunda é o próprio "Início da
+  vigência" já existente — agora entra automaticamente no e-mail. A
+  primeira é um campo novo: "Homologação da licitação", disponível no
+  cadastro de "Novo contrato" e na aba Editar da ficha.
+- novo: o prazo do órgão na solicitação de garantia agora é sugerido
+  automaticamente como 30 dias após a data de homologação cadastrada,
+  continuando totalmente editável quando o órgão informar outro prazo.
+- ajuste: a seção de anexos da solicitação de garantia agora mostra o
+  tamanho total selecionado e o limite de envio (mesmo aviso de 20 MB já
+  usado no e-mail de anúncio do pré-contrato), bloqueando o botão de envio
+  quando o total ultrapassa o limite.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 87 Beta
 Data: 11/09/2026
 

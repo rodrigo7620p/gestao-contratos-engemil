@@ -111,7 +111,7 @@ from notifications import (
 )
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "87"
+APP_VERSION = "88"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -3015,6 +3015,26 @@ def render_guarantees_tab(contract_id, contract, effective_end_date):
                 "garantia antes da assinatura do contrato, para aprovação prévia da minuta. "
                 "Pode ser reenviada quantas vezes precisar até a garantia ser recebida."
             )
+            homologation_date = parse_date(contract.get("homologation_date"))
+            saved_due_date = _date_value(pending_guarantee.get("request_due_date")) if pending_guarantee else None
+            suggested_due_date = (
+                saved_due_date or (homologation_date + timedelta(days=30) if homologation_date else None)
+            )
+            request_due_date = st.date_input(
+                "Prazo do órgão para apresentação/indicação",
+                value=suggested_due_date, format="DD/MM/YYYY",
+                key=f"guarantee_req_due_{contract_id}",
+                help="Sugerido automaticamente como 30 dias após a homologação da licitação "
+                "(cadastrada na ficha) quando ainda não há um prazo salvo — pode ser ajustado "
+                "livremente quando o órgão informar outro prazo."
+                if homologation_date and not saved_due_date else
+                "Editável a qualquer momento — corrija aqui se o órgão informar um novo prazo.",
+            )
+            request_note = st.text_area(
+                "Observação (ex.: referência ao ofício do órgão, condições especiais)",
+                value=str((pending_guarantee or {}).get("notes") or ""),
+                key=f"guarantee_req_note_{contract_id}",
+            )
             existing_docs = [
                 dict(row) for row in query(
                     f"""SELECT * FROM documents WHERE contract_id=? AND category IN
@@ -3026,140 +3046,157 @@ def render_guarantees_tab(contract_id, contract, effective_end_date):
             existing_doc_options = {
                 f"{doc['title'] or doc['category']} · {doc['filename']}": doc for doc in existing_docs
             }
-            with st.form(f"request_guarantee_{contract_id}"):
-                request_due_date = st.date_input(
-                    "Prazo do órgão para apresentação/indicação (opcional)",
-                    value=_date_value(pending_guarantee.get("request_due_date")) if pending_guarantee else None,
-                    format="DD/MM/YYYY",
+            picked_existing_labels = []
+            if existing_doc_options:
+                picked_existing_labels = st.multiselect(
+                    "Anexar documentos já cadastrados no contrato",
+                    list(existing_doc_options), default=list(existing_doc_options),
+                    key=f"guarantee_req_existing_{contract_id}",
                 )
-                request_note = st.text_area(
-                    "Observação (ex.: referência ao ofício do órgão, condições especiais)",
-                    value=str((pending_guarantee or {}).get("notes") or ""),
+            st.caption(
+                "Anexar novos documentos (se ainda não estiverem salvos no contrato acima):"
+            )
+            c1, c2 = st.columns(2)
+            edital_upload = c1.file_uploader("Edital", key=f"guarantee_req_edital_{contract_id}")
+            minuta_upload = c2.file_uploader(
+                "Minuta do contrato", key=f"guarantee_req_minuta_{contract_id}"
+            )
+            c1, c2 = st.columns(2)
+            proposal_upload = c1.file_uploader(
+                "Proposta", key=f"guarantee_req_proposal_{contract_id}"
+            )
+            spreadsheet_upload = c2.file_uploader(
+                "Planilha de valores", key=f"guarantee_req_spreadsheet_{contract_id}"
+            )
+            new_uploads = [
+                (upload, category, title)
+                for upload, category, title in (
+                    (edital_upload, "EDITAL", "Edital"),
+                    (minuta_upload, "MINUTA DO CONTRATO", "Minuta do contrato"),
+                    (proposal_upload, "PROPOSTA HOMOLOGADA", "Proposta"),
+                    (spreadsheet_upload, "PLANILHA", "Planilha de valores"),
                 )
-                picked_existing_labels = []
-                if existing_doc_options:
-                    picked_existing_labels = st.multiselect(
-                        "Anexar documentos já cadastrados no contrato",
-                        list(existing_doc_options), default=list(existing_doc_options),
+                if upload
+            ]
+            for doc in existing_doc_options.values():
+                stored_name = Path(str(doc["stored_path"]).replace("\\", "/")).name
+                doc_path = portable_project_path(
+                    doc["stored_path"], UPLOAD_DIR / str(doc["contract_id"]) / stored_name,
+                )
+                doc["_size_bytes"] = doc_path.stat().st_size if doc_path.exists() else 0
+            total_size = (
+                sum(existing_doc_options[label]["_size_bytes"] for label in picked_existing_labels)
+                + sum(upload.size for upload, _, _ in new_uploads)
+            )
+            limit_mb = MAX_ATTACHMENTS_BYTES / (1024 * 1024)
+            oversized = total_size > MAX_ATTACHMENTS_BYTES
+            if oversized:
+                st.error(
+                    f"Anexos somam {total_size / (1024 * 1024):.1f} MB, acima do limite de "
+                    f"{limit_mb:.0f} MB para envio por e-mail — desmarque ou remova algum "
+                    "documento antes de enviar (mais de um anexo é compactado em .zip "
+                    "automaticamente, mas isso raramente reduz arquivos que já são PDF/imagem)."
+                )
+            elif total_size:
+                st.caption(f"Anexos selecionados: {total_size / (1024 * 1024):.1f} MB no total.")
+            if st.button(
+                "Reenviar solicitação" if already_sent else "Enviar solicitação",
+                type="primary", disabled=oversized,
+                key=f"guarantee_req_submit_{contract_id}",
+            ):
+                attachment_items = []
+                for label in picked_existing_labels:
+                    doc = existing_doc_options[label]
+                    stored_name = Path(str(doc["stored_path"]).replace("\\", "/")).name
+                    doc_path = portable_project_path(
+                        doc["stored_path"], UPLOAD_DIR / str(doc["contract_id"]) / stored_name,
                     )
-                st.caption(
-                    "Anexar novos documentos (se ainda não estiverem salvos no contrato acima):"
+                    if doc_path.exists():
+                        attachment_items.append((doc["filename"], doc_path.read_bytes()))
+                attachment_items.extend((upload.name, upload.getvalue()) for upload, _, _ in new_uploads)
+                for upload, category, title in new_uploads:
+                    save_document(contract_id, upload, category, title)
+                context_lines = []
+                if contract.get("bid_number"):
+                    context_lines.append(f"Número do Certame: {contract['bid_number']}")
+                if contract.get("process_number"):
+                    context_lines.append(f"Número do Processo: {contract['process_number']}")
+                if contract.get("uasg"):
+                    context_lines.append(f"UASG: {contract['uasg']}")
+                if homologation_date:
+                    context_lines.append(
+                        f"Homologação da licitação: {homologation_date.strftime('%d/%m/%Y')}"
+                    )
+                if contract.get("start_date"):
+                    context_lines.append(
+                        f"Previsão de início da vigência contratual: "
+                        f"{fmt_date(contract['start_date'])}"
+                    )
+                if contract.get("object"):
+                    context_lines.append(f"Objeto: {contract['object']}")
+                if request_due_date:
+                    context_lines.append(
+                        f"Prazo do órgão para apresentação/indicação: "
+                        f"{request_due_date.strftime('%d/%m/%Y')}"
+                    )
+                if request_note.strip():
+                    context_lines.append(f"Observação: {request_note.strip()}")
+                if context_lines:
+                    context_lines.append("")
+                if pending_guarantee:
+                    execute(
+                        """UPDATE contract_guarantees SET request_status='SOLICITADA',
+                        request_date=?,request_due_date=?,notes=?,
+                        updated_at=CURRENT_TIMESTAMP WHERE id=?""",
+                        (
+                            today_brt().isoformat(),
+                            request_due_date.isoformat() if request_due_date else None,
+                            request_note.strip() or None,
+                            pending_guarantee["id"],
+                        ),
+                    )
+                else:
+                    execute(
+                        """INSERT INTO contract_guarantees(
+                        contract_id,guarantee_type,instrument_scope,legal_basis,
+                        request_status,request_date,request_due_date,notes)
+                        VALUES(?,?,?,?,?,?,?,?)""",
+                        (
+                            contract_id, "GARANTIA CONTRATUAL", "CONTRATO INICIAL",
+                            default_legal_basis("GARANTIA CONTRATUAL"), "SOLICITADA",
+                            today_brt().isoformat(),
+                            request_due_date.isoformat() if request_due_date else None,
+                            request_note.strip() or None,
+                        ),
+                    )
+                notified = notify_contract_task_needs(
+                    contract_id=contract_id, amendment_id=None, kind_label="CONTRATO",
+                    ordinal=None, cost_center=contract["cost_center"], client=contract["client"],
+                    contract_number=contract.get("contract_number") or contract["cost_center"],
+                    action_tag="SOLICITACAO-GARANTIA", only_tasks=[TASK_GARANTIA],
+                    extra_recipients=[
+                        contract.get("engineer_email"), contract.get("manager_email"),
+                    ],
+                    extra_attachments=attachment_items or None,
+                    context_lines=context_lines or None,
                 )
-                c1, c2 = st.columns(2)
-                edital_upload = c1.file_uploader("Edital", key=f"guarantee_req_edital_{contract_id}")
-                minuta_upload = c2.file_uploader(
-                    "Minuta do contrato", key=f"guarantee_req_minuta_{contract_id}"
+                log_action(
+                    st.session_state.user["id"], "SOLICITAR", "garantia contratual",
+                    contract_id, contract["cost_center"],
                 )
-                c1, c2 = st.columns(2)
-                proposal_upload = c1.file_uploader(
-                    "Proposta", key=f"guarantee_req_proposal_{contract_id}"
-                )
-                spreadsheet_upload = c2.file_uploader(
-                    "Planilha de valores", key=f"guarantee_req_spreadsheet_{contract_id}"
-                )
-                if st.form_submit_button("Reenviar solicitação" if already_sent else "Enviar solicitação"):
-                    attachment_items = []
-                    for label in picked_existing_labels:
-                        doc = existing_doc_options[label]
-                        stored_name = Path(str(doc["stored_path"]).replace("\\", "/")).name
-                        doc_path = portable_project_path(
-                            doc["stored_path"], UPLOAD_DIR / str(doc["contract_id"]) / stored_name,
-                        )
-                        if doc_path.exists():
-                            attachment_items.append((doc["filename"], doc_path.read_bytes()))
-                    new_uploads = [
-                        (upload, category, title)
-                        for upload, category, title in (
-                            (edital_upload, "EDITAL", "Edital"),
-                            (minuta_upload, "MINUTA DO CONTRATO", "Minuta do contrato"),
-                            (proposal_upload, "PROPOSTA HOMOLOGADA", "Proposta"),
-                            (spreadsheet_upload, "PLANILHA", "Planilha de valores"),
-                        )
-                        if upload
-                    ]
-                    attachment_items.extend((upload.name, upload.getvalue()) for upload, _, _ in new_uploads)
-                    total_size = sum(len(content) for _, content in attachment_items)
-                    if total_size > MAX_ATTACHMENTS_BYTES:
-                        st.error(
-                            f"Anexos somam {total_size / (1024 * 1024):.1f} MB, acima do "
-                            f"limite de {MAX_ATTACHMENTS_BYTES / (1024 * 1024):.0f} MB — "
-                            "desmarque ou remova algum documento antes de enviar."
-                        )
-                    else:
-                        for upload, category, title in new_uploads:
-                            save_document(contract_id, upload, category, title)
-                        context_lines = []
-                        if contract.get("bid_number"):
-                            context_lines.append(f"Número do Certame: {contract['bid_number']}")
-                        if contract.get("process_number"):
-                            context_lines.append(f"Número do Processo: {contract['process_number']}")
-                        if contract.get("uasg"):
-                            context_lines.append(f"UASG: {contract['uasg']}")
-                        if contract.get("object"):
-                            context_lines.append(f"Objeto: {contract['object']}")
-                        if request_due_date:
-                            context_lines.append(
-                                f"Prazo do órgão para apresentação/indicação: "
-                                f"{request_due_date.strftime('%d/%m/%Y')}"
-                            )
-                        if request_note.strip():
-                            context_lines.append(f"Observação: {request_note.strip()}")
-                        if context_lines:
-                            context_lines.append("")
-                        if pending_guarantee:
-                            execute(
-                                """UPDATE contract_guarantees SET request_status='SOLICITADA',
-                                request_date=?,request_due_date=?,notes=?,
-                                updated_at=CURRENT_TIMESTAMP WHERE id=?""",
-                                (
-                                    today_brt().isoformat(),
-                                    request_due_date.isoformat() if request_due_date else None,
-                                    request_note.strip() or None,
-                                    pending_guarantee["id"],
-                                ),
-                            )
-                        else:
-                            execute(
-                                """INSERT INTO contract_guarantees(
-                                contract_id,guarantee_type,instrument_scope,legal_basis,
-                                request_status,request_date,request_due_date,notes)
-                                VALUES(?,?,?,?,?,?,?,?)""",
-                                (
-                                    contract_id, "GARANTIA CONTRATUAL", "CONTRATO INICIAL",
-                                    default_legal_basis("GARANTIA CONTRATUAL"), "SOLICITADA",
-                                    today_brt().isoformat(),
-                                    request_due_date.isoformat() if request_due_date else None,
-                                    request_note.strip() or None,
-                                ),
-                            )
-                        notified = notify_contract_task_needs(
-                            contract_id=contract_id, amendment_id=None, kind_label="CONTRATO",
-                            ordinal=None, cost_center=contract["cost_center"], client=contract["client"],
-                            contract_number=contract.get("contract_number") or contract["cost_center"],
-                            action_tag="SOLICITACAO-GARANTIA", only_tasks=[TASK_GARANTIA],
-                            extra_recipients=[
-                                contract.get("engineer_email"), contract.get("manager_email"),
-                            ],
-                            extra_attachments=attachment_items or None,
-                            context_lines=context_lines or None,
-                        )
-                        log_action(
-                            st.session_state.user["id"], "SOLICITAR", "garantia contratual",
-                            contract_id, contract["cost_center"],
-                        )
-                        success_message = "Solicitação de garantia registrada."
-                        if notified:
-                            success_message += f" E-mail enviado para {len(notified)} responsável(is)."
-                            if attachment_items:
-                                success_message += f" com {len(attachment_items)} documento(s) anexado(s)."
-                        else:
-                            success_message += (
-                                " Nenhum responsável cadastrado para garantia contratual em "
-                                "\"Responsáveis por providências iniciais\" — cadastre um e-mail "
-                                "lá para o aviso sair."
-                            )
-                        st.success(success_message)
-                        rerun()
+                success_message = "Solicitação de garantia registrada."
+                if notified:
+                    success_message += f" E-mail enviado para {len(notified)} responsável(is)."
+                    if attachment_items:
+                        success_message += f" com {len(attachment_items)} documento(s) anexado(s)."
+                else:
+                    success_message += (
+                        " Nenhum responsável cadastrado para garantia contratual em "
+                        "\"Responsáveis por providências iniciais\" — cadastre um e-mail "
+                        "lá para o aviso sair."
+                    )
+                st.success(success_message)
+                rerun()
 
     if can_create():
         with st.expander("Cadastrar garantia ou seguro", expanded=not guarantees):
@@ -6369,7 +6406,7 @@ def page_contract_detail():
                     help="Número do processo administrativo/licitatório de origem do contrato.",
                 )
                 uasg = c3.text_input("UASG", contract["uasg"] or "")
-                c1, c2 = st.columns(2)
+                c1, c2, c3 = st.columns(3)
                 procurement_method = c1.text_input(
                     "Modalidade da licitação", contract["procurement_method"] or ""
                 )
@@ -6378,6 +6415,14 @@ def page_contract_detail():
                     contract.get("object_identifier") or "",
                     help="Usada no assunto do e-mail de anúncio de novo contrato "
                     "(ex.: \"VRF\", \"Manutenção Predial\").",
+                )
+                homologation_date = c3.date_input(
+                    "Homologação da licitação",
+                    value=parse_date(contract.get("homologation_date")),
+                    format="DD/MM/YYYY",
+                    help="Data em que o órgão homologou o certame — usada para sugerir o "
+                    "prazo de apresentação da garantia (30 dias após) e para identificar o "
+                    "contrato na solicitação de garantia enviada ao responsável.",
                 )
                 c1, c2, c3 = st.columns(3)
                 signature = c1.date_input(
@@ -6469,7 +6514,7 @@ def page_contract_detail():
                         formalized = 1 if (contract["formalized"] or contract_number.strip()) else 0
                         execute(
                             """UPDATE contracts SET cost_center=?,contract_number=?,category=?,client=?,object=?,
-                            object_identifier=?,
+                            object_identifier=?,homologation_date=?,
                             bid_number=?,process_number=?,uasg=?,procurement_method=?,signature_date=?,start_date=?,end_date=?,
                             original_start_date=?,original_end_date=?,
                             original_value=?,current_value=?,status=?,tax_regime=?,manager_name=?,manager_email=?,
@@ -6479,6 +6524,7 @@ def page_contract_detail():
                              cost_center, contract_number, category,
                              normalize_agency_name(client), object_text,
                              object_identifier.strip() or None,
+                             homologation_date.isoformat() if homologation_date else None,
                              bid_number, process_number, uasg,
                              procurement_method, signature.isoformat() if signature else None,
                              start.isoformat() if start else None, end.isoformat() if end else None,
@@ -6729,7 +6775,14 @@ def page_new_contract():
             "Número do processo",
             help="Número do processo administrativo/licitatório de origem do contrato.",
         )
-        uasg = st.text_input("UASG")
+        c1, c2 = st.columns(2)
+        uasg = c1.text_input("UASG")
+        homologation_date = c2.date_input(
+            "Homologação da licitação", value=None, format="DD/MM/YYYY",
+            help="Data em que o órgão homologou o certame — usada para sugerir o prazo de "
+            "apresentação da garantia (30 dias após) e para identificar o contrato na "
+            "solicitação de garantia enviada ao responsável.",
+        )
         c1, c2, c3 = st.columns(3)
         signature = c1.date_input("Assinatura", value=None, format="DD/MM/YYYY")
         start = c2.date_input("Início da vigência", value=None, format="DD/MM/YYYY")
@@ -6859,15 +6912,16 @@ def page_new_contract():
                 try:
                     cid = execute(
                         """INSERT INTO contracts(cost_center,client,contract_number,category,object,
-                        object_identifier,bid_number,
+                        object_identifier,homologation_date,bid_number,
                         process_number,uasg,procurement_method,signature_date,start_date,end_date,original_value,current_value,
                         manager_name,manager_email,engineer_name,engineer_email,
                         repactuation_date,observations,tax_regime,formalized,status)
-                        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'ATIVO')""",
+                        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'ATIVO')""",
                         (
                          cost_center.strip(), normalize_agency_name(client),
                          contract_number.strip() or None, category, object_text,
                          object_identifier.strip() or None,
+                         homologation_date.isoformat() if homologation_date else None,
                          bid_number, process_number, uasg, procurement_method,
                          signature.isoformat() if signature else None, start.isoformat() if start else None,
                          end.isoformat() if end else None, original_value, current_value,
