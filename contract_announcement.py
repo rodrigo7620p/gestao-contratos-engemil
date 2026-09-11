@@ -87,7 +87,14 @@ def _html_table(rows: list[list[str]], *, header: str | None = None) -> str:
     )
 
 
-def _guarantee_sections(contract_id: int) -> tuple[list[str], str]:
+_BASE_REFERENCE_LABELS = {
+    "TOTAL": "valor total do contrato",
+    "ANUAL": "valor anual estimado",
+    "MANUAL": "valor informado manualmente",
+}
+
+
+def _guarantee_sections(contract_id: int, value_reference_months=None) -> tuple[list[str], str]:
     """Devolve (linhas em texto simples, HTML) das seções de garantia
     contratual e adicional, no mesmo layout usado manualmente até hoje."""
     guarantees = [
@@ -107,23 +114,34 @@ def _guarantee_sections(contract_id: int) -> tuple[list[str], str]:
         percent_text = _pct(contratual["percentage"])
         base_text = _brl(contratual["calculation_base"])
         required_text = _brl(contratual["required_amount"])
+        base_reference = _BASE_REFERENCE_LABELS.get(
+            str(contratual.get("calculation_base_reference") or "").upper(),
+            "valor total do contrato",
+        )
+        months_note = (
+            f" (referente a {int(value_reference_months)} meses de contrato)"
+            if value_reference_months else ""
+        )
+        modality_text = str(contratual.get("modality") or "").strip()
+        modality_line = f" A modalidade indicada é {modality_text.lower()}." if modality_text else ""
         explanation = (
-            f"Conforme {default_legal_basis('GARANTIA CONTRATUAL')}, é necessária a "
-            f"apresentação da garantia contratual no percentual de {percent_text} "
-            f"aplicado sobre o valor total da contratação, atualmente de {base_text}. "
+            f"Conforme {contratual.get('legal_basis') or default_legal_basis('GARANTIA CONTRATUAL')}, "
+            f"é necessária a apresentação da garantia contratual no percentual de {percent_text} "
+            f"aplicado sobre o {base_reference}, atualmente de {base_text}{months_note}. "
             f"Dessa forma, deverá ser providenciada a garantia no valor de "
             f"{required_text}, em atendimento às exigências previstas no instrumento "
-            "convocatório, quando da formalização do contrato."
+            f"convocatório, quando da formalização do contrato.{modality_line}"
         )
         plain += [
             f"GARANTIA CONTRATUAL: {percent_text}",
-            f"LANCE FINAL: {base_text} — Valor exigido: {required_text}",
+            f"BASE CONSIDERADA ({base_reference.upper()}): {base_text}{months_note} — "
+            f"Valor exigido: {required_text}",
             explanation, "",
         ]
         html_parts.append(
             _html_table([
                 ["GARANTIA CONTRATUAL", "", percent_text],
-                ["LANCE FINAL", base_text, required_text],
+                [f"BASE ({base_reference.upper()})", f"{base_text}{months_note}", required_text],
             ]) + f'<p style="margin:0 0 16px;">{escape(explanation)}</p>'
         )
 
@@ -300,7 +318,9 @@ def build_announcement_email(contract_id: int) -> tuple[str, str, str]:
             _html_table([["GESTOR DO CONTRATO (ENGEMIL)", contract["manager_name"], ""]])
         )
 
-    guarantee_plain, guarantee_html = _guarantee_sections(contract_id)
+    guarantee_plain, guarantee_html = _guarantee_sections(
+        contract_id, contract.get("value_reference_months")
+    )
     plain += guarantee_plain
     html.append(guarantee_html)
 

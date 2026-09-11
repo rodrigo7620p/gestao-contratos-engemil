@@ -150,18 +150,32 @@ def format_cnpj_or_cpf(value) -> str:
     return str(value or "")
 
 
-def annualized_value(total_value, start_value, end_value) -> float:
-    """Anualiza um valor total a partir do período de vigência informado
-    (total_value * 365 / dias do período) — usado como referência de apoio
-    ao lançar uma garantia contratual cuja exigência é sobre o valor ANUAL
-    em vez do valor total do instrumento. Sem datas válidas, devolve o
+def annualized_value(total_value, start_value, end_value, reference_months=None) -> float:
+    """Anualiza um valor total — usado como referência de apoio ao lançar
+    uma garantia contratual cuja exigência é sobre o valor ANUAL em vez do
+    valor total do instrumento.
+
+    Prioriza `reference_months` (quantos meses o valor informado
+    representa, ex.: 12 para "R$ 30 milhões anuais" ou 36 para "R$ 90
+    milhões para os 36 meses do contrato") quando informado — vale mesmo
+    antes de a vigência ter datas definidas, já que um valor de edital
+    costuma trazer essa referência de prazo mesmo sem datas concretas
+    ainda. Sem `reference_months`, cai para o período de vigência
+    (total_value * 365 / dias do período). Sem nenhum dos dois, devolve o
     próprio total_value (nada a anualizar)."""
-    start = _as_date(start_value)
-    end = _as_date(end_value)
     try:
         total = float(total_value or 0)
     except (TypeError, ValueError):
         total = 0.0
+    if reference_months:
+        try:
+            months = float(reference_months)
+        except (TypeError, ValueError):
+            months = 0
+        if months > 0:
+            return round(total * 12 / months, 2)
+    start = _as_date(start_value)
+    end = _as_date(end_value)
     if not start or not end or end <= start:
         return total
     days = (end - start).days + 1

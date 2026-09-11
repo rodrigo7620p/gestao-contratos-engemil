@@ -255,16 +255,27 @@ def notify_contract_task_needs(
     if not task_lines:
         return []
 
-    recipients = list(dict.fromkeys(active_group_recipients() + individual_recipients))
-    if not recipients:
-        # Sem e-mail de grupo nem responsável marcado para envio individual:
-        # notifica direto cada responsável para o aviso não se perder.
-        recipients = list(dict.fromkeys(
-            address
-            for task_type in missing
-            for person in active_task_responsibles(task_type)
-            for address in normalize_recipients(person["responsible_email"])
-        ))
+    task_recipients = list(dict.fromkeys(
+        address
+        for task_type in missing
+        for person in active_task_responsibles(task_type)
+        for address in normalize_recipients(person["responsible_email"])
+    ))
+    if only_tasks is not None:
+        # Pedido isolado para uma única providência (ex.: só garantia, antes
+        # da assinatura) — sempre inclui todos os e-mails cadastrados para
+        # essa providência especificamente, com ou sem "envio individual"
+        # marcado, além de eventual e-mail de grupo. Diferente do aviso
+        # combinado de várias providências (abaixo), aqui não faz sentido o
+        # responsável ficar de fora só porque não está marcado para cópia
+        # individual — ele É o destinatário principal do pedido.
+        recipients = list(dict.fromkeys(active_group_recipients() + task_recipients))
+    else:
+        recipients = list(dict.fromkeys(active_group_recipients() + individual_recipients))
+        if not recipients:
+            # Sem e-mail de grupo nem responsável marcado para envio individual:
+            # notifica direto cada responsável para o aviso não se perder.
+            recipients = task_recipients
     if not recipients:
         return []
 

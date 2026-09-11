@@ -111,7 +111,7 @@ from notifications import (
 )
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "88"
+APP_VERSION = "89"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -2990,14 +2990,17 @@ def render_guarantees_tab(contract_id, contract, effective_end_date):
         pending_guarantee.get("request_status") or ""
     ).upper() == "SOLICITADA"
     total_value = contract.get("current_value") or contract.get("original_value")
+    reference_months = contract.get("value_reference_months")
     annual_value = annualized_value(
         total_value,
         contract.get("start_date") or contract.get("original_start_date"),
         contract.get("end_date") or contract.get("original_end_date"),
+        reference_months=reference_months,
     )
+    months_note = f" (informado como referente a {int(reference_months)} meses)" if reference_months else ""
     st.caption(
         f"Valores de referência do contrato para a base de cálculo da garantia: "
-        f"total {brl(total_value)} · anual estimado {brl(annual_value)}."
+        f"total {brl(total_value)}{months_note} · anual estimado {brl(annual_value)}."
     )
 
     if can_create() and not guarantee_finalized:
@@ -3034,6 +3037,64 @@ def render_guarantees_tab(contract_id, contract, effective_end_date):
                 "Observação (ex.: referência ao ofício do órgão, condições especiais)",
                 value=str((pending_guarantee or {}).get("notes") or ""),
                 key=f"guarantee_req_note_{contract_id}",
+            )
+            c1, c2 = st.columns(2)
+            request_percentage = c1.number_input(
+                "Percentual de garantia exigido (%)",
+                min_value=0.0, max_value=100.0, format="%.2f",
+                value=float((pending_guarantee or {}).get("percentage") or 0),
+                key=f"guarantee_req_percentage_{contract_id}",
+                help="Percentual informado no edital/minuta — usado para calcular o valor "
+                "exigido abaixo e informado ao responsável. Deixe em 0 se ainda não souber.",
+            )
+            current_base_reference = str(
+                (pending_guarantee or {}).get("calculation_base_reference") or "TOTAL"
+            ).upper()
+            if current_base_reference not in BASE_REFERENCE_OPTIONS:
+                current_base_reference = "MANUAL"
+            request_base_reference = c2.selectbox(
+                "Referência do valor-base",
+                list(BASE_REFERENCE_OPTIONS),
+                index=_option_index(list(BASE_REFERENCE_OPTIONS), current_base_reference),
+                format_func=lambda option: BASE_REFERENCE_LABELS[option],
+                key=f"guarantee_req_base_ref_{contract_id}",
+            )
+            if request_base_reference == "TOTAL":
+                request_calculation_base = total_value
+            elif request_base_reference == "ANUAL":
+                request_calculation_base = annual_value
+            else:
+                manual_base_text = currency_input(
+                    st, "Base contratual (valor manual)",
+                    (pending_guarantee or {}).get("calculation_base", 0),
+                    f"guarantee_req_base_manual_{contract_id}",
+                )
+                try:
+                    request_calculation_base = parse_brl_input(manual_base_text)
+                except ValueError:
+                    request_calculation_base = 0.0
+            request_required_amount = (
+                calculate_required_amount(
+                    "PERCENTUAL_BASE", calculation_base=request_calculation_base,
+                    percentage=request_percentage,
+                ) if request_percentage else 0.0
+            )
+            if request_percentage:
+                st.caption(
+                    f"Valor exigido calculado: {brl(request_required_amount)} "
+                    f"({request_percentage:.2f}% sobre {brl(request_calculation_base)}, "
+                    f"{BASE_REFERENCE_LABELS[request_base_reference].lower()})."
+                )
+            modality_options = ["A DEFINIR PELA SEGURADORA", *GUARANTEE_MODALITIES]
+            current_modality = str(
+                (pending_guarantee or {}).get("modality") or "A DEFINIR PELA SEGURADORA"
+            )
+            if current_modality not in modality_options:
+                current_modality = "A DEFINIR PELA SEGURADORA"
+            request_modality = st.selectbox(
+                "Modalidade (se já souber; senão deixe \"a definir\" para a seguradora indicar)",
+                modality_options, index=_option_index(modality_options, current_modality),
+                key=f"guarantee_req_modality_{contract_id}",
             )
             existing_docs = [
                 dict(row) for row in query(
@@ -3134,6 +3195,31 @@ def render_guarantees_tab(contract_id, contract, effective_end_date):
                     )
                 if contract.get("object"):
                     context_lines.append(f"Objeto: {contract['object']}")
+                legal_basis = (
+                    (pending_guarantee or {}).get("legal_basis")
+                    or default_legal_basis("GARANTIA CONTRATUAL")
+                )
+                context_lines.append(f"Fundamento/referência da exigência: {legal_basis}")
+                context_lines.append(
+                    f"Valor total do contrato: {brl(total_value)}{months_note}"
+                )
+                context_lines.append(
+                    f"Referência do valor-base da garantia: "
+                    f"{BASE_REFERENCE_LABELS[request_base_reference]}"
+                )
+                if request_percentage:
+                    context_lines.append(
+                        f"Base contratual considerada: {brl(request_calculation_base)}"
+                    )
+                    context_lines.append(
+                        f"Percentual de garantia exigido: {request_percentage:.2f}%"
+                    )
+                    context_lines.append(f"Valor exigido: {brl(request_required_amount)}")
+                context_lines.append(
+                    "Modalidade: a definir pela seguradora, conforme esta solicitação."
+                    if request_modality == "A DEFINIR PELA SEGURADORA" else
+                    f"Modalidade indicada: {request_modality}"
+                )
                 if request_due_date:
                     context_lines.append(
                         f"Prazo do órgão para apresentação/indicação: "
@@ -3143,15 +3229,21 @@ def render_guarantees_tab(contract_id, contract, effective_end_date):
                     context_lines.append(f"Observação: {request_note.strip()}")
                 if context_lines:
                     context_lines.append("")
+                modality_to_save = None if request_modality == "A DEFINIR PELA SEGURADORA" else request_modality
+                calculation_method = "PERCENTUAL_BASE" if request_percentage else "VALOR_INFORMADO"
                 if pending_guarantee:
                     execute(
                         """UPDATE contract_guarantees SET request_status='SOLICITADA',
-                        request_date=?,request_due_date=?,notes=?,
+                        request_date=?,request_due_date=?,notes=?,legal_basis=?,
+                        calculation_method=?,calculation_base=?,calculation_base_reference=?,
+                        percentage=?,required_amount=?,modality=?,
                         updated_at=CURRENT_TIMESTAMP WHERE id=?""",
                         (
                             today_brt().isoformat(),
                             request_due_date.isoformat() if request_due_date else None,
-                            request_note.strip() or None,
+                            request_note.strip() or None, legal_basis,
+                            calculation_method, request_calculation_base, request_base_reference,
+                            request_percentage, request_required_amount, modality_to_save,
                             pending_guarantee["id"],
                         ),
                     )
@@ -3159,14 +3251,18 @@ def render_guarantees_tab(contract_id, contract, effective_end_date):
                     execute(
                         """INSERT INTO contract_guarantees(
                         contract_id,guarantee_type,instrument_scope,legal_basis,
-                        request_status,request_date,request_due_date,notes)
-                        VALUES(?,?,?,?,?,?,?,?)""",
+                        request_status,request_date,request_due_date,notes,
+                        calculation_method,calculation_base,calculation_base_reference,
+                        percentage,required_amount,modality)
+                        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                         (
                             contract_id, "GARANTIA CONTRATUAL", "CONTRATO INICIAL",
-                            default_legal_basis("GARANTIA CONTRATUAL"), "SOLICITADA",
+                            legal_basis, "SOLICITADA",
                             today_brt().isoformat(),
                             request_due_date.isoformat() if request_due_date else None,
                             request_note.strip() or None,
+                            calculation_method, request_calculation_base, request_base_reference,
+                            request_percentage, request_required_amount, modality_to_save,
                         ),
                     )
                 notified = notify_contract_task_needs(
@@ -6471,7 +6567,15 @@ def page_contract_detail():
                 current_value_text = currency_input(
                     c2, "Valor atual", contract["current_value"], f"edit_current_value_{cid}"
                 )
-                status = c3.selectbox(
+                value_reference_months = c3.number_input(
+                    "Valores acima se referem a quantos meses?",
+                    min_value=0, step=1,
+                    value=int(contract.get("value_reference_months") or 0),
+                    help="Ex.: 12 quando o valor é anual, 36 quando já é o total dos 36 meses "
+                    "do contrato — usado para calcular a base anual/total da garantia e para "
+                    "deixar isso claro na solicitação de garantia e no e-mail de anúncio.",
+                )
+                status = st.selectbox(
                     "Status", ["ATIVO", "SUSPENSO", "ENCERRADO", "EM TRANSIÇÃO", "OUTRO"],
                     index=["ATIVO", "SUSPENSO", "ENCERRADO", "EM TRANSIÇÃO", "OUTRO"].index(
                         contract["status"] if contract["status"] in
@@ -6514,7 +6618,7 @@ def page_contract_detail():
                         formalized = 1 if (contract["formalized"] or contract_number.strip()) else 0
                         execute(
                             """UPDATE contracts SET cost_center=?,contract_number=?,category=?,client=?,object=?,
-                            object_identifier=?,homologation_date=?,
+                            object_identifier=?,homologation_date=?,value_reference_months=?,
                             bid_number=?,process_number=?,uasg=?,procurement_method=?,signature_date=?,start_date=?,end_date=?,
                             original_start_date=?,original_end_date=?,
                             original_value=?,current_value=?,status=?,tax_regime=?,manager_name=?,manager_email=?,
@@ -6525,6 +6629,7 @@ def page_contract_detail():
                              normalize_agency_name(client), object_text,
                              object_identifier.strip() or None,
                              homologation_date.isoformat() if homologation_date else None,
+                             int(value_reference_months) or None,
                              bid_number, process_number, uasg,
                              procurement_method, signature.isoformat() if signature else None,
                              start.isoformat() if start else None, end.isoformat() if end else None,
@@ -6801,6 +6906,14 @@ def page_new_contract():
         budget_date = c3.date_input(
             "Data do orçamento", value=None, format="DD/MM/YYYY"
         )
+        value_reference_months = st.number_input(
+            "O valor acima se refere a quantos meses de contrato?", min_value=0, step=1,
+            help="Ex.: 12 quando o valor informado é anual (\"R$ 30 milhões anuais\"), 36 "
+            "quando já é o valor total dos 36 meses do contrato, e assim por diante. "
+            "Deixe em 0 se ainda não for possível saber — mesmo sem vigência definida "
+            "ainda, o valor do edital costuma trazer essa referência de prazo, e ela "
+            "ajuda a calcular a garantia sobre a base correta (anual x total).",
+        )
         tax_regime = st.selectbox(
             "Regime de faturamento",
             ["NÃO DEFINIDO", "ONERADO", "DESONERADO"],
@@ -6912,16 +7025,17 @@ def page_new_contract():
                 try:
                     cid = execute(
                         """INSERT INTO contracts(cost_center,client,contract_number,category,object,
-                        object_identifier,homologation_date,bid_number,
+                        object_identifier,homologation_date,value_reference_months,bid_number,
                         process_number,uasg,procurement_method,signature_date,start_date,end_date,original_value,current_value,
                         manager_name,manager_email,engineer_name,engineer_email,
                         repactuation_date,observations,tax_regime,formalized,status)
-                        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'ATIVO')""",
+                        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'ATIVO')""",
                         (
                          cost_center.strip(), normalize_agency_name(client),
                          contract_number.strip() or None, category, object_text,
                          object_identifier.strip() or None,
                          homologation_date.isoformat() if homologation_date else None,
+                         int(value_reference_months) or None,
                          bid_number, process_number, uasg, procurement_method,
                          signature.isoformat() if signature else None, start.isoformat() if start else None,
                          end.isoformat() if end else None, original_value, current_value,

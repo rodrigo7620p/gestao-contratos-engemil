@@ -1,4 +1,31 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 89 Beta
+Data: 11/09/2026
+
+Principais alterações:
+- incremento: a solicitação de garantia contratual agora também informa
+  percentual exigido, referência do valor-base (total/anual/manual), base
+  contratual considerada, valor exigido calculado, modalidade (se já
+  souber, ou "a definir pela seguradora") e o fundamento legal da
+  exigência — tudo direto na tela, sem precisar cadastrar a garantia à
+  parte primeiro.
+- novo: campo "O valor acima se refere a quantos meses de contrato?" no
+  cadastro de Novo contrato e na aba Editar — deixa registrado se o valor
+  informado é anual, do período total ou outro prazo (ex.: 12 ou 36 meses),
+  mesmo antes de a vigência ter datas definidas. Esse número passa a contar
+  tanto na solicitação de garantia quanto no e-mail de anúncio do
+  pré-contrato (que já trazia parte dessas informações).
+- correção: a solicitação de garantia contratual (providência isolada)
+  agora sempre chega aos e-mails cadastrados especificamente para essa
+  providência, mesmo quando também existe um e-mail de grupo cadastrado —
+  antes, um responsável sem "envio individual" marcado podia ficar de fora
+  quando havia grupo configurado. O fluxo normal de providências
+  combinadas (contrato assinado, aditivo) continua com a mesma regra de
+  sempre.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 88 Beta
 Data: 11/09/2026
 

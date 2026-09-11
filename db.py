@@ -256,6 +256,7 @@ CREATE TABLE IF NOT EXISTS contracts (
     formalized INTEGER NOT NULL DEFAULT 1,
     object_identifier TEXT,
     homologation_date TEXT,
+    value_reference_months INTEGER,
     archived INTEGER NOT NULL DEFAULT 0,
     archived_at TEXT,
     archived_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -906,6 +907,8 @@ def init_db() -> None:
             conn.execute("ALTER TABLE contracts ADD COLUMN object_identifier TEXT")
         if "homologation_date" not in contract_columns:
             conn.execute("ALTER TABLE contracts ADD COLUMN homologation_date TEXT")
+        if "value_reference_months" not in contract_columns:
+            conn.execute("ALTER TABLE contracts ADD COLUMN value_reference_months INTEGER")
         bid_process_columns = {row["name"] for row in conn.execute("PRAGMA table_info(bid_processes)")}
         if bid_process_columns and "agency_cnpj" not in bid_process_columns:
             conn.execute("ALTER TABLE bid_processes ADD COLUMN agency_cnpj TEXT")
