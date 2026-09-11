@@ -439,6 +439,24 @@ def generate_ranking_image(process: dict, rankings: list[dict], logo_path=None) 
 
     agency = process.get("agency") or ""
 
+    # Data/hora da disputa junto com o órgão — identifica de quando foi a
+    # licitação (a mesma imagem pode circular bem depois do pregão).
+    dispute_line = ""
+    if process.get("dispute_date"):
+        try:
+            formatted_dispute_date = date.fromisoformat(
+                str(process["dispute_date"])[:10]
+            ).strftime("%d/%m/%Y")
+        except (TypeError, ValueError):
+            formatted_dispute_date = None
+        if formatted_dispute_date:
+            dispute_time = str(process.get("dispute_time") or "").strip()
+            dispute_line = (
+                f"Licitação em {formatted_dispute_date} às {dispute_time}"
+                if dispute_time else f"Licitação em {formatted_dispute_date}"
+            )
+    agency_line = " · ".join(part for part in [agency, dispute_line] if part)
+
     note_text = ""
     if is_confidential:
         note_parts = ["SIGILOSO — valor estimado ainda não divulgado pelo órgão até o momento"]
@@ -446,7 +464,7 @@ def generate_ranking_image(process: dict, rankings: list[dict], logo_path=None) 
             note_parts.append(f"referência interna: {brl(process['estimated_value'])} (não oficial)")
         note_text = "  ·  ".join(note_parts)
 
-    title_block_height = 44 + len(subtitle_lines) * 20 + (22 if agency else 0) + (24 if note_text else 0) + 14
+    title_block_height = 44 + len(subtitle_lines) * 20 + (22 if agency_line else 0) + (24 if note_text else 0) + 14
     height = title_block_height + header_height + row_height * max(len(rows), 1) + padding * 2 + 60
 
     image = Image.new("RGB", (width, height), WHITE)
@@ -472,9 +490,9 @@ def generate_ranking_image(process: dict, rankings: list[dict], logo_path=None) 
         draw.text(((width - line_w) / 2, cursor_y), line, font=font_subtitle, fill=TEXT_DARK)
         cursor_y += 20
 
-    if agency:
-        agency_w = _text_width(draw, agency, font_subtitle)
-        draw.text(((width - agency_w) / 2, cursor_y), agency, font=font_subtitle, fill=(107, 114, 128))
+    if agency_line:
+        agency_w = _text_width(draw, agency_line, font_subtitle)
+        draw.text(((width - agency_w) / 2, cursor_y), agency_line, font=font_subtitle, fill=(107, 114, 128))
         cursor_y += 22
 
     if note_text:

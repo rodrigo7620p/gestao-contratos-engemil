@@ -1,4 +1,17 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 98 Beta
+Data: 11/09/2026
+
+Principais alterações:
+- imagem de classificação das licitações (aba Licitações) agora mostra,
+  logo abaixo do órgão, a data e o horário em que a disputa ocorreu, no
+  padrão brasileiro (ex.: "Licitação em 10/01/2025 às 09:30") — ajuda a
+  identificar de quando é a classificação quando ela circula por e-mail/
+  WhatsApp bem depois do pregão.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 97 Beta
 Data: 11/09/2026
 
