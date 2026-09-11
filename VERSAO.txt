@@ -1,4 +1,20 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 91 Beta
+Data: 11/09/2026
+
+Principais alterações:
+- novo: botão "Reenviar aviso de providências" em cada instrumento na aba
+  Aditivos — usa o documento já anexado (o mais recente) para tentar o
+  envio de novo, sem precisar reanexar nada. Criado após o aviso do 2º TA
+  do contrato 01.02.00276 (CONAB) não ter chegado ao destinatário mesmo com
+  responsáveis e e-mail de grupo corretamente cadastrados — o mais provável
+  é uma falha pontual de SMTP no momento do envio original (o sistema não
+  registra esse tipo de falha, então não dá para confirmar a causa exata à
+  distância); agora dá para tentar de novo diretamente pela ficha.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 90 Beta
 Data: 11/09/2026
 

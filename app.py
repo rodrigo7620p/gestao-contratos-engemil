@@ -116,7 +116,7 @@ from notifications import (
 )
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "90"
+APP_VERSION = "91"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -3921,6 +3921,46 @@ def page_contract_detail():
                     (amendment["id"],),
                 )]
                 document_downloads(docs, f"amendment_{amendment['id']}")
+                if can_create() and docs:
+                    if st.button(
+                        "Reenviar aviso de providências",
+                        key=f"resend_amendment_notice_{amendment['id']}",
+                        help="Usa o documento já anexado (o mais recente) para tentar o envio "
+                        "de novo — útil quando o e-mail não chegou na primeira vez (ex.: falha "
+                        "temporária de SMTP), sem precisar reanexar o documento.",
+                    ):
+                        latest_doc = docs[0]
+                        stored_name = Path(str(latest_doc["stored_path"]).replace("\\", "/")).name
+                        doc_path = portable_project_path(
+                            latest_doc["stored_path"],
+                            UPLOAD_DIR / str(latest_doc["contract_id"]) / stored_name,
+                        )
+                        resend_bytes = doc_path.read_bytes() if doc_path.exists() else None
+                        resend_notified = notify_contract_task_needs(
+                            contract_id=cid, amendment_id=amendment["id"],
+                            kind_label=amendment.get("kind"), ordinal=amendment.get("ordinal"),
+                            cost_center=contract["cost_center"], client=contract["client"],
+                            contract_number=contract["contract_number"],
+                            document_bytes=resend_bytes,
+                            document_filename=latest_doc.get("filename") if resend_bytes else None,
+                            extra_recipients=[
+                                contract.get("engineer_email"), contract.get("manager_email"),
+                            ],
+                            context_lines=guarantee_context_lines(
+                                contract_id=cid, amendment_id=amendment["id"],
+                            ) or None,
+                        )
+                        if resend_notified:
+                            st.success(
+                                f"Aviso de providências reenviado para "
+                                f"{len(resend_notified)} responsável(is)."
+                            )
+                        else:
+                            st.warning(
+                                "Nada pendente para reenviar (garantia e ART já registradas "
+                                "para este instrumento) ou nenhum responsável/e-mail "
+                                "cadastrado para a providência."
+                            )
         if can_create() and amendments:
             amendment_options = {
                 f"{a['ordinal'] or ''} {a['kind'] or 'Instrumento'}".strip().title(): a["id"]
