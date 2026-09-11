@@ -232,14 +232,22 @@ def notify_contract_task_needs(
     action_tag: str = "ASSINADO",
     extra_recipients: list[str] | None = None,
     only_tasks: list[str] | None = None,
+    force_tasks: list[str] | None = None,
     extra_attachments: list[tuple[str, bytes]] | None = None,
     context_lines: list[str] | None = None,
-) -> list[str]:
+) -> tuple[list[str], str]:
     """Verifica garantia/ART pendentes para o instrumento recém-lançado e
     envia UM único e-mail consolidado listando cada providência pendente e
-    o responsável correspondente. Devolve a lista de e-mails efetivamente
-    notificados — vazia quando nada está pendente ou quando não há
-    responsável/grupo cadastrado para as providências pendentes.
+    o responsável correspondente.
+
+    Devolve (destinatários, detalhe): a lista de e-mails efetivamente
+    notificados (vazia quando nada foi enviado, seja porque nada estava
+    pendente, porque não há responsável/grupo cadastrado, ou porque o
+    envio em si falhou) e um texto de detalhe explicando o resultado —
+    "" quando não havia nada a notificar (nenhuma providência pendente),
+    e sempre preenchido nos demais casos (motivo da falta de destinatário,
+    motivo de uma falha de SMTP, ou a confirmação de envio) — para a tela
+    poder mostrar exatamente o que aconteceu, em vez de só "não enviado".
 
     Aceita tanto contratos/aditivos regulares (contract_id/amendment_id)
     quanto contratos decorrentes de ATA e seus aditivos
@@ -263,6 +271,14 @@ def notify_contract_task_needs(
     cobrar TOTVS/ART, que só fazem sentido depois de o contrato existir
     de fato.
 
+    `force_tasks` inclui essas providências em `missing` mesmo que o banco
+    já indique que não faltam (ex.: já existe uma garantia com
+    request_status='SOLICITADA') — necessário para um botão explícito de
+    "solicitar/reenviar", onde a pessoa está pedindo o envio de propósito;
+    sem isso, `_missing_tasks` concluiria (de forma equivocada) que nada
+    precisa ser pedido, já que o próprio registro marcado como solicitado
+    é o que ele usa para decidir o que falta.
+
     `extra_attachments` recebe uma lista de (nome_do_arquivo, conteúdo) —
     além do documento único já suportado por document_bytes/
     document_filename (ex.: edital, minuta do contrato, planilha de
@@ -281,10 +297,12 @@ def notify_contract_task_needs(
     is_amendment = bool(amendment_id or ata_amendment_id)
     if not is_amendment:
         missing = [TASK_TOTVS] + missing
+    if force_tasks:
+        missing = list(dict.fromkeys(missing + list(force_tasks)))
     if only_tasks is not None:
         missing = [task for task in missing if task in only_tasks]
     if not missing:
-        return []
+        return [], ""
     instrument_label = (
         f"{ordinal} {kind_label}".strip().title() if is_amendment else "novo contrato"
     )
@@ -320,7 +338,11 @@ def notify_contract_task_needs(
             if len(person_emails) > 1 or person.get("notify_individually"):
                 individual_recipients.extend(person_emails)
     if not task_lines:
-        return []
+        return [], (
+            "Nenhum responsável cadastrado para a(s) providência(s) pendente(s) em "
+            "\"Responsáveis por providências iniciais\" — cadastre um e-mail lá para o "
+            "aviso sair."
+        )
 
     task_recipients = list(dict.fromkeys(
         address
@@ -344,7 +366,10 @@ def notify_contract_task_needs(
             # notifica direto cada responsável para o aviso não se perder.
             recipients = task_recipients
     if not recipients:
-        return []
+        return [], (
+            "Responsável cadastrado, mas sem um e-mail válido — corrija o cadastro em "
+            "\"Responsáveis por providências iniciais\"."
+        )
 
     subject = build_task_email_subject(
         cost_center, kind_label, ordinal, client, contract_number, action_tag,
@@ -386,14 +411,14 @@ def notify_contract_task_needs(
         "evidências da execução, assegurando o registro e a rastreabilidade do "
         f"cumprimento da{'s' if len(task_lines) > 1 else ''} {closing_object}."
     )
-    ok, _ = send_email(recipients, subject, body, cc=extra_recipients, attachments=attachments)
-    return recipients if ok else []
+    ok, message = send_email(recipients, subject, body, cc=extra_recipients, attachments=attachments)
+    return (recipients if ok else []), message
 
 
 def notify_ata_registration(
     *, cost_center: str, client: str, contract_number: str,
     extra_recipients: list[str] | None = None,
-) -> list[str]:
+) -> tuple[list[str], str]:
     """Avisa a equipe que um novo centro de custo foi reservado para uma
     ATA — SEM cobrar garantia contratual nem ART, já que a ATA em si não
     gera essas obrigações (elas só passam a valer quando os contratos
@@ -414,7 +439,10 @@ def notify_ata_registration(
         if len(person_emails) > 1 or person.get("notify_individually"):
             individual_recipients.extend(person_emails)
     if not task_lines:
-        return []
+        return [], (
+            "Nenhum responsável cadastrado para a ativação no TOTVS em \"Responsáveis por "
+            "providências iniciais\" — cadastre um e-mail lá para o aviso sair."
+        )
 
     recipients = list(dict.fromkeys(active_group_recipients() + individual_recipients))
     if not recipients:
@@ -424,7 +452,10 @@ def notify_ata_registration(
             for address in normalize_recipients(person["responsible_email"])
         ))
     if not recipients:
-        return []
+        return [], (
+            "Responsável cadastrado, mas sem um e-mail válido — corrija o cadastro em "
+            "\"Responsáveis por providências iniciais\"."
+        )
 
     subject = build_task_email_subject(
         cost_center, "ATA", None, client, contract_number, action_tag="REGISTRADA",
@@ -446,5 +477,5 @@ def notify_ata_registration(
         "da execução, assegurando o registro e a rastreabilidade do cumprimento da "
         "providência."
     )
-    ok, _ = send_email(recipients, subject, body, cc=extra_recipients)
-    return recipients if ok else []
+    ok, message = send_email(recipients, subject, body, cc=extra_recipients)
+    return (recipients if ok else []), message

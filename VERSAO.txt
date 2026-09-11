@@ -1,4 +1,31 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 95 Beta
+Data: 11/09/2026
+
+Principais alterações:
+- correção crítica: encontrada a causa real de "reenviar a solicitação de
+  garantia" nunca sinalizar nem enviar nada — o registro da garantia era
+  gravado como "Solicitada" ANTES de verificar o que estava pendente, então
+  o próprio sistema concluía (errado) que não havia mais nada a pedir, e
+  nunca chegava a tentar o envio. Isso valia tanto para o primeiro envio
+  quanto para qualquer reenvio, desde que esse recurso foi criado. Corrigido
+  a ordem (verifica e envia antes de gravar como solicitada) e adicionada
+  uma trava própria para esse botão sempre tentar o envio quando acionado
+  de propósito, mesmo que o registro já esteja marcado como solicitado.
+- correção: a confirmação de envio (sucesso ou falha, com o motivo) agora
+  também aparece como notificação (toast), que sobrevive à atualização de
+  tela que acontece logo em seguida — a mensagem de sucesso/erro comum
+  podia não chegar a ser vista a tempo antes da tela recarregar. Vale para
+  solicitar/reenviar garantia, anexar documento a um aditivo (inclusive
+  decorrente de ATA) e cadastrar novo contrato.
+- ajuste: `notify_contract_task_needs`/`notify_ata_registration` agora
+  também devolvem o motivo exato quando o e-mail não sai (SMTP mal
+  configurado, falha de autenticação, sem responsável cadastrado etc.), em
+  vez de só informar que "não foi enviado" sem dizer por quê.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 94 Beta
 Data: 11/09/2026
 

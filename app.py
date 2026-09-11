@@ -116,7 +116,7 @@ from notifications import (
 )
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "94"
+APP_VERSION = "95"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -3260,6 +3260,26 @@ def render_guarantees_tab(contract_id, contract, effective_end_date):
                     context_lines.append("")
                 modality_to_save = None if request_modality == "A DEFINIR PELA SEGURADORA" else request_modality
                 calculation_method = "PERCENTUAL_BASE" if request_percentage else "VALOR_INFORMADO"
+                # IMPORTANTE: verifica/envia a providência ANTES de gravar o
+                # registro como SOLICITADA — notify_contract_task_needs
+                # decide o que está "faltando" consultando o request_status
+                # já salvo no banco; gravando SOLICITADA primeiro, a própria
+                # checagem concluiria (de forma errada) que a garantia já
+                # tinha sido pedida, e nunca enviaria o e-mail de verdade
+                # (bug real encontrado em produção: nem o primeiro envio nem
+                # os reenvios chegavam a sair).
+                notified, notify_detail = notify_contract_task_needs(
+                    contract_id=contract_id, amendment_id=None, kind_label="CONTRATO",
+                    ordinal=None, cost_center=contract["cost_center"], client=contract["client"],
+                    contract_number=contract.get("contract_number") or contract["cost_center"],
+                    action_tag="SOLICITACAO-GARANTIA", only_tasks=[TASK_GARANTIA],
+                    force_tasks=[TASK_GARANTIA],
+                    extra_recipients=[
+                        contract.get("engineer_email"), contract.get("manager_email"),
+                    ],
+                    extra_attachments=attachment_items or None,
+                    context_lines=context_lines or None,
+                )
                 if pending_guarantee:
                     execute(
                         """UPDATE contract_guarantees SET request_status='SOLICITADA',
@@ -3294,33 +3314,29 @@ def render_guarantees_tab(contract_id, contract, effective_end_date):
                             request_percentage, request_required_amount, modality_to_save,
                         ),
                     )
-                notified = notify_contract_task_needs(
-                    contract_id=contract_id, amendment_id=None, kind_label="CONTRATO",
-                    ordinal=None, cost_center=contract["cost_center"], client=contract["client"],
-                    contract_number=contract.get("contract_number") or contract["cost_center"],
-                    action_tag="SOLICITACAO-GARANTIA", only_tasks=[TASK_GARANTIA],
-                    extra_recipients=[
-                        contract.get("engineer_email"), contract.get("manager_email"),
-                    ],
-                    extra_attachments=attachment_items or None,
-                    context_lines=context_lines or None,
-                )
                 log_action(
                     st.session_state.user["id"], "SOLICITAR", "garantia contratual",
                     contract_id, contract["cost_center"],
                 )
-                success_message = "Solicitação de garantia registrada."
                 if notified:
-                    success_message += f" E-mail enviado para {len(notified)} responsável(is)."
-                    if attachment_items:
-                        success_message += f" com {len(attachment_items)} documento(s) anexado(s)."
-                else:
-                    success_message += (
-                        " Nenhum responsável cadastrado para garantia contratual em "
-                        "\"Responsáveis por providências iniciais\" — cadastre um e-mail "
-                        "lá para o aviso sair."
+                    success_message = (
+                        f"Solicitação de garantia registrada. E-mail enviado para "
+                        f"{len(notified)} responsável(is)"
                     )
-                st.success(success_message)
+                    if attachment_items:
+                        success_message += f" com {len(attachment_items)} documento(s) anexado(s)"
+                    st.success(success_message + ".")
+                    # st.toast() sobrevive ao rerun logo abaixo (diferente de
+                    # st.success, que pode nem chegar a ser exibido antes do
+                    # rerun trocar a tela) — garante que a confirmação real
+                    # do envio chegue até quem clicou.
+                    st.toast(f"E-mail de garantia enviado para {len(notified)} responsável(is).", icon="✅")
+                else:
+                    st.warning(
+                        f"Solicitação de garantia registrada, mas o e-mail NÃO foi enviado: "
+                        f"{notify_detail}"
+                    )
+                    st.toast(f"E-mail de garantia NÃO enviado: {notify_detail}", icon="⚠️")
                 rerun()
 
     if can_create():
@@ -3961,7 +3977,7 @@ def page_contract_detail():
                             UPLOAD_DIR / str(latest_doc["contract_id"]) / stored_name,
                         )
                         resend_bytes = doc_path.read_bytes() if doc_path.exists() else None
-                        resend_notified = notify_contract_task_needs(
+                        resend_notified, resend_detail = notify_contract_task_needs(
                             contract_id=cid, amendment_id=amendment["id"],
                             kind_label=amendment.get("kind"), ordinal=amendment.get("ordinal"),
                             cost_center=contract["cost_center"], client=contract["client"],
@@ -3983,11 +3999,12 @@ def page_contract_detail():
                                 f"Aviso de providências reenviado para "
                                 f"{len(resend_notified)} responsável(is)."
                             )
+                        elif resend_detail:
+                            st.error(f"O reenvio NÃO foi enviado: {resend_detail}")
                         else:
                             st.warning(
-                                "Nada pendente para reenviar (garantia e ART já registradas "
-                                "para este instrumento) ou nenhum responsável/e-mail "
-                                "cadastrado para a providência."
+                                "Nada pendente para reenviar — garantia e ART já registradas "
+                                "para este instrumento."
                             )
         if can_create() and amendments:
             amendment_options = {
@@ -4017,13 +4034,12 @@ def page_contract_detail():
                         a for a in amendments if a["id"] == selected_amendment_id
                     )
                     if informative_only:
-                        notified = []
-                        success_message = (
+                        st.success(
                             "Documento vinculado ao instrumento. Marcado como informativo — "
                             "sem solicitação de garantia/ART."
                         )
                     else:
-                        notified = notify_contract_task_needs(
+                        notified, notify_detail = notify_contract_task_needs(
                             contract_id=cid, amendment_id=selected_amendment_id,
                             kind_label=selected_amendment.get("kind"),
                             ordinal=selected_amendment.get("ordinal"),
@@ -4041,12 +4057,23 @@ def page_contract_detail():
                                 )
                             ) or None,
                         )
-                        success_message = "Documento vinculado ao instrumento."
                         if notified:
-                            success_message += (
-                                f" Aviso de providências enviado para {len(notified)} responsável(is)."
+                            st.success(
+                                f"Documento vinculado ao instrumento. Aviso de providências "
+                                f"enviado para {len(notified)} responsável(is)."
                             )
-                    st.success(success_message)
+                            st.toast(f"Aviso de providências enviado para {len(notified)} responsável(is).", icon="✅")
+                        elif notify_detail:
+                            st.warning(
+                                f"Documento vinculado ao instrumento, mas o aviso de "
+                                f"providências NÃO foi enviado: {notify_detail}"
+                            )
+                            st.toast(f"Aviso de providências NÃO enviado: {notify_detail}", icon="⚠️")
+                        else:
+                            st.success(
+                                "Documento vinculado ao instrumento. Nada pendente para "
+                                "avisar (garantia e ART já registradas para este instrumento)."
+                            )
                     rerun()
         if can_delete() and amendments:
             with st.expander("Excluir instrumento contratual"):
@@ -4714,9 +4741,9 @@ def page_contract_detail():
                                     ata_amendment_doc_bytes = ata_amendment_upload.getvalue()
                                     ata_amendment_doc_filename = ata_amendment_upload.name
                                 if ata_amendment_informative_only:
-                                    notified = []
+                                    notified, notify_detail = [], ""
                                 else:
-                                    notified = notify_contract_task_needs(
+                                    notified, notify_detail = notify_contract_task_needs(
                                         ata_contract_id=ata_contract_id,
                                         ata_amendment_id=new_ata_amendment_id,
                                         ata_number=contract["contract_number"],
@@ -4748,12 +4775,22 @@ def page_contract_detail():
                                         " Marcado como informativo — sem solicitação de "
                                         "garantia/ART."
                                     )
+                                    st.success(success_message)
                                 elif notified:
                                     success_message += (
                                         f" Aviso de providências enviado para "
                                         f"{len(notified)} responsável(is)."
                                     )
-                                st.success(success_message)
+                                    st.success(success_message)
+                                    st.toast(f"Aviso de providências enviado para {len(notified)} responsável(is).", icon="✅")
+                                elif notify_detail:
+                                    st.warning(
+                                        f"{success_message} Porém o aviso de providências "
+                                        f"NÃO foi enviado: {notify_detail}"
+                                    )
+                                    st.toast(f"Aviso de providências NÃO enviado: {notify_detail}", icon="⚠️")
+                                else:
+                                    st.success(success_message)
                                 rerun()
                 st.markdown("##### Documentos do contrato decorrente e de seus aditivos")
                 ata_contract_docs = [dict(row) for row in query(
@@ -4961,7 +4998,7 @@ def page_contract_detail():
                                     )
                                     ata_document_bytes = new_ata_document_upload.getvalue()
                                     ata_document_filename = new_ata_document_upload.name
-                                notified = notify_contract_task_needs(
+                                notified, notify_detail = notify_contract_task_needs(
                                     ata_contract_id=new_ata_contract_id, ata_amendment_id=None,
                                     ata_number=contract["contract_number"],
                                     kind_label="CONTRATO", ordinal=None,
@@ -4980,7 +5017,16 @@ def page_contract_detail():
                                         f" Aviso de providências iniciais enviado para "
                                         f"{len(notified)} responsável(is)."
                                     )
-                                st.success(success_message)
+                                    st.success(success_message)
+                                    st.toast(f"Aviso de providências enviado para {len(notified)} responsável(is).", icon="✅")
+                                elif notify_detail:
+                                    st.warning(
+                                        f"{success_message} Porém o aviso de providências "
+                                        f"iniciais NÃO foi enviado: {notify_detail}"
+                                    )
+                                    st.toast(f"Aviso de providências NÃO enviado: {notify_detail}", icon="⚠️")
+                                else:
+                                    st.success(success_message)
                                 rerun()
     with tabs["Sindicatos e datas-base"]:
         unions = [dict(r) for r in query(
@@ -7285,20 +7331,20 @@ def page_new_contract():
                         )
                         document_bytes = contract_document_upload.getvalue()
                         document_filename = contract_document_upload.name
-                    notified = []
+                    notified, notify_detail = [], ""
                     if formalized:
                         if category == "ATA":
                             # A ATA em si não gera garantia contratual nem ART — isso só
                             # passa a valer para os contratos decorrentes dela, quando
                             # forem cadastrados e assinados (fluxo normal, mais abaixo).
-                            notified = notify_ata_registration(
+                            notified, notify_detail = notify_ata_registration(
                                 cost_center=cost_center.strip(),
                                 client=normalize_agency_name(client),
                                 contract_number=contract_number.strip(),
                                 extra_recipients=[engineer_email, manager_email],
                             )
                         else:
-                            notified = notify_contract_task_needs(
+                            notified, notify_detail = notify_contract_task_needs(
                                 contract_id=cid, amendment_id=None, kind_label="CONTRATO",
                                 ordinal=None, cost_center=cost_center.strip(),
                                 client=normalize_agency_name(client), contract_number=contract_number.strip(),
@@ -7314,6 +7360,7 @@ def page_new_contract():
                         "new_contract_procurement_method_select", "new_contract_procurement_method_custom",
                     ):
                         st.session_state.pop(reset_key, None)
+                    notify_warning = None
                     if formalized:
                         success_message = "Contrato, sindicatos e equipe cadastrados. Complete os demais dados na Ficha do Contrato."
                         if notified and category == "ATA":
@@ -7327,6 +7374,11 @@ def page_new_contract():
                                 f" Aviso de providências iniciais enviado para "
                                 f"{len(notified)} responsável(is)."
                             )
+                        elif notify_detail:
+                            notify_warning = (
+                                f"Contrato cadastrado, mas o aviso de providências iniciais "
+                                f"NÃO foi enviado: {notify_detail}"
+                            )
                     else:
                         success_message = (
                             f"Centro de custo {cost_center.strip()} reservado como pré-contrato "
@@ -7334,6 +7386,8 @@ def page_new_contract():
                             "\"Pré-contratos\" para revisar e enviar o e-mail de anúncio."
                         )
                     st.success(success_message)
+                    if notify_warning:
+                        st.warning(notify_warning)
                 except Exception:
                     st.error("Não foi possível cadastrar. Verifique se o centro de custo já existe.")
 
