@@ -116,7 +116,7 @@ from notifications import (
 )
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "91"
+APP_VERSION = "92"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -2245,6 +2245,9 @@ def page_contracts():
                 new_notify_individually = st.checkbox(
                     "Também enviar uma cópia individual do e-mail para este responsável",
                     value=False,
+                    help="Só é necessário marcar quando há um único e-mail cadastrado acima — "
+                    "com mais de um e-mail, todos já recebem sempre, com ou sem esta caixa "
+                    "marcada.",
                 )
                 if st.form_submit_button("Adicionar"):
                     normalized_emails = normalize_recipients(new_responsible_email)

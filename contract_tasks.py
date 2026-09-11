@@ -310,8 +310,15 @@ def notify_contract_task_needs(
                 f"{len(task_lines) + 1:02d} - {person['responsible_name']}, favor "
                 f"{TASK_LABELS[task_type]}."
             )
-            if person.get("notify_individually"):
-                individual_recipients.extend(normalize_recipients(person["responsible_email"]))
+            person_emails = normalize_recipients(person["responsible_email"])
+            # Mais de um e-mail cadastrado para o mesmo responsável (ex.: os
+            # 3 contatos de uma corretora) já indica, por si só, que ele é
+            # um pequeno grupo — todos devem sempre receber, independente
+            # da caixa "envio individual" estar marcada, e mesmo quando já
+            # existe e-mail de grupo geral cadastrado (que pode servir a
+            # outra finalidade e não incluir esses contatos).
+            if len(person_emails) > 1 or person.get("notify_individually"):
+                individual_recipients.extend(person_emails)
     if not task_lines:
         return []
 
@@ -403,8 +410,9 @@ def notify_ata_registration(
             f"{len(task_lines) + 1:02d} - {person['responsible_name']}, favor "
             f"{TASK_LABELS[TASK_TOTVS]}."
         )
-        if person.get("notify_individually"):
-            individual_recipients.extend(normalize_recipients(person["responsible_email"]))
+        person_emails = normalize_recipients(person["responsible_email"])
+        if len(person_emails) > 1 or person.get("notify_individually"):
+            individual_recipients.extend(person_emails)
     if not task_lines:
         return []
 

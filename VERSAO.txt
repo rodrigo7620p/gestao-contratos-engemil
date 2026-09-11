@@ -1,4 +1,24 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 92 Beta
+Data: 11/09/2026
+
+Principais alterações:
+- correção importante: encontrada a causa raiz do 2º TA do 01.02.00276
+  (CONAB) não ter avisado a corretora — o responsável de GARANTIA tem 3
+  e-mails cadastrados (thalysgomes/fellipeporto/paulamafra@artconsultoria)
+  sem a caixa "envio individual" marcada, e como há um e-mail de grupo
+  geral cadastrado (para outra finalidade), a regra antiga só incluía
+  quem estivesse marcado para envio individual — a corretora nunca estava
+  recebendo esses avisos. Agora, sempre que um responsável tem mais de um
+  e-mail cadastrado, todos recebem automaticamente, com ou sem "envio
+  individual" marcada e mesmo já havendo e-mail de grupo — exatamente como
+  já estava descrito (mas não implementado) na própria tela de cadastro
+  desses responsáveis. Responsáveis com um único e-mail continuam
+  dependendo da caixa "envio individual", sem mudança de comportamento.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 91 Beta
 Data: 11/09/2026
 
