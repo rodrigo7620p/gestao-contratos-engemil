@@ -1,4 +1,18 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 99 Beta
+Data: 12/09/2026
+
+Principais alterações:
+- novo item "Manual do sistema" no menu de navegação, sempre por último
+  (depois de "Usuários" para o administrador) — mostra o mapa da
+  plataforma e as instruções de uso completas direto dentro do sistema
+  (MANUAL_DO_SISTEMA.md), com um link para a versão publicada como página
+  web para leitura mais confortável. Disponível para qualquer perfil, sem
+  entrar no sistema de permissões por módulo.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 98 Beta
 Data: 11/09/2026
 

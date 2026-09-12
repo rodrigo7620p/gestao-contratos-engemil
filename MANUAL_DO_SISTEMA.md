@@ -1,6 +1,6 @@
 # Manual do Sistema — Gestão de Contratos ENGEMIL
 
-> **Versão do sistema documentada aqui: 98 Beta.**
+> **Versão do sistema documentada aqui: 99 Beta.**
 > Este manual é mantido junto do código: sempre que uma atualização muda,
 > adiciona ou remove uma funcionalidade, este arquivo (e a página publicada
 > equivalente) é revisado na mesma tarefa, como parte do próprio trabalho —
@@ -38,6 +38,7 @@ Ele foi escrito para dois públicos:
    - [5.9 Índices](#59-índices)
    - [5.10 Documentos padrões](#510-documentos-padrões)
    - [5.11 Usuários (administração)](#511-usuários-administração)
+   - [5.12 Manual do sistema](#512-manual-do-sistema)
 6. [Comunicações automáticas por e-mail](#6-comunicações-automáticas-por-e-mail)
 7. [Administração técnica e hospedagem](#7-administração-técnica-e-hospedagem)
 8. [Como este manual é mantido atualizado](#8-como-este-manual-é-mantido-atualizado)
@@ -88,10 +89,13 @@ permissão de ver. Da esquerda/topo para baixo:
 | **Índices** | Cálculo dos índices financeiros e declaração oficial em PDF. |
 | **Documentos padrões** | Geração de Ofício, Carta de Preposto e Procuração a partir de modelos Word da empresa. |
 | **Usuários** | Exclusivo do administrador — cadastro de contas, permissões e auditoria. |
+| **Manual do sistema** | Este manual, direto dentro da plataforma — sempre o último item do menu. |
 
 Cada usuário só vê as páginas para as quais tem permissão de visualização
-(ver seção 3). O tema (Escuro/Claro) e o último menu aberto ficam salvos
-por usuário e são restaurados automaticamente, inclusive depois de um F5.
+(ver seção 3) — exceto **Manual do sistema**, sempre visível a qualquer
+perfil, por não entrar no sistema de permissões por módulo. O tema
+(Escuro/Claro) e o último menu aberto ficam salvos por usuário e são
+restaurados automaticamente, inclusive depois de um F5.
 
 ## 3. Perfis de usuário e permissões
 
@@ -512,6 +516,13 @@ Exclusivo do administrador.
   conta.
 - **Atividades recentes**: últimas 100 ações registradas em todo o
   sistema.
+
+### 5.12 Manual do sistema
+
+Este próprio manual, sempre o último item do menu, disponível a qualquer
+perfil. Mostra o conteúdo direto do arquivo `MANUAL_DO_SISTEMA.md`
+versionado no repositório e traz um link para a página publicada, mais
+confortável para leitura e navegação pelo sumário.
 
 ## 6. Comunicações automáticas por e-mail
 

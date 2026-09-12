@@ -119,7 +119,7 @@ from notifications import (
 )
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "98"
+APP_VERSION = "99"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -11402,6 +11402,27 @@ def page_exports():
             page_import()
 
 
+MANUAL_ARTIFACT_URL = "https://claude.ai/code/artifact/799b5250-ffd6-4e82-b449-137de7c7cffd"
+
+
+def page_manual():
+    st.title("Manual do Sistema")
+    st.caption(
+        "Mapa da plataforma e instruções de uso completas — mantido em dia junto "
+        "de cada atualização do sistema."
+    )
+    st.info(
+        "Esta é a versão em texto, direto do sistema. Para uma leitura mais "
+        f"confortável, com sumário navegável e busca do navegador, acesse a "
+        f"[página publicada]({MANUAL_ARTIFACT_URL})."
+    )
+    manual_path = APP_DIR / "MANUAL_DO_SISTEMA.md"
+    if not manual_path.exists():
+        st.warning("Arquivo MANUAL_DO_SISTEMA.md não encontrado nesta instalação.")
+        return
+    st.markdown(manual_path.read_text(encoding="utf-8"))
+
+
 def page_users():
     if st.session_state.user["role"] != "admin":
         log_action(
@@ -11906,14 +11927,19 @@ page_modules = {
     "Exportações": "exports",
     "Índices": "indices",
     "Documentos padrões": "company_documents",
+    "Manual do sistema": "manual",
 }
 pages = [
     label for label, module in page_modules.items()
-    if has_permission(module, "can_view")
+    if label != "Manual do sistema"
+    and has_permission(module, "can_view")
     and (label not in ("Novo contrato", "Pré-contratos") or has_permission(module, "can_create"))
 ]
 if user["role"] == "admin":
     pages.append("Usuários")
+# Sempre por último no menu — referência de consulta, disponível para
+# qualquer perfil, sem entrar no sistema de permissões por módulo.
+pages.append("Manual do sistema")
 if st.session_state.get("navigation_page") not in pages:
     saved_page = current_user["last_page"] or pages[0]
     st.session_state.navigation_page = saved_page if saved_page in pages else pages[0]
@@ -11943,6 +11969,7 @@ st.session_state.current_module = page_modules.get(page, "users")
     "Índices": page_indices,
     "Documentos padrões": page_company_documents,
     "Usuários": page_users,
+    "Manual do sistema": page_manual,
 }[page]()
 professional_footer()
 sync_uploads_to_storage_if_changed()
