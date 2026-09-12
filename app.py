@@ -119,7 +119,7 @@ from notifications import (
 )
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "100"
+APP_VERSION = "101"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -9884,7 +9884,13 @@ def page_bids():
     st.divider()
     st.subheader("Carteira de licitações")
     f1, f2, f3, f4 = st.columns(4)
-    status_filter = f1.multiselect("Status", BID_STATUSES, default=[], placeholder="Selecione...")
+    status_filter = f1.multiselect(
+        "Status", BID_STATUSES, default=["EM ANDAMENTO"], key="bid_filter_status",
+        placeholder="Selecione...",
+        help="Por padrão mostra só as licitações em andamento — adicione outros "
+        "status (ex.: Suspensa) para ver mais de um ao mesmo tempo, ou remova "
+        "todos para ver a carteira inteira.",
+    )
     platform_filter = f2.multiselect("Plataforma", BID_PLATFORMS, default=[], placeholder="Selecione...")
     scope_filter = f3.multiselect("Escopo", BID_SCOPE_OPTIONS, default=[], placeholder="Selecione...")
     text_filter = f4.text_input("Pesquisar por órgão, processo ou objeto")

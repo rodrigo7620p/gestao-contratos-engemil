@@ -1,6 +1,6 @@
 # Manual do Sistema — Gestão de Contratos ENGEMIL
 
-> **Versão do sistema documentada aqui: 100 Beta.**
+> **Versão do sistema documentada aqui: 101 Beta.**
 > Este manual é mantido junto do código: sempre que uma atualização muda,
 > adiciona ou remove uma funcionalidade, este arquivo (e a página publicada
 > equivalente) é revisado na mesma tarefa, como parte do próprio trabalho —
@@ -424,7 +424,11 @@ contrato quando é homologada e assinada.
   número, órgão, escopo, objeto e valor estimado) sai automaticamente para
   uma lista de e-mails cadastrável.
 - Indicadores (em andamento, taxa de sucesso, valor estimado/em disputa) e
-  filtros por status, plataforma, escopo, texto e período da disputa.
+  filtros por status, plataforma, escopo, texto e período da disputa. O
+  filtro de status é de múltipla escolha e já vem com **"Em andamento"**
+  marcado por padrão — acrescente outros status (ex.: Suspensa) para ver
+  mais de um ao mesmo tempo, ou remova a seleção para ver a carteira
+  inteira.
 - **Cadastro**: escolha da estrutura do certame (item único / vários itens
   individuais / grupo(s) com itens, com detalhamento item a item e gerador
   automático de linhas), com responsável pré-preenchido.

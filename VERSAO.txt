@@ -1,4 +1,17 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 101 Beta
+Data: 12/09/2026
+
+Principais alterações:
+- carteira de licitações: o filtro de Status agora vem com "EM ANDAMENTO"
+  pré-selecionado por padrão (antes vinha vazio, mostrando a carteira
+  inteira) — continua sendo um filtro de múltipla escolha, então dá para
+  acrescentar outros status (ex.: Suspensa) para ver mais de um ao mesmo
+  tempo, ou remover a seleção para voltar a ver todas as licitações.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 100 Beta
 Data: 12/09/2026
 
