@@ -1,4 +1,25 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 100 Beta
+Data: 12/09/2026
+
+Principais alterações:
+- integração entre Licitações e Novo contrato: ao cadastrar um contrato
+  novo, é possível escolher se ele é oriundo de uma licitação já
+  cadastrada no menu Licitações — ao selecionar, os dados já lançados lá
+  (órgão, objeto, edital, número do processo, UASG, modalidade da
+  licitação, escopo/modalidade do contrato, nosso lance vencedor e o
+  responsável pelo acompanhamento) preenchem os campos correspondentes do
+  novo contrato automaticamente, revisáveis antes de salvar;
+- ao cadastrar, a licitação escolhida fica vinculada ao contrato criado
+  (mesmo campo já usado para vincular manualmente pelo lado da licitação);
+  só aparecem no seletor as licitações ainda não vinculadas a nenhum
+  contrato, para não vincular a mesma duas vezes;
+- contratações diretas ou sem licitação cadastrada continuam funcionando
+  exatamente como antes, sem nenhuma mudança — a opção padrão é "Nenhuma".
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 99 Beta
 Data: 12/09/2026
 

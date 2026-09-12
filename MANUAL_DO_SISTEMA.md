@@ -1,6 +1,6 @@
 # Manual do Sistema — Gestão de Contratos ENGEMIL
 
-> **Versão do sistema documentada aqui: 99 Beta.**
+> **Versão do sistema documentada aqui: 100 Beta.**
 > Este manual é mantido junto do código: sempre que uma atualização muda,
 > adiciona ou remove uma funcionalidade, este arquivo (e a página publicada
 > equivalente) é revisado na mesma tarefa, como parte do próprio trabalho —
@@ -367,6 +367,17 @@ ATA** só aparece quando o contrato é do tipo ATA.
 Cadastro de contratos novos — formalizados de imediato ou como
 pré-contrato (sem número ainda).
 
+- **Origem do contrato**: opção para indicar se o contrato é oriundo de
+  uma licitação já cadastrada no menu Licitações. Ao escolher uma
+  licitação (só aparecem as ainda não vinculadas a nenhum contrato), os
+  campos abaixo são preenchidos automaticamente com os dados já lançados
+  nela — órgão, objeto, edital, número do processo, UASG, modalidade da
+  licitação, modalidade/escopo do contrato, valor (nosso lance vencedor) e
+  o responsável pelo acompanhamento — revisáveis antes de salvar. Ao
+  cadastrar, a licitação escolhida fica vinculada ao contrato criado.
+  Contratações diretas (sem licitação, ou com uma licitação ainda não
+  cadastrada no sistema) usam a opção padrão "Nenhuma" e seguem exatamente
+  como antes.
 - **Centro de custo**: gerado e sequenciado automaticamente a partir da
   modalidade escolhida (padrão `01.YY.ZZZZZ`), ou digitado manualmente.
 - Engenheiro/responsável administrativo: reaproveita alguém já cadastrado

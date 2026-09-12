@@ -119,7 +119,7 @@ from notifications import (
 )
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "99"
+APP_VERSION = "100"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -7076,6 +7076,69 @@ def page_new_contract():
             "lançamento para cadastrar novos contratos."
         )
         return
+    category_options = ["MANUTENÇÃO", "OBRA", "REFORMA", "ATA", "CONSÓRCIO", "OUTRO"]
+
+    st.markdown("#### Origem do contrato")
+    bid_link_rows = [
+        dict(row) for row in query(
+            """SELECT * FROM bid_processes WHERE contract_id IS NULL AND archived=0
+            ORDER BY agency,process_number"""
+        )
+    ]
+    bid_link_options = {
+        "Nenhuma — contratação direta ou licitação não cadastrada no sistema": None,
+    }
+    bid_link_options.update({
+        (
+            f"{row['agency']} · Processo {row['process_number']}"
+            + (f" · Edital {row['edital_number']}" if row.get("edital_number") else "")
+            + f" · {row['status']}"
+        ): row["id"]
+        for row in bid_link_rows
+    })
+    bid_pick_label = st.selectbox(
+        "Este contrato é oriundo de uma licitação já cadastrada no menu Licitações?",
+        list(bid_link_options),
+        key="new_contract_bid_pick",
+        help="Ao escolher uma licitação, os dados já lançados nela (órgão, objeto, edital, "
+        "processo, UASG, modalidade e nosso lance vencedor) preenchem os campos abaixo "
+        "sozinhos — revise antes de salvar. Ao cadastrar, a licitação escolhida fica "
+        "vinculada a este contrato. Só aparecem licitações que ainda não estão vinculadas "
+        "a nenhum outro contrato.",
+    )
+    selected_bid_id = bid_link_options[bid_pick_label]
+    if selected_bid_id and st.session_state.get("new_contract_bid_applied") != selected_bid_id:
+        bid_row = next(row for row in bid_link_rows if row["id"] == selected_bid_id)
+        st.session_state["new_contract_client"] = normalize_agency_name(bid_row["agency"])
+        st.session_state["new_contract_object"] = bid_row.get("object") or ""
+        st.session_state["new_contract_bid_number"] = bid_row.get("edital_number") or ""
+        st.session_state["new_contract_process_number"] = bid_row.get("process_number") or ""
+        st.session_state["new_contract_uasg"] = bid_row.get("uasg") or ""
+        st.session_state["new_contract_original_value"] = float(
+            bid_row.get("our_bid_value") or bid_row.get("estimated_value") or 0
+        )
+        if bid_row.get("responsible_name"):
+            st.session_state["new_contract_engineer_name"] = bid_row["responsible_name"]
+        if bid_row.get("responsible_email"):
+            st.session_state["new_contract_engineer_email"] = bid_row["responsible_email"]
+        modality = str(bid_row.get("modality") or "").strip()
+        if modality in BID_MODALITIES:
+            st.session_state["new_contract_procurement_method_select"] = modality
+            st.session_state.pop("new_contract_procurement_method_custom", None)
+        elif modality:
+            st.session_state["new_contract_procurement_method_select"] = "OUTRO"
+            st.session_state["new_contract_procurement_method_custom"] = modality
+        if bid_row.get("scope") in category_options:
+            st.session_state["new_contract_manual_cc"] = False
+            st.session_state["new_contract_category_auto"] = bid_row["scope"]
+        st.session_state["new_contract_bid_applied"] = selected_bid_id
+        st.session_state["new_contract_bid_link_id"] = selected_bid_id
+        st.toast("Dados da licitação aplicados ao formulário abaixo.", icon="📋")
+        rerun()
+    elif not selected_bid_id:
+        st.session_state.pop("new_contract_bid_link_id", None)
+        st.session_state.pop("new_contract_bid_applied", None)
+
     with st.expander("Como funciona o centro de custo automático", expanded=False):
         st.caption(
             "O centro de custo segue o padrão 01.YY.ZZZZZ, em que YY define a modalidade: "
@@ -7085,7 +7148,6 @@ def page_new_contract():
             "contrato ser assinado, quando ainda não há número de contrato. Marque \"digitar "
             "manualmente\" só se este caso não seguir o padrão."
         )
-    category_options = ["MANUTENÇÃO", "OBRA", "REFORMA", "ATA", "CONSÓRCIO", "OUTRO"]
     manual_cost_center = st.checkbox(
         "Digitar centro de custo manualmente (em vez de gerar automaticamente pela modalidade)",
         key="new_contract_manual_cc",
@@ -7160,8 +7222,8 @@ def page_new_contract():
             "assinatura — o contrato fica como pré-contrato (fora da carteira) até o "
             "número ser preenchido aqui ou na Ficha do Contrato.",
         )
-        client = c2.text_input("Órgão/contratante *")
-        object_text = st.text_area("Objeto")
+        client = c2.text_input("Órgão/contratante *", key="new_contract_client")
+        object_text = st.text_area("Objeto", key="new_contract_object")
         object_identifier = st.text_input(
             "Identificação do objeto (para o assunto do e-mail)",
             placeholder="Ex.: VRF, Manutenção Predial, Obra de Restauro",
@@ -7169,13 +7231,16 @@ def page_new_contract():
             "e-mail de anúncio e dos avisos de providências deste contrato.",
         )
         c1, c2 = st.columns(2)
-        bid_number = c1.text_input("Edital/licitação", help="Número do certame (pregão eletrônico etc.).")
+        bid_number = c1.text_input(
+            "Edital/licitação", key="new_contract_bid_number",
+            help="Número do certame (pregão eletrônico etc.).",
+        )
         process_number = c2.text_input(
-            "Número do processo",
+            "Número do processo", key="new_contract_process_number",
             help="Número do processo administrativo/licitatório de origem do contrato.",
         )
         c1, c2 = st.columns(2)
-        uasg = c1.text_input("UASG")
+        uasg = c1.text_input("UASG", key="new_contract_uasg")
         homologation_date = c2.date_input(
             "Homologação da licitação", value=None, format="DD/MM/YYYY",
             help="Data em que o órgão homologou o certame — usada para sugerir o prazo de "
@@ -7188,7 +7253,7 @@ def page_new_contract():
         end = c3.date_input("Fim da vigência", value=None, format="DD/MM/YYYY")
         c1, c2, c3 = st.columns(3)
         original_value = c1.number_input(
-            "Valor original", min_value=0.0, format="%.2f",
+            "Valor original", min_value=0.0, format="%.2f", key="new_contract_original_value",
             help="No cadastro inicial, este valor também será utilizado como valor atual.",
         )
         c2.metric(
@@ -7382,6 +7447,13 @@ def page_new_contract():
                              int(numeric("Ano-base insalubridade", today_brt().year)), union_id),
                         )
                     log_action(user["id"], "CRIAR", "contrato", cid, cost_center)
+                    linked_bid_id = st.session_state.get("new_contract_bid_link_id")
+                    if linked_bid_id:
+                        execute(
+                            "UPDATE bid_processes SET contract_id=? WHERE id=? AND contract_id IS NULL",
+                            (cid, linked_bid_id),
+                        )
+                        log_action(user["id"], "VINCULAR", "licitação a contrato", linked_bid_id, cost_center)
                     if guarantee_percent > 0 or additional_guarantee_applies:
                         required_amount = calculate_required_amount(
                             "PERCENTUAL_BASE", calculation_base=original_value,
@@ -7488,11 +7560,23 @@ def page_new_contract():
                         "new_contract_manager_name", "new_contract_manager_email",
                         "new_contract_cost_center",
                         "new_contract_procurement_method_select", "new_contract_procurement_method_custom",
+                        "new_contract_bid_pick", "new_contract_bid_applied", "new_contract_bid_link_id",
+                        "new_contract_client", "new_contract_object", "new_contract_bid_number",
+                        "new_contract_process_number", "new_contract_uasg", "new_contract_original_value",
                     ):
                         st.session_state.pop(reset_key, None)
                     notify_warning = None
+                    linked_bid_note = (
+                        " Vinculado à licitação de origem — os dados dela ficam acessíveis "
+                        "a partir de agora tanto na ficha do contrato quanto na própria "
+                        "licitação, no menu Licitações."
+                        if linked_bid_id else ""
+                    )
                     if formalized:
-                        success_message = "Contrato, sindicatos e equipe cadastrados. Complete os demais dados na Ficha do Contrato."
+                        success_message = (
+                            "Contrato, sindicatos e equipe cadastrados. Complete os demais "
+                            "dados na Ficha do Contrato." + linked_bid_note
+                        )
                         if notified and category == "ATA":
                             success_message += (
                                 f" Aviso de novo centro de custo de ATA enviado para "
@@ -7514,6 +7598,7 @@ def page_new_contract():
                             f"Centro de custo {cost_center.strip()} reservado como pré-contrato "
                             "(fora da carteira até o número do contrato ser preenchido). Vá em "
                             "\"Pré-contratos\" para revisar e enviar o e-mail de anúncio."
+                            + linked_bid_note
                         )
                     st.success(success_message)
                     if notify_warning:
