@@ -41,9 +41,11 @@ principal (~12k linhas); `contract_tasks.py`, `alerts.py`, `bids.py`,
 - `MANUAL_DO_SISTEMA.md` — manual de uso e mapa da plataforma (estado
   atual, sem histórico). Fonte de verdade para usuários/administradores.
 - `VERSAO.txt` — changelog técnico, uma entrada por versão.
-- `README.md`, `GESTAO_LICITACOES.md`, `GESTAO_SESMT.md` — documentos mais
-  antigos, com boa parte do conteúdo já superada pelo `MANUAL_DO_SISTEMA.md`
-  (o README em especial está desatualizado, ainda descrevendo a v27 só com
-  instalação local). Ainda não foram retirados de circulação; ao tocar em
-  algo que eles descrevem, prefira corrigir o manual novo, e considere
-  sinalizar ao usuário que esses arquivos antigos merecem uma limpeza.
+- `README.md` foi reduzido a um ponteiro para `MANUAL_DO_SISTEMA.md` — não
+  volte a inflá-lo com detalhes de uso; qualquer instrução de uso/mapa vai
+  no manual.
+- `GESTAO_LICITACOES.md`, `GESTAO_SESMT.md` — histórico de decisões
+  técnicas desses dois módulos (por que cada coisa foi implementada assim),
+  mantidos como referência. O estado atual de uso já está no
+  `MANUAL_DO_SISTEMA.md`; ao tocar em algo que eles descrevem, atualize o
+  manual novo, não esses arquivos.
