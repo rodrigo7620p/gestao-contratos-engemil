@@ -1,4 +1,31 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 102 Beta
+Data: 14/09/2026
+
+Principais alterações:
+- aviso automático de providências iniciais (TOTVS/garantia/ART) agora só é
+  enviado quando o documento assinado é de fato anexado — sem upload, o
+  cadastro fica só como registro no sistema, para controle, sem disparar
+  e-mail. Vale para o contrato principal (Novo contrato), o registro de
+  ATA, os contratos decorrentes de ATA e os aditivos/apostilamentos de
+  ambos;
+- novo ponto para anexar o documento assinado depois, na Ficha do
+  Contrato (aba Editar, seção "Documento do contrato assinado") — dispara
+  o aviso automaticamente ao anexar, com opção de reenviar usando o
+  documento já salvo; os contratos decorrentes de ATA já tinham essa
+  opção na própria aba deles e agora também disparam o aviso;
+- contratos decorrentes de ATA podem ser cadastrados como "minuta"
+  (ainda não assinados/formalizados) — reserva o registro, fica editável
+  depois (inclusive o número do contrato) e não dispara aviso de
+  instrumento assinado enquanto estiver como minuta;
+- a solicitação antecipada de garantia contratual (antes da assinatura,
+  já usada no contrato principal desde a V86) passa a valer também para
+  contratos decorrentes de ATA — inclusive minutas —, na própria aba
+  "Contratos decorrentes da ATA" da ficha.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 101 Beta
 Data: 12/09/2026
 

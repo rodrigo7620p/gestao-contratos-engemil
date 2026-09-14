@@ -1,6 +1,6 @@
 # Manual do Sistema — Gestão de Contratos ENGEMIL
 
-> **Versão do sistema documentada aqui: 101 Beta.**
+> **Versão do sistema documentada aqui: 102 Beta.**
 > Este manual é mantido junto do código: sempre que uma atualização muda,
 > adiciona ou remove uma funcionalidade, este arquivo (e a página publicada
 > equivalente) é revisado na mesma tarefa, como parte do próprio trabalho —
@@ -219,15 +219,17 @@ ATA** só aparece quando o contrato é do tipo ATA.
   "ARTs vinculadas".
 - **Adicionar aditivo**: número/ordem, tipo (Termo Aditivo, Termo de
   Apostilamento, Contrato, ou "Outro" com nome livre), valor atualizado,
-  datas, descrição e observações.
+  datas, descrição e observações. O cadastro em si não envia e-mail — só
+  fica registrado no sistema.
 - Cada instrumento tem seus próprios documentos. O botão **Reenviar aviso
   de providências** reenvia o e-mail de garantia/ART usando o último
   documento já anexado, sem precisar reanexar nada — útil quando o e-mail
   original não chegou (ex.: falha temporária de SMTP).
-- **Anexar ao instrumento**: upload do documento do aditivo/apostilamento.
-  A caixa **"Instrumento apenas informativo"** evita disparar o aviso de
-  garantia/ART quando o documento não altera valor nem prazo (ex.:
-  correção de dados, apostilamento formal).
+- **Anexar ao instrumento**: upload do documento do aditivo/apostilamento
+  — é esse anexo que dispara o aviso de providências (garantia/ART); sem
+  documento, o aditivo permanece só como registro. A caixa **"Instrumento
+  apenas informativo"** evita disparar o aviso quando o documento não
+  altera valor nem prazo (ex.: correção de dados, apostilamento formal).
 - **Excluir instrumento contratual**: bloqueado se houver garantia
   vinculada a ele.
 
@@ -276,10 +278,23 @@ ATA** só aparece quando o contrato é do tipo ATA.
 
 #### Contratos decorrentes da ATA (só quando o contrato é uma ATA)
 
-- Tabela de todos os contratos já formalizados a partir da ATA.
-- Editar dados, cadastrar novo contrato decorrente (com upload opcional do
-  documento assinado — dispara o aviso de providências iniciais) e excluir
-  (bloqueado se houver garantia vinculada).
+- Tabela de todos os contratos já lançados a partir da ATA, com a coluna
+  **Situação** indicando se cada um é **Efetivo** ou **Minuta**.
+- **Cadastrar novo contrato decorrente**: dados completos do contrato
+  decorrente, com upload opcional do documento assinado. A caixa
+  **"Cadastrar como minuta"** registra o contrato decorrente ainda sem
+  assinatura/formalização (dispensa o número do contrato por enquanto) —
+  útil para já poder solicitar a garantia contratual com antecedência;
+  fica editável depois (inclusive o número do contrato, em "Editar dados
+  do contrato decorrente") para virar efetivo quando for assinado.
+- O aviso de providências iniciais só é enviado quando o documento
+  assinado é de fato anexado (no cadastro ou depois, na seção "Anexar
+  documento" — vale tanto para o contrato decorrente quanto para seus
+  aditivos). Sem documento, o registro fica só no sistema, para controle.
+- **Solicitar garantia contratual ao responsável**: mesmo formulário de
+  solicitação antecipada da aba Garantias e seguros (seção 6.1), disponível
+  também aqui para o contrato decorrente selecionado — efetivo ou minuta.
+- Editar dados e excluir (bloqueado se houver garantia vinculada).
 - Cada contrato decorrente tem sua própria aba de **Aditivos** (mesma
   lógica da aba principal, incluindo o aviso "apenas informativo") e seus
   próprios **documentos**.
@@ -356,6 +371,11 @@ ATA** só aparece quando o contrato é do tipo ATA.
   observações.
 - **Datas do orçamento**: várias referências (data, descrição,
   observações) por contrato.
+- **Documento do contrato assinado**: mostra o documento já anexado ao
+  contrato principal (com botão para reenviar o aviso de providências
+  usando o mesmo documento) e permite anexar/substituir pela primeira vez
+  — anexar aqui é o que dispara o aviso automaticamente quando o
+  cadastro em "Novo contrato" ficou sem o documento.
 - **Arquivar contrato finalizado** / **Restaurar contrato para a carteira
   ativa**.
 - **Zona de exclusão**: exige digitar o centro de custo exato para
@@ -394,9 +414,12 @@ pré-contrato (sem número ainda).
 - **Sindicatos e datas-base** e **Equipe e cargos** iniciais, já na mesma
   tela.
 - Upload opcional do contrato assinado.
-- Ao salvar: dispara o aviso de providências iniciais (garantia
-  contratual, ART, ativação no TOTVS) para os responsáveis cadastrados,
-  com o documento anexado quando disponível.
+- Ao salvar: o aviso de providências iniciais (garantia contratual, ART,
+  ativação no TOTVS) só é enviado quando o documento assinado é anexado
+  nesse momento. Sem upload, o contrato fica cadastrado normalmente — só
+  como registro no sistema, para controle — e o aviso pode ser disparado
+  depois, na Ficha do Contrato (aba Editar, seção "Documento do contrato
+  assinado"), anexando o documento por lá.
 
 ### 5.5 Pré-contratos
 
@@ -548,10 +571,16 @@ envia e-mail — cada tela avisa quando um envio falhou e por quê.
 
 ### 6.1 Providências de garantia contratual e ART
 
-Sempre que um contrato é formalizado, um aditivo/apostilamento é anexado,
-ou um contrato/aditivo decorrente de ATA é lançado, o sistema confere se
-já existe garantia contratual e ART vinculadas àquele instrumento
-específico:
+Sempre que o documento assinado de um instrumento é anexado — contrato
+principal, ATA, contrato decorrente de ATA, ou um aditivo/apostilamento de
+qualquer um deles —, o sistema confere se já existe garantia contratual e
+ART vinculadas àquele instrumento específico. **Sem o documento anexado, o
+cadastro fica só como registro no sistema, para controle — nenhum e-mail é
+enviado** (nem no cadastro inicial nem depois, até o documento ser de fato
+anexado, seja no próprio formulário de cadastro ou, mais tarde, na seção
+de documentos correspondente — "Documento do contrato assinado" na aba
+Editar para o contrato principal/ATA, ou "Anexar documento"/"Anexar ao
+instrumento" para aditivos e contratos decorrentes).
 
 1. **E-mail "ASSINADO"**: para o grupo de e-mails cadastrado + o
    engenheiro/responsável administrativo, listando as providências ainda
@@ -572,10 +601,13 @@ específico:
    sistema não envia e explica, no e-mail "ASSINADO" e na tela, que é
    preciso completar o cadastro do instrumento anterior primeiro.
 4. **Reconhecimento do que já foi pedido**: se a garantia já tiver sido
-   solicitada antes (inclusive em um pré-contrato, antes da assinatura),
-   o sistema não pede de novo — a aba Garantias e seguros também tem seu
-   próprio botão **Solicitar/Reenviar garantia** (seção 5.3) para os casos
-   em que o órgão pede a indicação da modalidade com antecedência.
+   solicitada antes (inclusive em um pré-contrato, ou uma minuta de
+   contrato decorrente de ATA, antes da assinatura), o sistema não pede de
+   novo — a aba Garantias e seguros (contrato principal) e a aba
+   "Contratos decorrentes da ATA" (seção 5.3) têm seu próprio botão
+   **Solicitar/Reenviar garantia** para os casos em que o órgão pede a
+   indicação da modalidade com antecedência; essa solicitação antecipada é
+   a única exceção que independe do documento assinado.
 
 **Cobrança automática de cadastro**: se passarem 30 dias corridos desde a
 solicitação (de garantia ou de ART) sem que o registro correspondente seja

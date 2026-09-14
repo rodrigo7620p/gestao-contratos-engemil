@@ -713,6 +713,8 @@ def notify_contract_task_needs(
 def notify_ata_registration(
     *, cost_center: str, client: str, contract_number: str,
     extra_recipients: list[str] | None = None,
+    document_bytes: bytes | None = None,
+    document_filename: str | None = None,
 ) -> tuple[list[str], str]:
     """Avisa a equipe que um novo centro de custo foi reservado para uma
     ATA — SEM cobrar garantia contratual nem ART, já que a ATA em si não
@@ -772,5 +774,8 @@ def notify_ata_registration(
         "da execução, assegurando o registro e a rastreabilidade do cumprimento da "
         "providência."
     )
-    ok, message = send_email(recipients, subject, body, cc=extra_recipients)
+    attachments = (
+        [(document_filename, document_bytes)] if document_bytes and document_filename else None
+    )
+    ok, message = send_email(recipients, subject, body, cc=extra_recipients, attachments=attachments)
     return (recipients if ok else []), message

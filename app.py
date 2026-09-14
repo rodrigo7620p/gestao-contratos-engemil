@@ -119,7 +119,7 @@ from notifications import (
 )
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "101"
+APP_VERSION = "102"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -3071,6 +3071,365 @@ def render_guarantee_notification_result(result: dict) -> None:
         st.toast("Solicitação de garantia NÃO enviada.", icon="⚠️")
 
 
+def render_guarantee_advance_request(
+    *, contract_id, ata_contract_id=None, ata_number=None, cost_center, client,
+    contract_number, total_value, period_start=None, period_end=None,
+    reference_months=None, homologation_date=None, bid_number=None,
+    process_number=None, uasg=None, object_text=None, start_date_display=None,
+    engineer_email=None, manager_email=None, formalized=True, widget_key,
+) -> None:
+    """Formulário "Solicitar garantia contratual ao responsável" — pede a
+    garantia antes da assinatura/formalização do instrumento, isolado das
+    demais providências (TOTVS/ART). Reaproveitado tanto para o contrato
+    principal (contract_id) quanto para um contrato decorrente de ATA
+    (ata_contract_id informado) — nesse segundo caso `contract_id` continua
+    sendo o id do contrato "ATA" pai, porque contract_guarantees.contract_id
+    é NOT NULL mesmo quando a garantia é de um decorrente (mesma convenção
+    de guarantee_instrument_options)."""
+    if ata_contract_id:
+        scope_filter = "ata_contract_id=? AND ata_amendment_id IS NULL"
+        scope_param = ata_contract_id
+    else:
+        scope_filter = "contract_id=? AND amendment_id IS NULL AND ata_contract_id IS NULL"
+        scope_param = contract_id
+    main_guarantee_rows = [
+        dict(row) for row in query(
+            f"""SELECT * FROM contract_guarantees WHERE {scope_filter}
+            AND guarantee_type='GARANTIA CONTRATUAL'""",
+            (scope_param,),
+        )
+    ]
+    pending_guarantee = next(
+        (g for g in main_guarantee_rows
+         if str(g.get("request_status") or "A SOLICITAR").upper() in GUARANTEE_REQUEST_PENDING_STATUSES),
+        None,
+    )
+    guarantee_finalized = main_guarantee_rows and not pending_guarantee
+    already_sent = bool(pending_guarantee) and str(
+        pending_guarantee.get("request_status") or ""
+    ).upper() == "SOLICITADA"
+    annual_value = annualized_value(
+        total_value, period_start, period_end, reference_months=reference_months,
+    )
+    months_note = f" (informado como referente a {int(reference_months)} meses)" if reference_months else ""
+    st.caption(
+        f"Valores de referência do contrato para a base de cálculo da garantia: "
+        f"total {brl(total_value)}{months_note} · anual estimado {brl(annual_value)}."
+    )
+
+    if not (can_create() and not guarantee_finalized):
+        return
+    with st.expander(
+        "Reenviar/complementar solicitação de garantia contratual"
+        if already_sent else
+        "Solicitar garantia contratual ao responsável (antes da assinatura, quando o "
+        "órgão exigir antecedência)",
+        expanded=not formalized,
+    ):
+        st.caption(
+            "Envia o mesmo pedido de cotação/minuta já usado nas providências iniciais, "
+            "isolado das demais, com os documentos que a seguradora precisa para calcular "
+            "e preparar a minuta — útil quando o órgão exige a indicação da modalidade de "
+            "garantia antes da assinatura do contrato, para aprovação prévia da minuta. "
+            "Pode ser reenviada quantas vezes precisar até a garantia ser recebida."
+        )
+        saved_due_date = _date_value(pending_guarantee.get("request_due_date")) if pending_guarantee else None
+        suggested_due_date = (
+            saved_due_date or (homologation_date + timedelta(days=30) if homologation_date else None)
+        )
+        request_due_date = st.date_input(
+            "Prazo do órgão para apresentação/indicação",
+            value=suggested_due_date, format="DD/MM/YYYY",
+            key=f"guarantee_req_due_{widget_key}",
+            help="Sugerido automaticamente como 30 dias após a homologação da licitação "
+            "(cadastrada na ficha) quando ainda não há um prazo salvo — pode ser ajustado "
+            "livremente quando o órgão informar outro prazo."
+            if homologation_date and not saved_due_date else
+            "Editável a qualquer momento — corrija aqui se o órgão informar um novo prazo.",
+        )
+        request_note = st.text_area(
+            "Observação (ex.: referência ao ofício do órgão, condições especiais)",
+            value=str((pending_guarantee or {}).get("notes") or ""),
+            key=f"guarantee_req_note_{widget_key}",
+        )
+        c1, c2 = st.columns(2)
+        request_percentage = c1.number_input(
+            "Percentual de garantia exigido (%)",
+            min_value=0.0, max_value=100.0, format="%.2f",
+            value=float((pending_guarantee or {}).get("percentage") or 0),
+            key=f"guarantee_req_percentage_{widget_key}",
+            help="Percentual informado no edital/minuta — usado para calcular o valor "
+            "exigido abaixo e informado ao responsável. Deixe em 0 se ainda não souber.",
+        )
+        current_base_reference = str(
+            (pending_guarantee or {}).get("calculation_base_reference") or "TOTAL"
+        ).upper()
+        if current_base_reference not in BASE_REFERENCE_OPTIONS:
+            current_base_reference = "MANUAL"
+        request_base_reference = c2.selectbox(
+            "Referência do valor-base",
+            list(BASE_REFERENCE_OPTIONS),
+            index=_option_index(list(BASE_REFERENCE_OPTIONS), current_base_reference),
+            format_func=lambda option: BASE_REFERENCE_LABELS[option],
+            key=f"guarantee_req_base_ref_{widget_key}",
+        )
+        if request_base_reference == "TOTAL":
+            request_calculation_base = total_value
+        elif request_base_reference == "ANUAL":
+            request_calculation_base = annual_value
+        else:
+            manual_base_text = currency_input(
+                st, "Base contratual (valor manual)",
+                (pending_guarantee or {}).get("calculation_base", 0),
+                f"guarantee_req_base_manual_{widget_key}",
+            )
+            try:
+                request_calculation_base = parse_brl_input(manual_base_text)
+            except ValueError:
+                request_calculation_base = 0.0
+        request_required_amount = (
+            calculate_required_amount(
+                "PERCENTUAL_BASE", calculation_base=request_calculation_base,
+                percentage=request_percentage,
+            ) if request_percentage else 0.0
+        )
+        if request_percentage:
+            st.caption(
+                f"Valor exigido calculado: {brl(request_required_amount)} "
+                f"({request_percentage:.2f}% sobre {brl(request_calculation_base)}, "
+                f"{BASE_REFERENCE_LABELS[request_base_reference].lower()})."
+            )
+        modality_options = ["A DEFINIR PELA SEGURADORA", *GUARANTEE_MODALITIES]
+        current_modality = str(
+            (pending_guarantee or {}).get("modality") or "A DEFINIR PELA SEGURADORA"
+        )
+        if current_modality not in modality_options:
+            current_modality = "A DEFINIR PELA SEGURADORA"
+        request_modality = st.selectbox(
+            "Modalidade (se já souber; senão deixe \"a definir\" para a seguradora indicar)",
+            modality_options, index=_option_index(modality_options, current_modality),
+            key=f"guarantee_req_modality_{widget_key}",
+        )
+        doc_scope_filter = "contract_id=?"
+        doc_scope_params = [contract_id]
+        if ata_contract_id:
+            doc_scope_filter = "(contract_id=? OR ata_contract_id=?)"
+            doc_scope_params.append(ata_contract_id)
+        existing_docs = [
+            dict(row) for row in query(
+                f"""SELECT * FROM documents WHERE {doc_scope_filter} AND category IN
+                ({",".join("?" for _ in GUARANTEE_REQUEST_DOCUMENT_CATEGORIES)})
+                ORDER BY uploaded_at DESC""",
+                (*doc_scope_params, *GUARANTEE_REQUEST_DOCUMENT_CATEGORIES),
+            )
+        ]
+        existing_doc_options = {
+            f"{doc['title'] or doc['category']} · {doc['filename']}": doc for doc in existing_docs
+        }
+        picked_existing_labels = []
+        if existing_doc_options:
+            picked_existing_labels = st.multiselect(
+                "Anexar documentos já cadastrados no contrato",
+                list(existing_doc_options), default=list(existing_doc_options),
+                key=f"guarantee_req_existing_{widget_key}",
+            )
+        st.caption(
+            "Anexar novos documentos (se ainda não estiverem salvos no contrato acima):"
+        )
+        c1, c2 = st.columns(2)
+        edital_upload = c1.file_uploader("Edital", key=f"guarantee_req_edital_{widget_key}")
+        minuta_upload = c2.file_uploader(
+            "Minuta do contrato", key=f"guarantee_req_minuta_{widget_key}"
+        )
+        c1, c2 = st.columns(2)
+        proposal_upload = c1.file_uploader(
+            "Proposta", key=f"guarantee_req_proposal_{widget_key}"
+        )
+        spreadsheet_upload = c2.file_uploader(
+            "Planilha de valores", key=f"guarantee_req_spreadsheet_{widget_key}"
+        )
+        new_uploads = [
+            (upload, category, title)
+            for upload, category, title in (
+                (edital_upload, "EDITAL", "Edital"),
+                (minuta_upload, "MINUTA DO CONTRATO", "Minuta do contrato"),
+                (proposal_upload, "PROPOSTA HOMOLOGADA", "Proposta"),
+                (spreadsheet_upload, "PLANILHA", "Planilha de valores"),
+            )
+            if upload
+        ]
+        for doc in existing_doc_options.values():
+            stored_name = Path(str(doc["stored_path"]).replace("\\", "/")).name
+            doc_path = portable_project_path(
+                doc["stored_path"], UPLOAD_DIR / str(doc["contract_id"]) / stored_name,
+            )
+            doc["_size_bytes"] = doc_path.stat().st_size if doc_path.exists() else 0
+        total_size = (
+            sum(existing_doc_options[label]["_size_bytes"] for label in picked_existing_labels)
+            + sum(upload.size for upload, _, _ in new_uploads)
+        )
+        limit_mb = MAX_ATTACHMENTS_BYTES / (1024 * 1024)
+        oversized = total_size > MAX_ATTACHMENTS_BYTES
+        if oversized:
+            st.error(
+                f"Anexos somam {total_size / (1024 * 1024):.1f} MB, acima do limite de "
+                f"{limit_mb:.0f} MB para envio por e-mail — desmarque ou remova algum "
+                "documento antes de enviar (mais de um anexo é compactado em .zip "
+                "automaticamente, mas isso raramente reduz arquivos que já são PDF/imagem)."
+            )
+        elif total_size:
+            st.caption(f"Anexos selecionados: {total_size / (1024 * 1024):.1f} MB no total.")
+        if st.button(
+            "Reenviar solicitação" if already_sent else "Enviar solicitação",
+            type="primary", disabled=oversized,
+            key=f"guarantee_req_submit_{widget_key}",
+        ):
+            attachment_items = []
+            for label in picked_existing_labels:
+                doc = existing_doc_options[label]
+                stored_name = Path(str(doc["stored_path"]).replace("\\", "/")).name
+                doc_path = portable_project_path(
+                    doc["stored_path"], UPLOAD_DIR / str(doc["contract_id"]) / stored_name,
+                )
+                if doc_path.exists():
+                    attachment_items.append((doc["filename"], doc_path.read_bytes()))
+            attachment_items.extend((upload.name, upload.getvalue()) for upload, _, _ in new_uploads)
+            for upload, category, title in new_uploads:
+                save_document(contract_id, upload, category, title, ata_contract_id=ata_contract_id)
+            context_lines = []
+            if bid_number:
+                context_lines.append(f"Número do Certame: {bid_number}")
+            if process_number:
+                context_lines.append(f"Número do Processo: {process_number}")
+            if uasg:
+                context_lines.append(f"UASG: {uasg}")
+            if homologation_date:
+                context_lines.append(
+                    f"Homologação da licitação: {homologation_date.strftime('%d/%m/%Y')}"
+                )
+            if start_date_display:
+                context_lines.append(
+                    f"Previsão de início da vigência contratual: {fmt_date(start_date_display)}"
+                )
+            if object_text:
+                context_lines.append(f"Objeto: {object_text}")
+            legal_basis = (
+                (pending_guarantee or {}).get("legal_basis")
+                or default_legal_basis("GARANTIA CONTRATUAL")
+            )
+            context_lines.append(f"Fundamento/referência da exigência: {legal_basis}")
+            context_lines.append(
+                f"Valor total do contrato: {brl(total_value)}{months_note}"
+            )
+            context_lines.append(
+                f"Referência do valor-base da garantia: "
+                f"{BASE_REFERENCE_LABELS[request_base_reference]}"
+            )
+            if request_percentage:
+                context_lines.append(
+                    f"Base contratual considerada: {brl(request_calculation_base)}"
+                )
+                context_lines.append(
+                    f"Percentual de garantia exigido: {request_percentage:.2f}%"
+                )
+                context_lines.append(f"Valor exigido: {brl(request_required_amount)}")
+            context_lines.append(
+                "Modalidade: a definir pela seguradora, conforme esta solicitação."
+                if request_modality == "A DEFINIR PELA SEGURADORA" else
+                f"Modalidade indicada: {request_modality}"
+            )
+            if request_due_date:
+                context_lines.append(
+                    f"Prazo do órgão para apresentação/indicação: "
+                    f"{request_due_date.strftime('%d/%m/%Y')}"
+                )
+            if request_note.strip():
+                context_lines.append(f"Observação: {request_note.strip()}")
+            if context_lines:
+                context_lines.append("")
+            modality_to_save = None if request_modality == "A DEFINIR PELA SEGURADORA" else request_modality
+            calculation_method = "PERCENTUAL_BASE" if request_percentage else "VALOR_INFORMADO"
+            # IMPORTANTE: verifica/envia a providência ANTES de gravar o
+            # registro como SOLICITADA — notify_contract_task_needs
+            # decide o que está "faltando" consultando o request_status
+            # já salvo no banco; gravando SOLICITADA primeiro, a própria
+            # checagem concluiria (de forma errada) que a garantia já
+            # tinha sido pedida, e nunca enviaria o e-mail de verdade
+            # (bug real encontrado em produção: nem o primeiro envio nem
+            # os reenvios chegavam a sair).
+            notified, notify_detail = notify_contract_task_needs(
+                contract_id=None if ata_contract_id else contract_id,
+                amendment_id=None, ata_contract_id=ata_contract_id, ata_amendment_id=None,
+                ata_number=ata_number, kind_label="CONTRATO",
+                ordinal=None, cost_center=cost_center, client=client,
+                contract_number=contract_number or cost_center,
+                action_tag="SOLICITACAO-GARANTIA", only_tasks=[TASK_GARANTIA],
+                force_tasks=[TASK_GARANTIA],
+                extra_recipients=[engineer_email, manager_email],
+                extra_attachments=attachment_items or None,
+                context_lines=context_lines or None,
+            )
+            if pending_guarantee:
+                execute(
+                    """UPDATE contract_guarantees SET request_status='SOLICITADA',
+                    request_date=?,request_due_date=?,notes=?,legal_basis=?,
+                    calculation_method=?,calculation_base=?,calculation_base_reference=?,
+                    percentage=?,required_amount=?,modality=?,
+                    updated_at=CURRENT_TIMESTAMP WHERE id=?""",
+                    (
+                        today_brt().isoformat(),
+                        request_due_date.isoformat() if request_due_date else None,
+                        request_note.strip() or None, legal_basis,
+                        calculation_method, request_calculation_base, request_base_reference,
+                        request_percentage, request_required_amount, modality_to_save,
+                        pending_guarantee["id"],
+                    ),
+                )
+            else:
+                execute(
+                    """INSERT INTO contract_guarantees(
+                    contract_id,ata_contract_id,guarantee_type,instrument_scope,legal_basis,
+                    request_status,request_date,request_due_date,notes,
+                    calculation_method,calculation_base,calculation_base_reference,
+                    percentage,required_amount,modality)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (
+                        contract_id, ata_contract_id, "GARANTIA CONTRATUAL",
+                        "CONTRATO DECORRENTE DA ATA" if ata_contract_id else "CONTRATO INICIAL",
+                        legal_basis, "SOLICITADA",
+                        today_brt().isoformat(),
+                        request_due_date.isoformat() if request_due_date else None,
+                        request_note.strip() or None,
+                        calculation_method, request_calculation_base, request_base_reference,
+                        request_percentage, request_required_amount, modality_to_save,
+                    ),
+                )
+            log_action(
+                st.session_state.user["id"], "SOLICITAR", "garantia contratual",
+                ata_contract_id or contract_id, cost_center,
+            )
+            if notified:
+                success_message = (
+                    f"Solicitação de garantia registrada. E-mail enviado para "
+                    f"{len(notified)} responsável(is)"
+                )
+                if attachment_items:
+                    success_message += f" com {len(attachment_items)} documento(s) anexado(s)"
+                st.success(success_message + ".")
+                # st.toast() sobrevive ao rerun logo abaixo (diferente de
+                # st.success, que pode nem chegar a ser exibido antes do
+                # rerun trocar a tela) — garante que a confirmação real
+                # do envio chegue até quem clicou.
+                st.toast(f"E-mail de garantia enviado para {len(notified)} responsável(is).", icon="✅")
+            else:
+                st.warning(
+                    f"Solicitação de garantia registrada, mas o e-mail NÃO foi enviado: "
+                    f"{notify_detail}"
+                )
+                st.toast(f"E-mail de garantia NÃO enviado: {notify_detail}", icon="⚠️")
+            rerun()
+
+
 def render_guarantees_tab(contract_id, contract, effective_end_date):
     instrument_options = guarantee_instrument_options(contract_id)
     guarantees = load_contract_guarantees(contract_id, effective_end_date)
@@ -3124,348 +3483,22 @@ def render_guarantees_tab(contract_id, contract, effective_end_date):
     else:
         st.info("Nenhuma garantia ou seguro cadastrado para este contrato.")
 
-    main_guarantee_rows = [
-        g for g in guarantees
-        if not g.get("amendment_id") and not g.get("ata_contract_id")
-        and not g.get("ata_amendment_id")
-        and str(g.get("guarantee_type") or "").upper() == "GARANTIA CONTRATUAL"
-    ]
-    # Uma vez que o corretor/responsável já respondeu de fato (recebida, em
-    # análise, aceita, dispensada ou cancelada), a solicitação inicial deixa
-    # de fazer sentido — a partir daí a garantia é acompanhada normalmente
-    # pela aba (edição do registro, documentos). Enquanto ainda está só "a
-    # solicitar" ou "solicitada", o formulário continua disponível, para dar
-    # para complementar informação/documento esquecido e reenviar, sem
-    # precisar excluir e recadastrar nada.
-    pending_guarantee = next(
-        (g for g in main_guarantee_rows
-         if str(g.get("request_status") or "A SOLICITAR").upper() in GUARANTEE_REQUEST_PENDING_STATUSES),
-        None,
+    render_guarantee_advance_request(
+        contract_id=contract_id,
+        cost_center=contract["cost_center"], client=contract["client"],
+        contract_number=contract.get("contract_number") or contract["cost_center"],
+        total_value=contract.get("current_value") or contract.get("original_value"),
+        period_start=contract.get("start_date") or contract.get("original_start_date"),
+        period_end=contract.get("end_date") or contract.get("original_end_date"),
+        reference_months=contract.get("value_reference_months"),
+        homologation_date=parse_date(contract.get("homologation_date")),
+        bid_number=contract.get("bid_number"), process_number=contract.get("process_number"),
+        uasg=contract.get("uasg"), object_text=contract.get("object"),
+        start_date_display=contract.get("start_date"),
+        engineer_email=contract.get("engineer_email"), manager_email=contract.get("manager_email"),
+        formalized=bool(contract.get("formalized", 1)),
+        widget_key=str(contract_id),
     )
-    guarantee_finalized = main_guarantee_rows and not pending_guarantee
-    already_sent = bool(pending_guarantee) and str(
-        pending_guarantee.get("request_status") or ""
-    ).upper() == "SOLICITADA"
-    total_value = contract.get("current_value") or contract.get("original_value")
-    reference_months = contract.get("value_reference_months")
-    annual_value = annualized_value(
-        total_value,
-        contract.get("start_date") or contract.get("original_start_date"),
-        contract.get("end_date") or contract.get("original_end_date"),
-        reference_months=reference_months,
-    )
-    months_note = f" (informado como referente a {int(reference_months)} meses)" if reference_months else ""
-    st.caption(
-        f"Valores de referência do contrato para a base de cálculo da garantia: "
-        f"total {brl(total_value)}{months_note} · anual estimado {brl(annual_value)}."
-    )
-
-    if can_create() and not guarantee_finalized:
-        with st.expander(
-            "Reenviar/complementar solicitação de garantia contratual"
-            if already_sent else
-            "Solicitar garantia contratual ao responsável (antes da assinatura, quando o "
-            "órgão exigir antecedência)",
-            expanded=not contract.get("formalized"),
-        ):
-            st.caption(
-                "Envia o mesmo pedido de cotação/minuta já usado nas providências iniciais, "
-                "isolado das demais, com os documentos que a seguradora precisa para calcular "
-                "e preparar a minuta — útil quando o órgão exige a indicação da modalidade de "
-                "garantia antes da assinatura do contrato, para aprovação prévia da minuta. "
-                "Pode ser reenviada quantas vezes precisar até a garantia ser recebida."
-            )
-            homologation_date = parse_date(contract.get("homologation_date"))
-            saved_due_date = _date_value(pending_guarantee.get("request_due_date")) if pending_guarantee else None
-            suggested_due_date = (
-                saved_due_date or (homologation_date + timedelta(days=30) if homologation_date else None)
-            )
-            request_due_date = st.date_input(
-                "Prazo do órgão para apresentação/indicação",
-                value=suggested_due_date, format="DD/MM/YYYY",
-                key=f"guarantee_req_due_{contract_id}",
-                help="Sugerido automaticamente como 30 dias após a homologação da licitação "
-                "(cadastrada na ficha) quando ainda não há um prazo salvo — pode ser ajustado "
-                "livremente quando o órgão informar outro prazo."
-                if homologation_date and not saved_due_date else
-                "Editável a qualquer momento — corrija aqui se o órgão informar um novo prazo.",
-            )
-            request_note = st.text_area(
-                "Observação (ex.: referência ao ofício do órgão, condições especiais)",
-                value=str((pending_guarantee or {}).get("notes") or ""),
-                key=f"guarantee_req_note_{contract_id}",
-            )
-            c1, c2 = st.columns(2)
-            request_percentage = c1.number_input(
-                "Percentual de garantia exigido (%)",
-                min_value=0.0, max_value=100.0, format="%.2f",
-                value=float((pending_guarantee or {}).get("percentage") or 0),
-                key=f"guarantee_req_percentage_{contract_id}",
-                help="Percentual informado no edital/minuta — usado para calcular o valor "
-                "exigido abaixo e informado ao responsável. Deixe em 0 se ainda não souber.",
-            )
-            current_base_reference = str(
-                (pending_guarantee or {}).get("calculation_base_reference") or "TOTAL"
-            ).upper()
-            if current_base_reference not in BASE_REFERENCE_OPTIONS:
-                current_base_reference = "MANUAL"
-            request_base_reference = c2.selectbox(
-                "Referência do valor-base",
-                list(BASE_REFERENCE_OPTIONS),
-                index=_option_index(list(BASE_REFERENCE_OPTIONS), current_base_reference),
-                format_func=lambda option: BASE_REFERENCE_LABELS[option],
-                key=f"guarantee_req_base_ref_{contract_id}",
-            )
-            if request_base_reference == "TOTAL":
-                request_calculation_base = total_value
-            elif request_base_reference == "ANUAL":
-                request_calculation_base = annual_value
-            else:
-                manual_base_text = currency_input(
-                    st, "Base contratual (valor manual)",
-                    (pending_guarantee or {}).get("calculation_base", 0),
-                    f"guarantee_req_base_manual_{contract_id}",
-                )
-                try:
-                    request_calculation_base = parse_brl_input(manual_base_text)
-                except ValueError:
-                    request_calculation_base = 0.0
-            request_required_amount = (
-                calculate_required_amount(
-                    "PERCENTUAL_BASE", calculation_base=request_calculation_base,
-                    percentage=request_percentage,
-                ) if request_percentage else 0.0
-            )
-            if request_percentage:
-                st.caption(
-                    f"Valor exigido calculado: {brl(request_required_amount)} "
-                    f"({request_percentage:.2f}% sobre {brl(request_calculation_base)}, "
-                    f"{BASE_REFERENCE_LABELS[request_base_reference].lower()})."
-                )
-            modality_options = ["A DEFINIR PELA SEGURADORA", *GUARANTEE_MODALITIES]
-            current_modality = str(
-                (pending_guarantee or {}).get("modality") or "A DEFINIR PELA SEGURADORA"
-            )
-            if current_modality not in modality_options:
-                current_modality = "A DEFINIR PELA SEGURADORA"
-            request_modality = st.selectbox(
-                "Modalidade (se já souber; senão deixe \"a definir\" para a seguradora indicar)",
-                modality_options, index=_option_index(modality_options, current_modality),
-                key=f"guarantee_req_modality_{contract_id}",
-            )
-            existing_docs = [
-                dict(row) for row in query(
-                    f"""SELECT * FROM documents WHERE contract_id=? AND category IN
-                    ({",".join("?" for _ in GUARANTEE_REQUEST_DOCUMENT_CATEGORIES)})
-                    ORDER BY uploaded_at DESC""",
-                    (contract_id, *GUARANTEE_REQUEST_DOCUMENT_CATEGORIES),
-                )
-            ]
-            existing_doc_options = {
-                f"{doc['title'] or doc['category']} · {doc['filename']}": doc for doc in existing_docs
-            }
-            picked_existing_labels = []
-            if existing_doc_options:
-                picked_existing_labels = st.multiselect(
-                    "Anexar documentos já cadastrados no contrato",
-                    list(existing_doc_options), default=list(existing_doc_options),
-                    key=f"guarantee_req_existing_{contract_id}",
-                )
-            st.caption(
-                "Anexar novos documentos (se ainda não estiverem salvos no contrato acima):"
-            )
-            c1, c2 = st.columns(2)
-            edital_upload = c1.file_uploader("Edital", key=f"guarantee_req_edital_{contract_id}")
-            minuta_upload = c2.file_uploader(
-                "Minuta do contrato", key=f"guarantee_req_minuta_{contract_id}"
-            )
-            c1, c2 = st.columns(2)
-            proposal_upload = c1.file_uploader(
-                "Proposta", key=f"guarantee_req_proposal_{contract_id}"
-            )
-            spreadsheet_upload = c2.file_uploader(
-                "Planilha de valores", key=f"guarantee_req_spreadsheet_{contract_id}"
-            )
-            new_uploads = [
-                (upload, category, title)
-                for upload, category, title in (
-                    (edital_upload, "EDITAL", "Edital"),
-                    (minuta_upload, "MINUTA DO CONTRATO", "Minuta do contrato"),
-                    (proposal_upload, "PROPOSTA HOMOLOGADA", "Proposta"),
-                    (spreadsheet_upload, "PLANILHA", "Planilha de valores"),
-                )
-                if upload
-            ]
-            for doc in existing_doc_options.values():
-                stored_name = Path(str(doc["stored_path"]).replace("\\", "/")).name
-                doc_path = portable_project_path(
-                    doc["stored_path"], UPLOAD_DIR / str(doc["contract_id"]) / stored_name,
-                )
-                doc["_size_bytes"] = doc_path.stat().st_size if doc_path.exists() else 0
-            total_size = (
-                sum(existing_doc_options[label]["_size_bytes"] for label in picked_existing_labels)
-                + sum(upload.size for upload, _, _ in new_uploads)
-            )
-            limit_mb = MAX_ATTACHMENTS_BYTES / (1024 * 1024)
-            oversized = total_size > MAX_ATTACHMENTS_BYTES
-            if oversized:
-                st.error(
-                    f"Anexos somam {total_size / (1024 * 1024):.1f} MB, acima do limite de "
-                    f"{limit_mb:.0f} MB para envio por e-mail — desmarque ou remova algum "
-                    "documento antes de enviar (mais de um anexo é compactado em .zip "
-                    "automaticamente, mas isso raramente reduz arquivos que já são PDF/imagem)."
-                )
-            elif total_size:
-                st.caption(f"Anexos selecionados: {total_size / (1024 * 1024):.1f} MB no total.")
-            if st.button(
-                "Reenviar solicitação" if already_sent else "Enviar solicitação",
-                type="primary", disabled=oversized,
-                key=f"guarantee_req_submit_{contract_id}",
-            ):
-                attachment_items = []
-                for label in picked_existing_labels:
-                    doc = existing_doc_options[label]
-                    stored_name = Path(str(doc["stored_path"]).replace("\\", "/")).name
-                    doc_path = portable_project_path(
-                        doc["stored_path"], UPLOAD_DIR / str(doc["contract_id"]) / stored_name,
-                    )
-                    if doc_path.exists():
-                        attachment_items.append((doc["filename"], doc_path.read_bytes()))
-                attachment_items.extend((upload.name, upload.getvalue()) for upload, _, _ in new_uploads)
-                for upload, category, title in new_uploads:
-                    save_document(contract_id, upload, category, title)
-                context_lines = []
-                if contract.get("bid_number"):
-                    context_lines.append(f"Número do Certame: {contract['bid_number']}")
-                if contract.get("process_number"):
-                    context_lines.append(f"Número do Processo: {contract['process_number']}")
-                if contract.get("uasg"):
-                    context_lines.append(f"UASG: {contract['uasg']}")
-                if homologation_date:
-                    context_lines.append(
-                        f"Homologação da licitação: {homologation_date.strftime('%d/%m/%Y')}"
-                    )
-                if contract.get("start_date"):
-                    context_lines.append(
-                        f"Previsão de início da vigência contratual: "
-                        f"{fmt_date(contract['start_date'])}"
-                    )
-                if contract.get("object"):
-                    context_lines.append(f"Objeto: {contract['object']}")
-                legal_basis = (
-                    (pending_guarantee or {}).get("legal_basis")
-                    or default_legal_basis("GARANTIA CONTRATUAL")
-                )
-                context_lines.append(f"Fundamento/referência da exigência: {legal_basis}")
-                context_lines.append(
-                    f"Valor total do contrato: {brl(total_value)}{months_note}"
-                )
-                context_lines.append(
-                    f"Referência do valor-base da garantia: "
-                    f"{BASE_REFERENCE_LABELS[request_base_reference]}"
-                )
-                if request_percentage:
-                    context_lines.append(
-                        f"Base contratual considerada: {brl(request_calculation_base)}"
-                    )
-                    context_lines.append(
-                        f"Percentual de garantia exigido: {request_percentage:.2f}%"
-                    )
-                    context_lines.append(f"Valor exigido: {brl(request_required_amount)}")
-                context_lines.append(
-                    "Modalidade: a definir pela seguradora, conforme esta solicitação."
-                    if request_modality == "A DEFINIR PELA SEGURADORA" else
-                    f"Modalidade indicada: {request_modality}"
-                )
-                if request_due_date:
-                    context_lines.append(
-                        f"Prazo do órgão para apresentação/indicação: "
-                        f"{request_due_date.strftime('%d/%m/%Y')}"
-                    )
-                if request_note.strip():
-                    context_lines.append(f"Observação: {request_note.strip()}")
-                if context_lines:
-                    context_lines.append("")
-                modality_to_save = None if request_modality == "A DEFINIR PELA SEGURADORA" else request_modality
-                calculation_method = "PERCENTUAL_BASE" if request_percentage else "VALOR_INFORMADO"
-                # IMPORTANTE: verifica/envia a providência ANTES de gravar o
-                # registro como SOLICITADA — notify_contract_task_needs
-                # decide o que está "faltando" consultando o request_status
-                # já salvo no banco; gravando SOLICITADA primeiro, a própria
-                # checagem concluiria (de forma errada) que a garantia já
-                # tinha sido pedida, e nunca enviaria o e-mail de verdade
-                # (bug real encontrado em produção: nem o primeiro envio nem
-                # os reenvios chegavam a sair).
-                notified, notify_detail = notify_contract_task_needs(
-                    contract_id=contract_id, amendment_id=None, kind_label="CONTRATO",
-                    ordinal=None, cost_center=contract["cost_center"], client=contract["client"],
-                    contract_number=contract.get("contract_number") or contract["cost_center"],
-                    action_tag="SOLICITACAO-GARANTIA", only_tasks=[TASK_GARANTIA],
-                    force_tasks=[TASK_GARANTIA],
-                    extra_recipients=[
-                        contract.get("engineer_email"), contract.get("manager_email"),
-                    ],
-                    extra_attachments=attachment_items or None,
-                    context_lines=context_lines or None,
-                )
-                if pending_guarantee:
-                    execute(
-                        """UPDATE contract_guarantees SET request_status='SOLICITADA',
-                        request_date=?,request_due_date=?,notes=?,legal_basis=?,
-                        calculation_method=?,calculation_base=?,calculation_base_reference=?,
-                        percentage=?,required_amount=?,modality=?,
-                        updated_at=CURRENT_TIMESTAMP WHERE id=?""",
-                        (
-                            today_brt().isoformat(),
-                            request_due_date.isoformat() if request_due_date else None,
-                            request_note.strip() or None, legal_basis,
-                            calculation_method, request_calculation_base, request_base_reference,
-                            request_percentage, request_required_amount, modality_to_save,
-                            pending_guarantee["id"],
-                        ),
-                    )
-                else:
-                    execute(
-                        """INSERT INTO contract_guarantees(
-                        contract_id,guarantee_type,instrument_scope,legal_basis,
-                        request_status,request_date,request_due_date,notes,
-                        calculation_method,calculation_base,calculation_base_reference,
-                        percentage,required_amount,modality)
-                        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                        (
-                            contract_id, "GARANTIA CONTRATUAL", "CONTRATO INICIAL",
-                            legal_basis, "SOLICITADA",
-                            today_brt().isoformat(),
-                            request_due_date.isoformat() if request_due_date else None,
-                            request_note.strip() or None,
-                            calculation_method, request_calculation_base, request_base_reference,
-                            request_percentage, request_required_amount, modality_to_save,
-                        ),
-                    )
-                log_action(
-                    st.session_state.user["id"], "SOLICITAR", "garantia contratual",
-                    contract_id, contract["cost_center"],
-                )
-                if notified:
-                    success_message = (
-                        f"Solicitação de garantia registrada. E-mail enviado para "
-                        f"{len(notified)} responsável(is)"
-                    )
-                    if attachment_items:
-                        success_message += f" com {len(attachment_items)} documento(s) anexado(s)"
-                    st.success(success_message + ".")
-                    # st.toast() sobrevive ao rerun logo abaixo (diferente de
-                    # st.success, que pode nem chegar a ser exibido antes do
-                    # rerun trocar a tela) — garante que a confirmação real
-                    # do envio chegue até quem clicou.
-                    st.toast(f"E-mail de garantia enviado para {len(notified)} responsável(is).", icon="✅")
-                else:
-                    st.warning(
-                        f"Solicitação de garantia registrada, mas o e-mail NÃO foi enviado: "
-                        f"{notify_detail}"
-                    )
-                    st.toast(f"E-mail de garantia NÃO enviado: {notify_detail}", icon="⚠️")
-                rerun()
 
     if can_create():
         with st.expander("Cadastrar garantia ou seguro", expanded=not guarantees):
@@ -4496,7 +4529,8 @@ def page_contract_detail():
             ata_contracts = load_ata_contracts(cid)
             if ata_contracts:
                 ata_display = pd.DataFrame([{
-                    "Contrato": item["contract_number"],
+                    "Contrato": item["contract_number"] or "s/n",
+                    "Situação": "Efetivo" if item.get("formalized", 1) else "Minuta",
                     "Contratante": item["client"] or contract["client"],
                     "Processo": item["process_number"],
                     "Início original": fmt_date(item["start_date"]),
@@ -4510,7 +4544,8 @@ def page_contract_detail():
                 } for item in ata_contracts])
                 modern_table(ata_display)
                 ata_options = {
-                    f"{item['contract_number']} · {item['client'] or contract['client']}": item["id"]
+                    f"{item['contract_number'] or 's/n'} · {item['client'] or contract['client']}"
+                    f"{'' if item.get('formalized', 1) else ' (MINUTA)'}": item["id"]
                     for item in ata_contracts
                 }
                 ata_label = st.selectbox("Gerenciar contrato decorrente", ata_options)
@@ -4537,6 +4572,23 @@ def page_contract_detail():
                         "amber",
                     ),
                 ])
+                render_guarantee_advance_request(
+                    contract_id=cid, ata_contract_id=ata_contract_id,
+                    ata_number=contract["contract_number"],
+                    cost_center=contract["cost_center"],
+                    client=ata_contract["client"] or contract["client"],
+                    contract_number=ata_contract["contract_number"],
+                    total_value=ata_contract.get("current_value") or ata_contract.get("original_value"),
+                    period_start=ata_contract.get("current_start_date") or ata_contract.get("start_date"),
+                    period_end=ata_contract.get("current_end_date") or ata_contract.get("end_date"),
+                    object_text=ata_contract.get("object"),
+                    process_number=ata_contract.get("process_number"),
+                    start_date_display=ata_contract.get("start_date"),
+                    engineer_email=contract.get("engineer_email"),
+                    manager_email=contract.get("manager_email"),
+                    formalized=bool(ata_contract.get("formalized", 1)),
+                    widget_key=f"ata_{ata_contract_id}",
+                )
                 if can_edit():
                     with st.expander("Editar dados do contrato decorrente"):
                         with st.form(f"edit_ata_contract_{ata_contract_id}"):
@@ -4599,12 +4651,20 @@ def page_contract_detail():
                                 "E-mail do responsável", ata_contract["responsible_email"] or ""
                             )
                             ata_notes = st.text_area("Observações", ata_contract["notes"] or "")
+                            ata_edit_is_minuta = st.checkbox(
+                                "Minuta (contrato ainda não assinado/formalizado)",
+                                value=not ata_contract.get("formalized", 1),
+                                help="Desmarque quando o contrato for de fato assinado — "
+                                "anexe o documento na seção de documentos abaixo para "
+                                "disparar o aviso de providências automaticamente.",
+                            )
                             if st.form_submit_button("Salvar contrato decorrente"):
                                 execute(
                                     """UPDATE ata_contracts SET contract_number=?,process_number=?,
                                     client=?,object=?,signature_date=?,start_date=?,end_date=?,
                                     original_value=?,current_value=?,status=?,responsible_name=?,
-                                    responsible_email=?,notes=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND ata_id=?""",
+                                    responsible_email=?,notes=?,formalized=?,
+                                    updated_at=CURRENT_TIMESTAMP WHERE id=? AND ata_id=?""",
                                     (
                                         ata_number, ata_process,
                                         normalize_agency_name(ata_client), ata_object,
@@ -4612,7 +4672,8 @@ def page_contract_detail():
                                         ata_start.isoformat() if ata_start else None,
                                         ata_end.isoformat() if ata_end else None,
                                         ata_original_value, ata_current_value, ata_status,
-                                        ata_responsible, ata_email, ata_notes, ata_contract_id, cid,
+                                        ata_responsible, ata_email, ata_notes,
+                                        0 if ata_edit_is_minuta else 1, ata_contract_id, cid,
                                     ),
                                 )
                                 log_action(
@@ -4865,7 +4926,7 @@ def page_contract_detail():
                                     ata_amendment_doc_bytes = ata_amendment_upload.getvalue()
                                     ata_amendment_doc_filename = ata_amendment_upload.name
                                 ata_amendment_notify_result = None
-                                if ata_amendment_informative_only:
+                                if ata_amendment_informative_only or not ata_amendment_doc_bytes:
                                     notified, notify_detail = [], ""
                                 else:
                                     ata_amendment_notify_result = notify_signed_instrument(
@@ -4911,6 +4972,14 @@ def page_contract_detail():
                                         f"NÃO foi enviado: {notify_detail}"
                                     )
                                     st.toast(f"Aviso de providências NÃO enviado: {notify_detail}", icon="⚠️")
+                                elif not ata_amendment_doc_bytes:
+                                    st.success(
+                                        f"{success_message} Nenhum aviso enviado — sem "
+                                        "documento anexado, o registro fica só no sistema, "
+                                        "para controle. Anexe o documento depois (seção "
+                                        "\"Documentos do contrato decorrente e de seus "
+                                        "aditivos\") para disparar o aviso automaticamente."
+                                    )
                                 else:
                                     st.success(success_message)
                                 if ata_amendment_notify_result:
@@ -4948,7 +5017,17 @@ def page_contract_detail():
                             "Vincular documento a", ata_document_targets
                         )
                         ata_document_title = st.text_input("Título do documento")
-                        ata_document_upload = st.file_uploader("Arquivo do contrato/aditivo")
+                        ata_document_upload = st.file_uploader(
+                            "Arquivo do contrato/aditivo",
+                            help="Ao anexar o documento assinado, o aviso de providências "
+                            "iniciais (garantia contratual e ART) é enviado automaticamente "
+                            "para os responsáveis cadastrados, se houver.",
+                        )
+                        ata_document_informative_only = st.checkbox(
+                            "Instrumento apenas informativo — não altera valor nem prazo "
+                            "(não solicitar garantia/ART para ele)",
+                            key=f"ata_document_informative_{ata_contract_id}",
+                        )
                         if st.form_submit_button("Anexar documento") and ata_document_upload:
                             target_contract_id, target_amendment_id = ata_document_targets[
                                 ata_document_target
@@ -4962,7 +5041,63 @@ def page_contract_detail():
                                 user["id"], "ANEXAR", "documento de contrato da ATA",
                                 did, ata_document_upload.name,
                             )
-                            st.success("Documento anexado.")
+                            ata_upload_notify_result = None
+                            notified, notify_detail = [], ""
+                            if not ata_document_informative_only:
+                                if target_amendment_id:
+                                    target_amendment = next(
+                                        a for a in ata_amendments if a["id"] == target_amendment_id
+                                    )
+                                    notify_extra = dict(
+                                        ata_amendment_id=target_amendment_id,
+                                        kind_label=target_amendment.get("kind"),
+                                        ordinal=target_amendment.get("ordinal"),
+                                        context_lines=amendment_context_lines(target_amendment) or None,
+                                    )
+                                else:
+                                    notify_extra = dict(
+                                        ata_amendment_id=None, kind_label="CONTRATO", ordinal=None,
+                                    )
+                                ata_upload_notify_result = notify_signed_instrument(
+                                    ata_contract_id=ata_contract_id,
+                                    ata_number=contract["contract_number"],
+                                    cost_center=contract["cost_center"],
+                                    client=ata_contract["client"] or contract["client"],
+                                    contract_number=ata_contract["contract_number"],
+                                    document_bytes=ata_document_upload.getvalue(),
+                                    document_filename=ata_document_upload.name,
+                                    extra_recipients=[
+                                        contract.get("engineer_email"), contract.get("manager_email"),
+                                    ],
+                                    **notify_extra,
+                                )
+                                notified = ata_upload_notify_result["signed_recipients"]
+                                notify_detail = ata_upload_notify_result["signed_detail"]
+                            success_message = "Documento anexado."
+                            if ata_document_informative_only:
+                                st.success(
+                                    f"{success_message} Marcado como informativo — sem "
+                                    "solicitação de garantia/ART."
+                                )
+                            elif notified:
+                                st.success(
+                                    f"{success_message} Aviso de providências enviado para "
+                                    f"{len(notified)} responsável(is)."
+                                )
+                                st.toast(
+                                    f"Aviso de providências enviado para {len(notified)} "
+                                    "responsável(is).", icon="✅",
+                                )
+                            elif notify_detail:
+                                st.warning(
+                                    f"{success_message} Porém o aviso de providências NÃO "
+                                    f"foi enviado: {notify_detail}"
+                                )
+                                st.toast(f"Aviso de providências NÃO enviado: {notify_detail}", icon="⚠️")
+                            else:
+                                st.success(success_message)
+                            if ata_upload_notify_result:
+                                render_guarantee_notification_result(ata_upload_notify_result)
                             rerun()
                 if can_delete():
                     if ata_amendments:
@@ -5082,24 +5217,34 @@ def page_contract_detail():
                         new_ata_responsible = c1.text_input("Responsável")
                         new_ata_email = c2.text_input("E-mail do responsável")
                         new_ata_notes = st.text_area("Observações")
+                        new_ata_is_minuta = st.checkbox(
+                            "Cadastrar como minuta (contrato ainda não assinado/formalizado)",
+                            help="Reserva o registro para já poder solicitar a garantia "
+                            "contratual antecipadamente (aba \"Garantias e seguros\" deste "
+                            "contrato decorrente) — o número do contrato e os demais dados "
+                            "ficam editáveis depois, em \"Editar dados do contrato decorrente\", "
+                            "quando o contrato for de fato assinado.",
+                        )
                         new_ata_document_upload = st.file_uploader(
                             "Documento do contrato decorrente assinado (opcional)",
                             help="Se anexado agora, já fica salvo na ficha do contrato "
                             "decorrente e é enviado por e-mail junto com o aviso de "
                             "providências iniciais (garantia contratual e ART), quando "
-                            "houver responsável cadastrado para isso.",
+                            "houver responsável cadastrado para isso. Sem documento anexado, "
+                            "o cadastro fica só como registro no sistema, sem envio de e-mail.",
                         )
                         if st.form_submit_button("Cadastrar contrato decorrente", width="stretch"):
-                            if not new_ata_number.strip():
+                            if not new_ata_is_minuta and not new_ata_number.strip():
                                 st.error("Informe o número do contrato decorrente.")
                             else:
+                                new_ata_formalized = 0 if new_ata_is_minuta else 1
                                 new_ata_contract_id = execute(
                                     """INSERT INTO ata_contracts(
                                     ata_id,contract_number,process_number,client,object,signature_date,
                                     start_date,end_date,original_value,current_value,responsible_name,
-                                    responsible_email,notes) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                                    responsible_email,notes,formalized) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                                     (
-                                        cid, new_ata_number, new_ata_process,
+                                        cid, new_ata_number.strip(), new_ata_process,
                                         normalize_agency_name(new_ata_client),
                                         new_ata_object,
                                         new_ata_signature.isoformat() if new_ata_signature else None,
@@ -5107,6 +5252,7 @@ def page_contract_detail():
                                         new_ata_end.isoformat() if new_ata_end else None,
                                         new_ata_original_value, new_ata_current_value,
                                         new_ata_responsible, new_ata_email, new_ata_notes,
+                                        new_ata_formalized,
                                     ),
                                 )
                                 log_action(
@@ -5122,22 +5268,30 @@ def page_contract_detail():
                                     )
                                     ata_document_bytes = new_ata_document_upload.getvalue()
                                     ata_document_filename = new_ata_document_upload.name
-                                new_ata_notify_result = notify_signed_instrument(
-                                    ata_contract_id=new_ata_contract_id, ata_amendment_id=None,
-                                    ata_number=contract["contract_number"],
-                                    kind_label="CONTRATO", ordinal=None,
-                                    cost_center=contract["cost_center"],
-                                    client=normalize_agency_name(new_ata_client),
-                                    contract_number=new_ata_number.strip(),
-                                    document_bytes=ata_document_bytes,
-                                    document_filename=ata_document_filename,
-                                    extra_recipients=[
-                                        contract.get("engineer_email"), contract.get("manager_email"),
-                                    ],
+                                new_ata_notify_result = None
+                                notified, notify_detail = [], ""
+                                if new_ata_formalized and ata_document_bytes:
+                                    new_ata_notify_result = notify_signed_instrument(
+                                        ata_contract_id=new_ata_contract_id, ata_amendment_id=None,
+                                        ata_number=contract["contract_number"],
+                                        kind_label="CONTRATO", ordinal=None,
+                                        cost_center=contract["cost_center"],
+                                        client=normalize_agency_name(new_ata_client),
+                                        contract_number=new_ata_number.strip(),
+                                        document_bytes=ata_document_bytes,
+                                        document_filename=ata_document_filename,
+                                        extra_recipients=[
+                                            contract.get("engineer_email"), contract.get("manager_email"),
+                                        ],
+                                    )
+                                    notified = new_ata_notify_result["signed_recipients"]
+                                    notify_detail = new_ata_notify_result["signed_detail"]
+                                success_message = (
+                                    "Contrato decorrente cadastrado como minuta — sem envio de "
+                                    "aviso. Solicite a garantia contratual antecipadamente na "
+                                    "aba \"Garantias e seguros\" dele, se necessário."
+                                    if new_ata_is_minuta else "Contrato decorrente cadastrado."
                                 )
-                                notified = new_ata_notify_result["signed_recipients"]
-                                notify_detail = new_ata_notify_result["signed_detail"]
-                                success_message = "Contrato decorrente cadastrado."
                                 if notified:
                                     success_message += (
                                         f" Aviso de providências iniciais enviado para "
@@ -5151,9 +5305,18 @@ def page_contract_detail():
                                         f"iniciais NÃO foi enviado: {notify_detail}"
                                     )
                                     st.toast(f"Aviso de providências NÃO enviado: {notify_detail}", icon="⚠️")
+                                elif new_ata_formalized and not ata_document_bytes:
+                                    st.success(
+                                        f"{success_message} Nenhum aviso de providências "
+                                        "enviado — sem documento anexado, o registro fica só "
+                                        "no sistema, para controle. Anexe o documento depois "
+                                        "(seção \"Documentos do contrato decorrente\") para "
+                                        "disparar o aviso automaticamente."
+                                    )
                                 else:
                                     st.success(success_message)
-                                render_guarantee_notification_result(new_ata_notify_result)
+                                if new_ata_notify_result:
+                                    render_guarantee_notification_result(new_ata_notify_result)
                                 rerun()
     with tabs["Sindicatos e datas-base"]:
         unions = [dict(r) for r in query(
@@ -6948,6 +7111,131 @@ def page_contract_detail():
                         rerun()
             render_budget_dates_editor(cid)
             st.divider()
+            main_signed_docs = [dict(row) for row in query(
+                """SELECT * FROM documents WHERE contract_id=? AND amendment_id IS NULL
+                AND ata_contract_id IS NULL AND category='CONTRATO'
+                ORDER BY uploaded_at DESC""", (cid,),
+            )]
+            with st.expander("Documento do contrato assinado", expanded=not main_signed_docs):
+                st.caption(
+                    "O aviso de providências iniciais (garantia contratual e ART) só é "
+                    "enviado quando o documento assinado é anexado aqui — sem ele, o "
+                    "contrato fica registrado no sistema, sem envio de e-mail."
+                )
+                document_downloads(main_signed_docs, f"main_contract_{cid}")
+                if can_create() and main_signed_docs and contract["formalized"]:
+                    if st.button(
+                        "Reenviar aviso de providências", key=f"resend_main_notice_{cid}",
+                        help="Usa o documento já anexado (o mais recente) para tentar o "
+                        "envio de novo, sem precisar reanexar.",
+                    ):
+                        latest_doc = main_signed_docs[0]
+                        stored_name = Path(str(latest_doc["stored_path"]).replace("\\", "/")).name
+                        doc_path = portable_project_path(
+                            latest_doc["stored_path"], UPLOAD_DIR / str(cid) / stored_name,
+                        )
+                        resend_bytes = doc_path.read_bytes() if doc_path.exists() else None
+                        resend_result = None
+                        if contract["category"] == "ATA":
+                            resend_notified, resend_detail = notify_ata_registration(
+                                cost_center=contract["cost_center"], client=contract["client"],
+                                contract_number=contract["contract_number"],
+                                extra_recipients=[
+                                    contract.get("engineer_email"), contract.get("manager_email"),
+                                ],
+                                document_bytes=resend_bytes, document_filename=latest_doc.get("filename"),
+                            )
+                        else:
+                            resend_result = notify_signed_instrument(
+                                contract_id=cid, amendment_id=None, kind_label="CONTRATO", ordinal=None,
+                                cost_center=contract["cost_center"], client=contract["client"],
+                                contract_number=contract["contract_number"],
+                                document_bytes=resend_bytes,
+                                document_filename=latest_doc.get("filename") if resend_bytes else None,
+                                extra_recipients=[
+                                    contract.get("engineer_email"), contract.get("manager_email"),
+                                ],
+                            )
+                            resend_notified = resend_result["signed_recipients"]
+                            resend_detail = resend_result["signed_detail"]
+                        if resend_notified:
+                            st.success(
+                                f"Aviso de providências reenviado para "
+                                f"{len(resend_notified)} responsável(is)."
+                            )
+                        elif resend_detail:
+                            st.error(f"O reenvio NÃO foi enviado: {resend_detail}")
+                        else:
+                            st.warning(
+                                "Nada pendente para reenviar — garantia e ART já "
+                                "registradas para este contrato."
+                            )
+                        if resend_result:
+                            render_guarantee_notification_result(resend_result)
+                if can_create():
+                    with st.form(f"upload_main_document_{cid}", clear_on_submit=True):
+                        main_document_title = st.text_input(
+                            "Título do documento", value="Contrato assinado"
+                        )
+                        main_document_upload = st.file_uploader("Documento do contrato assinado")
+                        if st.form_submit_button("Anexar e notificar") and main_document_upload:
+                            did = save_document(
+                                cid, main_document_upload, "CONTRATO", main_document_title,
+                            )
+                            log_action(
+                                user["id"], "ANEXAR", "documento", did, main_document_upload.name,
+                            )
+                            upload_result = None
+                            if not contract["formalized"]:
+                                upload_notified, upload_detail = [], (
+                                    "contrato ainda não formalizado — preencha o número do "
+                                    "contrato na aba Editar antes de anexar o documento "
+                                    "assinado."
+                                )
+                            elif contract["category"] == "ATA":
+                                upload_notified, upload_detail = notify_ata_registration(
+                                    cost_center=contract["cost_center"], client=contract["client"],
+                                    contract_number=contract["contract_number"],
+                                    extra_recipients=[
+                                        contract.get("engineer_email"), contract.get("manager_email"),
+                                    ],
+                                    document_bytes=main_document_upload.getvalue(),
+                                    document_filename=main_document_upload.name,
+                                )
+                            else:
+                                upload_result = notify_signed_instrument(
+                                    contract_id=cid, amendment_id=None, kind_label="CONTRATO",
+                                    ordinal=None, cost_center=contract["cost_center"],
+                                    client=contract["client"], contract_number=contract["contract_number"],
+                                    document_bytes=main_document_upload.getvalue(),
+                                    document_filename=main_document_upload.name,
+                                    extra_recipients=[
+                                        contract.get("engineer_email"), contract.get("manager_email"),
+                                    ],
+                                )
+                                upload_notified = upload_result["signed_recipients"]
+                                upload_detail = upload_result["signed_detail"]
+                            if upload_notified:
+                                st.success(
+                                    f"Documento anexado. Aviso de providências enviado para "
+                                    f"{len(upload_notified)} responsável(is)."
+                                )
+                                st.toast(
+                                    f"Aviso de providências enviado para "
+                                    f"{len(upload_notified)} responsável(is).", icon="✅",
+                                )
+                            elif upload_detail:
+                                st.warning(
+                                    f"Documento anexado, mas o aviso NÃO foi enviado: "
+                                    f"{upload_detail}"
+                                )
+                                st.toast(f"Aviso de providências NÃO enviado: {upload_detail}", icon="⚠️")
+                            else:
+                                st.success("Documento anexado.")
+                            if upload_result:
+                                render_guarantee_notification_result(upload_result)
+                            rerun()
+            st.divider()
             if contract["archived"]:
                 if st.button("Restaurar contrato para a carteira ativa"):
                     execute(
@@ -7532,7 +7820,7 @@ def page_new_contract():
                         document_filename = contract_document_upload.name
                     notified, notify_detail = [], ""
                     new_contract_notify_result = None
-                    if formalized:
+                    if formalized and document_bytes:
                         if category == "ATA":
                             # A ATA em si não gera garantia contratual nem ART — isso só
                             # passa a valer para os contratos decorrentes dela, quando
@@ -7542,6 +7830,7 @@ def page_new_contract():
                                 client=normalize_agency_name(client),
                                 contract_number=contract_number.strip(),
                                 extra_recipients=[engineer_email, manager_email],
+                                document_bytes=document_bytes, document_filename=document_filename,
                             )
                         else:
                             new_contract_notify_result = notify_signed_instrument(
@@ -7592,6 +7881,13 @@ def page_new_contract():
                             notify_warning = (
                                 f"Contrato cadastrado, mas o aviso de providências iniciais "
                                 f"NÃO foi enviado: {notify_detail}"
+                            )
+                        elif not document_bytes:
+                            success_message += (
+                                " Nenhum aviso de providências enviado — sem o documento "
+                                "assinado anexado, o registro fica só no sistema, para "
+                                "controle. Anexe o documento na Ficha do Contrato para "
+                                "disparar o aviso automaticamente."
                             )
                     else:
                         success_message = (

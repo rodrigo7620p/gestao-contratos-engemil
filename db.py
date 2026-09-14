@@ -301,6 +301,7 @@ CREATE TABLE IF NOT EXISTS ata_contracts (
     original_value REAL NOT NULL DEFAULT 0,
     current_value REAL NOT NULL DEFAULT 0,
     status TEXT NOT NULL DEFAULT 'ATIVO',
+    formalized INTEGER NOT NULL DEFAULT 1,
     responsible_name TEXT,
     responsible_email TEXT,
     notes TEXT,
@@ -927,6 +928,11 @@ def init_db() -> None:
             conn.execute("ALTER TABLE contracts ADD COLUMN homologation_date TEXT")
         if "value_reference_months" not in contract_columns:
             conn.execute("ALTER TABLE contracts ADD COLUMN value_reference_months INTEGER")
+        ata_contract_columns = {row["name"] for row in conn.execute("PRAGMA table_info(ata_contracts)")}
+        if ata_contract_columns and "formalized" not in ata_contract_columns:
+            conn.execute(
+                "ALTER TABLE ata_contracts ADD COLUMN formalized INTEGER NOT NULL DEFAULT 1"
+            )
         bid_process_columns = {row["name"] for row in conn.execute("PRAGMA table_info(bid_processes)")}
         if bid_process_columns and "agency_cnpj" not in bid_process_columns:
             conn.execute("ALTER TABLE bid_processes ADD COLUMN agency_cnpj TEXT")
