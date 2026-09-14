@@ -1,6 +1,6 @@
 # Manual do Sistema — Gestão de Contratos ENGEMIL
 
-> **Versão do sistema documentada aqui: 103 Beta.**
+> **Versão do sistema documentada aqui: 104 Beta.**
 > Este manual é mantido junto do código: sempre que uma atualização muda,
 > adiciona ou remove uma funcionalidade, este arquivo (e a página publicada
 > equivalente) é revisado na mesma tarefa, como parte do próprio trabalho —
@@ -286,7 +286,10 @@ ATA** só aparece quando o contrato é do tipo ATA.
 - Tabela de todos os contratos já lançados a partir da ATA, com a coluna
   **Situação** indicando se cada um é **Efetivo** ou **Minuta**.
 - **Cadastrar novo contrato decorrente**: dados completos do contrato
-  decorrente, com upload opcional do documento assinado. A caixa
+  decorrente, com upload opcional do documento assinado. Os campos
+  **Responsável** e **E-mail do responsável** já vêm pré-preenchidos com o
+  engenheiro responsável cadastrado na própria ATA — editáveis, para quando
+  o contrato decorrente tiver um responsável diferente. A caixa
   **"Cadastrar como minuta"** registra o contrato decorrente ainda sem
   assinatura/formalização (dispensa o número do contrato por enquanto) —
   útil para já poder solicitar a garantia contratual com antecedência;

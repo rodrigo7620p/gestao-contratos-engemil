@@ -1,4 +1,17 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 104 Beta
+Data: 14/09/2026
+
+Principais alterações:
+- cadastro de novo contrato decorrente de ATA: os campos "Responsável" e
+  "E-mail do responsável" agora já vêm pré-preenchidos com o engenheiro
+  responsável cadastrado na própria ATA, em vez de começarem em branco —
+  continuam editáveis, para quando o contrato decorrente tiver um
+  responsável diferente.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 103 Beta
 Data: 14/09/2026
 

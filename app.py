@@ -119,7 +119,7 @@ from notifications import (
 )
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "103"
+APP_VERSION = "104"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -5260,8 +5260,15 @@ def page_contract_detail():
                         )
                         new_ata_current_value = new_ata_original_value
                         c1, c2 = st.columns(2)
-                        new_ata_responsible = c1.text_input("Responsável")
-                        new_ata_email = c2.text_input("E-mail do responsável")
+                        new_ata_responsible = c1.text_input(
+                            "Responsável", value=contract.get("engineer_name") or "",
+                            help="Pré-preenchido com o engenheiro responsável da ATA — "
+                            "pode ser trocado se este contrato decorrente tiver um "
+                            "responsável diferente.",
+                        )
+                        new_ata_email = c2.text_input(
+                            "E-mail do responsável", value=contract.get("engineer_email") or "",
+                        )
                         new_ata_notes = st.text_area("Observações")
                         new_ata_is_minuta = st.checkbox(
                             "Cadastrar como minuta (contrato ainda não assinado/formalizado)",
