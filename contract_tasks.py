@@ -98,9 +98,16 @@ def guarantee_context_lines(
         str(row.get("calculation_base_reference") or "").upper(), "Valor total do contrato",
     )
     modality = str(row.get("modality") or "").strip()
+    months = row.get("calculation_base_months")
+    months_note = (
+        f" (informado como referente a {int(months)} meses; valor exigido calculado "
+        "já na proporção anual de 12 meses)"
+        if str(row.get("calculation_base_reference") or "").upper() == "ANUAL" and months
+        else ""
+    )
     return [
         f"Referência do valor-base da garantia: {base_reference}",
-        f"Base contratual considerada: {_brl(row.get('calculation_base'))}",
+        f"Base contratual considerada: {_brl(row.get('calculation_base'))}{months_note}",
         f"Percentual de garantia exigido: {float(row['percentage']):.2f}%",
         f"Valor exigido: {_brl(row.get('required_amount'))}",
         f"Modalidade indicada: {modality}" if modality else

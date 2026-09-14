@@ -1,6 +1,6 @@
 # Manual do Sistema — Gestão de Contratos ENGEMIL
 
-> **Versão do sistema documentada aqui: 105 Beta.**
+> **Versão do sistema documentada aqui: 106 Beta.**
 > Este manual é mantido junto do código: sempre que uma atualização muda,
 > adiciona ou remove uma funcionalidade, este arquivo (e a página publicada
 > equivalente) é revisado na mesma tarefa, como parte do próprio trabalho —
@@ -264,7 +264,18 @@ ATA** só aparece quando o contrato é do tipo ATA.
   "SOLICITADA". Esta seção só aparece enquanto a garantia principal do
   contrato ainda não estiver com o processo concluído.
 - **Cadastrar garantia ou seguro**: formulário completo, pré-preenchido
-  com o valor do contrato e o responsável.
+  com o valor do contrato e o responsável. Quando a **referência do
+  valor-base** escolhida é **"Valor anual estimado"**, o campo **"A 'Base
+  contratual' acima se refere a quantos meses?"** (pré-preenchido com o
+  "Valores acima se referem a quantos meses?" já cadastrado no contrato,
+  mas ajustável por garantia) faz o valor exigido ser calculado
+  automaticamente sobre a proporção de 12 meses da base informada — ex.:
+  base de R$ 2.582.952,29 referente a 24 meses, com 5% exigido, resulta em
+  R$ 64.573,81 (5% do valor anualizado, R$ 1.291.476,15), não R$
+  129.147,61. Para as referências "Valor total do contrato" e
+  "Outro/informado manualmente" o percentual continua incidindo direto
+  sobre a base digitada. O e-mail de solicitação de providências indica os
+  meses informados junto com a base considerada, nesse caso.
 - Cada garantia/seguro cadastrado abre em 4 sub-abas: **Dados e edição**,
   **Coberturas e franquias** (LMI, vigência, franquia/POS), **Endossos e
   renovações** (histórico de movimentações, sem sobrescrever a apólice

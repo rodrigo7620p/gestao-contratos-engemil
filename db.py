@@ -337,6 +337,7 @@ CREATE TABLE IF NOT EXISTS contract_guarantees (
     calculation_method TEXT NOT NULL DEFAULT 'PERCENTUAL_BASE',
     calculation_base REAL NOT NULL DEFAULT 0,
     calculation_base_reference TEXT,
+    calculation_base_months INTEGER,
     percentage REAL NOT NULL DEFAULT 0,
     estimated_budget REAL NOT NULL DEFAULT 0,
     proposal_value REAL NOT NULL DEFAULT 0,
@@ -999,6 +1000,10 @@ def init_db() -> None:
         if "calculation_base_reference" not in guarantee_columns:
             conn.execute(
                 "ALTER TABLE contract_guarantees ADD COLUMN calculation_base_reference TEXT"
+            )
+        if "calculation_base_months" not in guarantee_columns:
+            conn.execute(
+                "ALTER TABLE contract_guarantees ADD COLUMN calculation_base_months INTEGER"
             )
         art_columns = {row["name"] for row in conn.execute("PRAGMA table_info(arts)")}
         if "professional_title" not in art_columns:

@@ -119,7 +119,7 @@ from notifications import (
 )
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "105"
+APP_VERSION = "106"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -2533,7 +2533,10 @@ BASE_REFERENCE_LABELS = {
 }
 
 
-def guarantee_form(form_key, instrument_options, values=None, submit_label="Salvar garantia"):
+def guarantee_form(
+    form_key, instrument_options, values=None, submit_label="Salvar garantia",
+    reference_months=None,
+):
     values = dict(values or {})
     with st.form(form_key):
         first, second, third = st.columns(3)
@@ -2609,10 +2612,19 @@ def guarantee_form(form_key, instrument_options, values=None, submit_label="Salv
             list(BASE_REFERENCE_OPTIONS),
             index=_option_index(list(BASE_REFERENCE_OPTIONS), current_base_reference),
             format_func=lambda option: BASE_REFERENCE_LABELS[option],
-            help="Não recalcula nada sozinho — só registra, para consulta futura, se a "
-            "\"Base contratual\" digitada representa o valor total do contrato ou uma "
-            "estimativa anual (útil quando a exigência de garantia do edital é sobre "
-            "um dos dois e não sobre o outro).",
+            help="Quando for \"Valor anual estimado\", o valor exigido é calculado sobre a "
+            "proporção de 12 meses da \"Base contratual\" acima, usando o campo de meses "
+            "logo abaixo — não precisa recalcular manualmente.",
+        )
+        base_reference_months = st.number_input(
+            "A \"Base contratual\" acima se refere a quantos meses?",
+            min_value=0, step=1,
+            value=int(values.get("calculation_base_months") or reference_months or 0),
+            help="Usado só quando a referência escolhida acima for \"Valor anual estimado\": "
+            "ex.: a base cadastrada é o valor do contrato para 24 meses, mas a garantia "
+            "exigida é sobre o valor ANUAL — informe 24 aqui que o sistema calcula o valor "
+            "exigido já na proporção de 12 meses (base × 12 ÷ 24 × percentual). Ignorado "
+            "para as demais referências.",
         )
         c1, c2, c3 = st.columns(3)
         provider_name = c1.text_input(
@@ -2703,9 +2715,15 @@ def guarantee_form(form_key, instrument_options, values=None, submit_label="Salv
     except ValueError:
         st.error("Revise os valores monetários e use o padrão brasileiro, por exemplo R$ 47.460,49.")
         return True, None
+    months = int(base_reference_months or 0)
+    annualize = method == "PERCENTUAL_BASE" and base_reference == "ANUAL" and months > 0
+    effective_base = (
+        annualized_value(monetary["calculation_base"], None, None, reference_months=months)
+        if annualize else monetary["calculation_base"]
+    )
     required_amount = calculate_required_amount(
         method,
-        calculation_base=monetary["calculation_base"],
+        calculation_base=effective_base,
         percentage=percentage,
         informed_amount=monetary["informed_amount"],
     )
@@ -2719,7 +2737,13 @@ def guarantee_form(form_key, instrument_options, values=None, submit_label="Salv
         "calculation_method": method,
         "calculation_base": monetary["calculation_base"],
         "calculation_base_reference": base_reference,
+        "calculation_base_months": months or None,
         "percentage": percentage,
+        "_annualized_note": (
+            f" Valor exigido calculado sobre o valor anualizado (12 meses): "
+            f"{brl(effective_base)}, com base em {brl(monetary['calculation_base'])} "
+            f"informado para {months} meses."
+        ) if annualize else "",
         "estimated_budget": float(values.get("estimated_budget") or 0),
         "proposal_value": float(values.get("proposal_value") or 0),
         "required_amount": required_amount,
@@ -2760,7 +2784,7 @@ GUARANTEE_DB_FIELDS = (
     "amendment_id", "ata_contract_id", "ata_amendment_id", "guarantee_type",
     "custom_type", "instrument_scope", "modality", "legal_basis",
     "calculation_method", "calculation_base", "calculation_base_reference",
-    "percentage", "estimated_budget",
+    "calculation_base_months", "percentage", "estimated_budget",
     "proposal_value", "required_amount", "guaranteed_amount", "provider_name",
     "broker_name", "policy_number", "susep_registration", "insured_name",
     "co_insured_name", "object_description", "issue_date", "start_date", "end_date",
@@ -3632,6 +3656,7 @@ def render_guarantees_tab(contract_id, contract, effective_end_date):
                     if contract.get("engineer_email") != contract.get("manager_email") else "",
                 },
                 "Cadastrar garantia/seguro",
+                reference_months=contract.get("value_reference_months"),
             )
             if submitted and payload:
                 guarantee_id = insert_guarantee(contract_id, payload)
@@ -3639,7 +3664,10 @@ def render_guarantees_tab(contract_id, contract, effective_end_date):
                     st.session_state.user["id"], "CRIAR", "garantia/seguro",
                     guarantee_id, payload["guarantee_type"],
                 )
-                st.success("Garantia/seguro cadastrado. Agora anexe a apólice ou documento recebido.")
+                st.success(
+                    "Garantia/seguro cadastrado. Agora anexe a apólice ou documento recebido."
+                    + payload.get("_annualized_note", "")
+                )
                 rerun()
 
     for item in guarantees:
@@ -3663,6 +3691,7 @@ def render_guarantees_tab(contract_id, contract, effective_end_date):
                     submitted, payload = guarantee_form(
                         f"edit_guarantee_{item['id']}", instrument_options, item,
                         "Salvar alterações da garantia",
+                        reference_months=contract.get("value_reference_months"),
                     )
                     if submitted and payload:
                         update_guarantee(item["id"], contract_id, payload)
@@ -3670,7 +3699,9 @@ def render_guarantees_tab(contract_id, contract, effective_end_date):
                             st.session_state.user["id"], "EDITAR", "garantia/seguro",
                             item["id"], payload["guarantee_type"],
                         )
-                        st.success("Garantia/seguro atualizado.")
+                        st.success(
+                            "Garantia/seguro atualizado." + payload.get("_annualized_note", "")
+                        )
                         rerun()
                 else:
                     st.write(f"**Fundamento:** {item['legal_basis'] or 'Não informado'}")

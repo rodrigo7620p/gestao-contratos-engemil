@@ -1,4 +1,26 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 106 Beta
+Data: 14/09/2026
+
+Principais alterações:
+- cadastro/edição de garantia ou seguro: novo campo "A 'Base contratual'
+  acima se refere a quantos meses?" — quando a "Referência do valor-base"
+  escolhida é "Valor anual estimado", o valor exigido passa a ser
+  calculado automaticamente sobre a proporção de 12 meses (base × 12 ÷
+  meses informados × percentual), em vez de aplicar o percentual
+  diretamente sobre o valor cadastrado. Ex.: base de R$ 2.582.952,29
+  informada para 24 meses de contrato, com garantia de 5% sobre o valor
+  anual, agora resulta em R$ 64.573,81 (5% de R$ 1.291.476,15, o valor
+  anualizado), em vez de R$ 129.147,61;
+- o campo vem pré-preenchido com "Valores acima se referem a quantos
+  meses?" já cadastrado no contrato, mas pode ser ajustado por garantia;
+- a linha "Base contratual considerada" no e-mail de solicitação de
+  garantia agora indica os meses informados quando a referência é
+  "Valor anual estimado", para o corretor entender a conta.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 105 Beta
 Data: 14/09/2026
 
