@@ -119,7 +119,7 @@ from notifications import (
 )
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "104"
+APP_VERSION = "105"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -2946,6 +2946,80 @@ def amendment_context_lines(amendment) -> list[str]:
     return lines
 
 
+def _effective_contract_value(contract_id: int) -> float:
+    """Valor vigente do contrato, calculado da mesma forma que load_contracts()
+    — o valor do último instrumento (aditivo) já cadastrado, caindo para o
+    valor atual/original quando ainda não há nenhum aditivo com valor."""
+    rows = query(
+        """SELECT COALESCE(
+            (SELECT a.value FROM amendments a
+             WHERE a.contract_id=c.id AND a.value IS NOT NULL AND a.value>0
+             AND NOT (
+                UPPER(TRIM(COALESCE(a.ordinal,''))) IN ('INICIAL','CONTRATO INICIAL')
+                AND UPPER(TRIM(COALESCE(a.kind,''))) IN ('CONTRATO','CONTRATO INICIAL')
+             )
+             ORDER BY a.id DESC LIMIT 1),
+            NULLIF(c.current_value,0), c.original_value, 0
+        ) AS effective_value FROM contracts c WHERE c.id=?""",
+        (contract_id,),
+    )
+    return float(rows[0]["effective_value"]) if rows else 0.0
+
+
+def _effective_ata_contract_value(ata_contract_id: int) -> float:
+    """Mesmo espírito de _effective_contract_value, para um contrato
+    decorrente de ATA (ver load_ata_contracts)."""
+    rows = query(
+        """SELECT COALESCE(
+            (SELECT a.value FROM ata_contract_amendments a
+             WHERE a.ata_contract_id=ac.id AND a.value IS NOT NULL AND a.value>0
+             ORDER BY a.id DESC LIMIT 1),
+            NULLIF(ac.current_value,0), ac.original_value, 0
+        ) AS effective_value FROM ata_contracts ac WHERE ac.id=?""",
+        (ata_contract_id,),
+    )
+    return float(rows[0]["effective_value"]) if rows else 0.0
+
+
+def sync_total_reference_guarantees(*, contract_id=None, ata_contract_id=None) -> int:
+    """Sempre que um aditivo/instrumento novo muda o valor vigente do
+    contrato (ou de um contrato decorrente de ATA), atualiza a base de
+    cálculo — e o valor exigido — de toda garantia contratual cuja
+    referência é "Valor total do contrato" (TOTAL) para acompanhar o novo
+    valor, em vez de ficar presa ao valor de quando a garantia foi
+    calculada/solicitada pela primeira vez. Garantias com referência ANUAL
+    ou MANUAL, ou calculadas por valor informado (não por percentual), não
+    são tocadas — cada uma mantém seu próprio critério. Devolve quantos
+    registros foram atualizados, para uma mensagem de confirmação opcional."""
+    if ata_contract_id:
+        new_value = _effective_ata_contract_value(ata_contract_id)
+        scope_filter = "ata_contract_id=?"
+        scope_param = ata_contract_id
+    elif contract_id:
+        new_value = _effective_contract_value(contract_id)
+        scope_filter = "contract_id=? AND ata_contract_id IS NULL"
+        scope_param = contract_id
+    else:
+        return 0
+    rows = query(
+        f"""SELECT id, percentage FROM contract_guarantees WHERE {scope_filter}
+        AND guarantee_type='GARANTIA CONTRATUAL'
+        AND UPPER(COALESCE(calculation_base_reference,'TOTAL'))='TOTAL'
+        AND UPPER(COALESCE(calculation_method,''))='PERCENTUAL_BASE'""",
+        (scope_param,),
+    )
+    for row in rows:
+        required_amount = calculate_required_amount(
+            "PERCENTUAL_BASE", calculation_base=new_value, percentage=row["percentage"] or 0,
+        )
+        execute(
+            """UPDATE contract_guarantees SET calculation_base=?,required_amount=?,
+            updated_at=CURRENT_TIMESTAMP WHERE id=?""",
+            (new_value, required_amount, row["id"]),
+        )
+    return len(rows)
+
+
 GUARANTEE_EMAIL_DELAY_SECONDS = 5
 
 
@@ -3530,7 +3604,7 @@ def render_guarantees_tab(contract_id, contract, effective_end_date):
         contract_id=contract_id,
         cost_center=contract["cost_center"], client=contract["client"],
         contract_number=contract.get("contract_number") or contract["cost_center"],
-        total_value=contract.get("current_value") or contract.get("original_value"),
+        total_value=_effective_contract_value(contract_id) or contract.get("original_value"),
         period_start=contract.get("start_date") or contract.get("original_start_date"),
         period_end=contract.get("end_date") or contract.get("original_end_date"),
         reference_months=contract.get("value_reference_months"),
@@ -4081,6 +4155,7 @@ def page_contract_detail():
                             ),
                         )
                     refresh_contract_lifecycle(cid)
+                    sync_total_reference_guarantees(contract_id=cid)
                     log_action(user["id"], "EDITAR", "aditivos", cid)
                     st.success("Aditivos atualizados.")
                     rerun()
@@ -4146,12 +4221,20 @@ def page_contract_detail():
                             ),
                         )
                         lifecycle = refresh_contract_lifecycle(cid)
+                        updated_guarantees = (
+                            sync_total_reference_guarantees(contract_id=cid) if value else 0
+                        )
                         log_action(st.session_state.user["id"], "CRIAR", "aditivo", aid, ordinal)
                         st.success(
                             "Instrumento registrado."
                             + (
                                 " O contrato foi reativado pela nova vigência."
                                 if lifecycle == "ATIVO" else ""
+                            )
+                            + (
+                                " Base de cálculo da garantia contratual (referência: valor "
+                                "total do contrato) atualizada para o novo valor vigente."
+                                if updated_guarantees else ""
                             )
                         )
                         rerun()
@@ -4961,6 +5044,10 @@ def page_contract_detail():
                                     user["id"], "CRIAR", "aditivo de contrato da ATA",
                                     new_ata_amendment_id, ata_ordinal,
                                 )
+                                ata_updated_guarantees = (
+                                    sync_total_reference_guarantees(ata_contract_id=ata_contract_id)
+                                    if ata_amendment_value else 0
+                                )
                                 ata_amendment_doc_bytes = ata_amendment_doc_filename = None
                                 if ata_amendment_upload:
                                     save_document(
@@ -4999,6 +5086,12 @@ def page_contract_detail():
                                     notified = ata_amendment_notify_result["signed_recipients"]
                                     notify_detail = ata_amendment_notify_result["signed_detail"]
                                 success_message = "Instrumento do contrato decorrente registrado."
+                                if ata_updated_guarantees:
+                                    success_message += (
+                                        " Base de cálculo da garantia contratual (referência: "
+                                        "valor total do contrato) atualizada para o novo valor "
+                                        "vigente."
+                                    )
                                 if ata_amendment_informative_only:
                                     success_message += (
                                         " Marcado como informativo — sem solicitação de "

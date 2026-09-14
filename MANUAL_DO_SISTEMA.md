@@ -1,6 +1,6 @@
 # Manual do Sistema — Gestão de Contratos ENGEMIL
 
-> **Versão do sistema documentada aqui: 104 Beta.**
+> **Versão do sistema documentada aqui: 105 Beta.**
 > Este manual é mantido junto do código: sempre que uma atualização muda,
 > adiciona ou remove uma funcionalidade, este arquivo (e a página publicada
 > equivalente) é revisado na mesma tarefa, como parte do próprio trabalho —
@@ -220,7 +220,11 @@ ATA** só aparece quando o contrato é do tipo ATA.
 - **Adicionar aditivo**: número/ordem, tipo (Termo Aditivo, Termo de
   Apostilamento, Contrato, ou "Outro" com nome livre), valor atualizado,
   datas, descrição e observações. O cadastro em si não envia e-mail — só
-  fica registrado no sistema.
+  fica registrado no sistema. Quando o instrumento tem valor informado,
+  toda garantia contratual com referência "Valor total do contrato" tem a
+  base de cálculo e o valor exigido **recalculados automaticamente** para
+  esse novo valor vigente — sem precisar editar a garantia manualmente a
+  cada aditivo (garantias com referência anual/manual não são alteradas).
 - Cada instrumento tem seus próprios documentos. O botão **Reenviar aviso
   de providências** reenvia o e-mail de garantia/ART usando o último
   documento já anexado, sem precisar reanexar nada — útil quando o e-mail

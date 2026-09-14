@@ -1,4 +1,25 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 105 Beta
+Data: 14/09/2026
+
+Principais alterações:
+- corrige a base de cálculo da garantia contratual ficando "presa" ao
+  valor de quando foi calculada pela primeira vez: agora, sempre que um
+  novo aditivo/apostilamento (do contrato principal ou de um contrato
+  decorrente de ATA) é cadastrado com um valor, toda garantia contratual
+  com referência "Valor total do contrato" tem a base e o valor exigido
+  recalculados automaticamente para o novo valor vigente — sem precisar
+  editar manualmente a garantia a cada instrumento novo. Garantias com
+  referência anual/manual, ou calculadas por valor informado, não são
+  alteradas por essa sincronização;
+- a solicitação antecipada de garantia contratual do contrato principal
+  também passa a mostrar o valor total vigente correto (antes podia ficar
+  desatualizado quando o valor só tinha mudado por um aditivo, sem edição
+  manual do cadastro do contrato).
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 104 Beta
 Data: 14/09/2026
 
