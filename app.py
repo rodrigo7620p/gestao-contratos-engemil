@@ -119,7 +119,7 @@ from notifications import (
 )
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "102"
+APP_VERSION = "103"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -3076,7 +3076,8 @@ def render_guarantee_advance_request(
     contract_number, total_value, period_start=None, period_end=None,
     reference_months=None, homologation_date=None, bid_number=None,
     process_number=None, uasg=None, object_text=None, start_date_display=None,
-    engineer_email=None, manager_email=None, formalized=True, widget_key,
+    default_responsible_name=None, default_responsible_email=None,
+    manager_email=None, formalized=True, widget_key,
 ) -> None:
     """Formulário "Solicitar garantia contratual ao responsável" — pede a
     garantia antes da assinatura/formalização do instrumento, isolado das
@@ -3085,7 +3086,16 @@ def render_guarantee_advance_request(
     (ata_contract_id informado) — nesse segundo caso `contract_id` continua
     sendo o id do contrato "ATA" pai, porque contract_guarantees.contract_id
     é NOT NULL mesmo quando a garantia é de um decorrente (mesma convenção
-    de guarantee_instrument_options)."""
+    de guarantee_instrument_options).
+
+    Exige pelo menos um documento anexado (existente ou novo) para poder
+    enviar — a corretora precisa de material mínimo (minuta, edital,
+    proposta ou planilha) para analisar o pedido. O responsável pelo
+    acompanhamento vem pré-preenchido a partir de
+    default_responsible_name/default_responsible_email (o engenheiro do
+    contrato, ou o mesmo da ATA quando é um contrato decorrente), mas é
+    editável só para esta solicitação — e fica salvo em
+    contract_guarantees.responsible_name/responsible_email."""
     if ata_contract_id:
         scope_filter = "ata_contract_id=? AND ata_amendment_id IS NULL"
         scope_param = ata_contract_id
@@ -3131,7 +3141,28 @@ def render_guarantee_advance_request(
             "isolado das demais, com os documentos que a seguradora precisa para calcular "
             "e preparar a minuta — útil quando o órgão exige a indicação da modalidade de "
             "garantia antes da assinatura do contrato, para aprovação prévia da minuta. "
-            "Pode ser reenviada quantas vezes precisar até a garantia ser recebida."
+            "Pode ser reenviada quantas vezes precisar até a garantia ser recebida. "
+            "É obrigatório anexar pelo menos um documento (minuta do contrato, edital, "
+            "proposta ou planilha) para a corretora ter material suficiente para a análise."
+        )
+        rc1, rc2 = st.columns(2)
+        current_responsible_name = str(
+            (pending_guarantee or {}).get("responsible_name") or default_responsible_name or ""
+        )
+        current_responsible_email = str(
+            (pending_guarantee or {}).get("responsible_email") or default_responsible_email or ""
+        )
+        request_responsible_name = rc1.text_input(
+            "Responsável pelo acompanhamento",
+            value=current_responsible_name,
+            key=f"guarantee_req_resp_name_{widget_key}",
+            help="Pré-preenchido com o engenheiro responsável já cadastrado — pode ser "
+            "trocado livremente só para esta solicitação.",
+        )
+        request_responsible_email = rc2.text_input(
+            "E-mail do responsável",
+            value=current_responsible_email,
+            key=f"guarantee_req_resp_email_{widget_key}",
         )
         saved_due_date = _date_value(pending_guarantee.get("request_due_date")) if pending_guarantee else None
         suggested_due_date = (
@@ -3270,6 +3301,7 @@ def render_guarantee_advance_request(
         )
         limit_mb = MAX_ATTACHMENTS_BYTES / (1024 * 1024)
         oversized = total_size > MAX_ATTACHMENTS_BYTES
+        no_documents = not picked_existing_labels and not new_uploads
         if oversized:
             st.error(
                 f"Anexos somam {total_size / (1024 * 1024):.1f} MB, acima do limite de "
@@ -3279,11 +3311,17 @@ def render_guarantee_advance_request(
             )
         elif total_size:
             st.caption(f"Anexos selecionados: {total_size / (1024 * 1024):.1f} MB no total.")
+        elif no_documents:
+            st.warning(
+                "Anexe pelo menos um documento (existente ou novo) — a minuta do contrato "
+                "e demais documentos auxiliares são obrigatórios para a corretora analisar "
+                "o pedido."
+            )
         if st.button(
             "Reenviar solicitação" if already_sent else "Enviar solicitação",
-            type="primary", disabled=oversized,
+            type="primary", disabled=oversized or no_documents,
             key=f"guarantee_req_submit_{widget_key}",
-        ):
+        ) and not (oversized or no_documents):
             attachment_items = []
             for label in picked_existing_labels:
                 doc = existing_doc_options[label]
@@ -3365,7 +3403,7 @@ def render_guarantee_advance_request(
                 contract_number=contract_number or cost_center,
                 action_tag="SOLICITACAO-GARANTIA", only_tasks=[TASK_GARANTIA],
                 force_tasks=[TASK_GARANTIA],
-                extra_recipients=[engineer_email, manager_email],
+                extra_recipients=[request_responsible_email, manager_email],
                 extra_attachments=attachment_items or None,
                 context_lines=context_lines or None,
             )
@@ -3375,6 +3413,7 @@ def render_guarantee_advance_request(
                     request_date=?,request_due_date=?,notes=?,legal_basis=?,
                     calculation_method=?,calculation_base=?,calculation_base_reference=?,
                     percentage=?,required_amount=?,modality=?,
+                    responsible_name=?,responsible_email=?,
                     updated_at=CURRENT_TIMESTAMP WHERE id=?""",
                     (
                         today_brt().isoformat(),
@@ -3382,6 +3421,8 @@ def render_guarantee_advance_request(
                         request_note.strip() or None, legal_basis,
                         calculation_method, request_calculation_base, request_base_reference,
                         request_percentage, request_required_amount, modality_to_save,
+                        request_responsible_name.strip() or None,
+                        request_responsible_email.strip() or None,
                         pending_guarantee["id"],
                     ),
                 )
@@ -3391,8 +3432,8 @@ def render_guarantee_advance_request(
                     contract_id,ata_contract_id,guarantee_type,instrument_scope,legal_basis,
                     request_status,request_date,request_due_date,notes,
                     calculation_method,calculation_base,calculation_base_reference,
-                    percentage,required_amount,modality)
-                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    percentage,required_amount,modality,responsible_name,responsible_email)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                     (
                         contract_id, ata_contract_id, "GARANTIA CONTRATUAL",
                         "CONTRATO DECORRENTE DA ATA" if ata_contract_id else "CONTRATO INICIAL",
@@ -3402,6 +3443,8 @@ def render_guarantee_advance_request(
                         request_note.strip() or None,
                         calculation_method, request_calculation_base, request_base_reference,
                         request_percentage, request_required_amount, modality_to_save,
+                        request_responsible_name.strip() or None,
+                        request_responsible_email.strip() or None,
                     ),
                 )
             log_action(
@@ -3495,7 +3538,9 @@ def render_guarantees_tab(contract_id, contract, effective_end_date):
         bid_number=contract.get("bid_number"), process_number=contract.get("process_number"),
         uasg=contract.get("uasg"), object_text=contract.get("object"),
         start_date_display=contract.get("start_date"),
-        engineer_email=contract.get("engineer_email"), manager_email=contract.get("manager_email"),
+        default_responsible_name=contract.get("engineer_name"),
+        default_responsible_email=contract.get("engineer_email"),
+        manager_email=contract.get("manager_email"),
         formalized=bool(contract.get("formalized", 1)),
         widget_key=str(contract_id),
     )
@@ -4584,7 +4629,8 @@ def page_contract_detail():
                     object_text=ata_contract.get("object"),
                     process_number=ata_contract.get("process_number"),
                     start_date_display=ata_contract.get("start_date"),
-                    engineer_email=contract.get("engineer_email"),
+                    default_responsible_name=contract.get("engineer_name"),
+                    default_responsible_email=contract.get("engineer_email"),
                     manager_email=contract.get("manager_email"),
                     formalized=bool(ata_contract.get("formalized", 1)),
                     widget_key=f"ata_{ata_contract_id}",

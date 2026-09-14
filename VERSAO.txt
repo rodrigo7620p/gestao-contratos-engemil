@@ -1,4 +1,22 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 103 Beta
+Data: 14/09/2026
+
+Principais alterações:
+- solicitação antecipada de garantia contratual: agora exige anexar pelo
+  menos um documento (edital, minuta do contrato, proposta ou planilha —
+  novo ou já cadastrado no contrato) para poder enviar; o botão de envio
+  fica desabilitado sem nenhum anexo, para a corretora sempre ter material
+  mínimo para analisar o pedido;
+- o formulário ganhou um campo "Responsável pelo acompanhamento" (nome e
+  e-mail), pré-preenchido com o engenheiro do contrato — ou o mesmo
+  engenheiro da ATA, quando a solicitação é de um contrato decorrente —
+  mas editável livremente só para aquela solicitação específica; o valor
+  informado fica salvo no registro da garantia.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 102 Beta
 Data: 14/09/2026
 

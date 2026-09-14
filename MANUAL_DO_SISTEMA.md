@@ -1,6 +1,6 @@
 # Manual do Sistema — Gestão de Contratos ENGEMIL
 
-> **Versão do sistema documentada aqui: 102 Beta.**
+> **Versão do sistema documentada aqui: 103 Beta.**
 > Este manual é mantido junto do código: sempre que uma atualização muda,
 > adiciona ou remove uma funcionalidade, este arquivo (e a página publicada
 > equivalente) é revisado na mesma tarefa, como parte do próprio trabalho —
@@ -247,13 +247,18 @@ ATA** só aparece quando o contrato é do tipo ATA.
 - Tabela com tipo, instrumento, modalidade, situação, apólice, base de
   cálculo, valor exigido e vigência de cada registro.
 - **Solicitar/Reenviar garantia contratual ao responsável**: formulário
-  completo (prazo do órgão — sugerido automaticamente 30 dias após a
-  homologação —, percentual exigido com cálculo automático do valor,
-  referência da base — total/anual/manual —, modalidade, anexos do
-  certame). Ao enviar, dispara o e-mail exclusivo de garantia para o(s)
-  responsável(is) cadastrado(s) e grava o pedido como "SOLICITADA". Esta
-  seção só aparece enquanto a garantia principal do contrato ainda não
-  estiver com o processo concluído.
+  completo — responsável pelo acompanhamento (nome e e-mail, pré-preenchido
+  com o engenheiro do contrato, ou o mesmo da ATA quando é um contrato
+  decorrente, mas editável só para esta solicitação), prazo do órgão
+  (sugerido automaticamente 30 dias após a homologação), percentual exigido
+  com cálculo automático do valor, referência da base — total/anual/manual
+  —, modalidade, anexos do certame. **Anexar pelo menos um documento
+  (existente ou novo) é obrigatório** — o botão de envio fica desabilitado
+  sem nenhum anexo, para a corretora sempre ter material mínimo (minuta,
+  edital, proposta ou planilha) para a análise. Ao enviar, dispara o e-mail
+  exclusivo de garantia para o responsável informado e grava o pedido como
+  "SOLICITADA". Esta seção só aparece enquanto a garantia principal do
+  contrato ainda não estiver com o processo concluído.
 - **Cadastrar garantia ou seguro**: formulário completo, pré-preenchido
   com o valor do contrato e o responsável.
 - Cada garantia/seguro cadastrado abre em 4 sub-abas: **Dados e edição**,
