@@ -14,9 +14,13 @@ on:
 jobs:
   enviar:
     runs-on: ubuntu-latest
-    # Sem isso, uma falha de rede ao alcançar o Turso pode ficar pendurada
-    # por horas (a biblioteca libsql-client não define timeout próprio) e
-    # consumir o limite de minutos gratuitos do GitHub Actions à toa.
+    # Trava de segurança: desde 15/09/2026 cada chamada ao Turso já tem seu
+    # próprio timeout de 20s (GESTAO_TURSO_TIMEOUT_SECONDS, ver db.py —
+    # _with_libsql_timeout), então uma falha de rede falha rápido e com erro
+    # visível no log, em vez de ficar pendurada por horas como antes (era
+    # exatamente isso que impedia o e-mail diário de sair: toda execução
+    # travava até ser morta por este timeout, sem nunca chegar a enviar).
+    # Mantido em 5 min só como segunda trava, caso algo novo volte a travar.
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4

@@ -5,6 +5,7 @@ import hashlib
 import hmac
 import io
 import os
+import queue
 import secrets
 import sqlite3
 import threading
@@ -120,7 +121,7 @@ class _LibsqlConnection:
 
     def execute(self, sql: str, params=()):
         args = tuple(params) if params else None
-        return _LibsqlResult(self._client.execute(sql, args))
+        return _LibsqlResult(_with_libsql_timeout(self._client.execute, sql, args))
 
     def executemany(self, sql: str, seq_of_params):
         result = None
@@ -131,7 +132,7 @@ class _LibsqlConnection:
     def executescript(self, script: str) -> None:
         statements = [s.strip() for s in script.split(";") if s.strip()]
         if statements:
-            self._client.batch(statements)
+            _with_libsql_timeout(self._client.batch, statements)
 
     def commit(self) -> None:
         pass  # sobre HTTP cada execute() já é aplicado imediatamente
@@ -141,7 +142,64 @@ class _LibsqlConnection:
 
 
 _libsql_client = None
-_libsql_lock = threading.Lock()
+_libsql_lock = threading.RLock()
+try:
+    _LIBSQL_CALL_TIMEOUT_SECONDS = int(os.getenv("GESTAO_TURSO_TIMEOUT_SECONDS", "20"))
+except ValueError:
+    _LIBSQL_CALL_TIMEOUT_SECONDS = 20
+
+
+def _with_libsql_timeout(func, *args, timeout=_LIBSQL_CALL_TIMEOUT_SECONDS, **kwargs):
+    """Roda uma chamada ao cliente Turso/libsql com um teto de tempo.
+
+    O cliente HTTP por baixo do libsql-client (aiohttp) só tem um timeout
+    padrão de 5 minutos por requisição, e a biblioteca não expõe nenhum jeito
+    de configurar um valor menor — então uma trave de rede (handshake preso,
+    proxy silenciosamente descartando pacotes) bloqueava o processo inteiro
+    por até 5 minutos (foi exatamente isso que impediu o e-mail diário de
+    licitações de sair: o job do GitHub Actions matava a execução, sempre
+    no mesmo ponto, antes mesmo desse timeout interno estourar). Rodamos a
+    chamada real numa thread solta (`daemon=True`, sem pool persistente) e
+    só esperamos por `timeout` segundos aqui — se estourar, desistimos e
+    seguimos em frente; a thread travada fica para trás sozinha (é daemon,
+    não impede o processo/script de terminar) e nunca mais é usada."""
+    result: queue.Queue = queue.Queue(maxsize=1)
+
+    def _worker():
+        try:
+            result.put(("ok", func(*args, **kwargs)))
+        except Exception as exc:
+            result.put(("error", exc))
+
+    threading.Thread(target=_worker, daemon=True, name="turso-io").start()
+    try:
+        status, payload = result.get(timeout=timeout)
+    except queue.Empty:
+        _invalidate_libsql_client()
+        raise TimeoutError(
+            f"Sem resposta do banco (Turso) em {timeout}s — a conexão foi "
+            "descartada; a próxima tentativa sobe uma nova."
+        ) from None
+    if status == "error":
+        raise payload
+    return payload
+
+
+def _invalidate_libsql_client() -> None:
+    """Descarta o cliente compartilhado depois de uma chamada travada, para
+    que a PRÓXIMA chamada suba um cliente novo em vez de ficar presa atrás
+    da mesma trave para sempre (o cliente — e sua única thread interna — é
+    compartilhado por todo o processo; ver _get_libsql_client)."""
+    global _libsql_client
+    with _libsql_lock:
+        _libsql_client = None
+
+
+def _close_libsql_client_quietly(client) -> None:
+    try:
+        _with_libsql_timeout(client.close)
+    except Exception:
+        pass  # processo já está encerrando; nada a fazer com o erro aqui
 
 
 def _get_libsql_client(url: str, token: str | None):
@@ -158,9 +216,14 @@ def _get_libsql_client(url: str, token: str | None):
                 "TURSO_DATABASE_URL configurado, mas o pacote 'libsql-client' "
                 "não está instalado. Rode: pip install libsql-client"
             )
-        _libsql_client = libsql_client.create_client_sync(url, auth_token=token or None)
-        _libsql_client.execute("PRAGMA foreign_keys = ON")
-        atexit.register(_libsql_client.close)
+        with _libsql_lock:
+            if _libsql_client is None:
+                client = _with_libsql_timeout(
+                    libsql_client.create_client_sync, url, auth_token=token or None
+                )
+                _with_libsql_timeout(client.execute, "PRAGMA foreign_keys = ON")
+                atexit.register(_close_libsql_client_quietly, client)
+                _libsql_client = client
     return _libsql_client
 
 
