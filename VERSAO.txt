@@ -1,4 +1,22 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 109 Beta
+Data: 15/09/2026
+
+Principais alterações:
+- cadastro/edição de garantia ou seguro: ao selecionar o "Instrumento/
+  contrato relacionado", a "Base contratual" agora é pré-preenchida
+  automaticamente com o valor cadastrado para aquele instrumento (o
+  "Valor atualizado" do aditivo, ou o valor original do contrato/contrato
+  decorrente) — antes era preciso digitar esse valor manualmente toda vez,
+  mesmo já estando cadastrado no sistema. O valor sugerido continua
+  totalmente editável antes de salvar, e trocar de instrumento atualiza a
+  sugestão na hora, sem precisar enviar o formulário. Ao editar uma
+  garantia já existente, o valor salvo continua prevalecendo (não é
+  sobrescrito só por reabrir a tela).
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 108 Beta
 Data: 15/09/2026
 

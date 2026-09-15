@@ -1,6 +1,6 @@
 # Manual do Sistema — Gestão de Contratos ENGEMIL
 
-> **Versão do sistema documentada aqui: 108 Beta.**
+> **Versão do sistema documentada aqui: 109 Beta.**
 > Este manual é mantido junto do código: sempre que uma atualização muda,
 > adiciona ou remove uma funcionalidade, este arquivo (e a página publicada
 > equivalente) é revisado na mesma tarefa, como parte do próprio trabalho —
@@ -286,7 +286,14 @@ ATA** só aparece quando o contrato é do tipo ATA.
   "SOLICITADA". Esta seção só aparece enquanto a garantia principal do
   contrato ainda não estiver com o processo concluído.
 - **Cadastrar garantia ou seguro**: formulário completo, pré-preenchido
-  com o valor do contrato e o responsável. Quando a **referência do
+  com o valor do contrato e o responsável. Ao escolher o **"Instrumento/
+  contrato relacionado"**, a **"Base contratual"** já vem preenchida
+  automaticamente com o valor cadastrado daquele instrumento (o valor
+  atualizado do aditivo, ou o valor original do contrato/contrato
+  decorrente) — continua totalmente editável, e trocar de instrumento
+  atualiza a sugestão na hora. Ao editar uma garantia já existente, o
+  valor salvo prevalece (não é sobrescrito só por abrir a tela). Quando a
+  **referência do
   valor-base** escolhida é **"Valor anual estimado"**, o campo **"A 'Base
   contratual' acima se refere a quantos meses?"** (pré-preenchido com o
   "Valores acima se referem a quantos meses?" já cadastrado no contrato,

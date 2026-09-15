@@ -119,7 +119,7 @@ from notifications import (
 )
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "108"
+APP_VERSION = "109"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -2455,16 +2455,18 @@ def _date_value(value):
 
 
 def guarantee_instrument_options(contract_id):
+    contract_rows = query("SELECT original_value FROM contracts WHERE id=?", (contract_id,))
     options = {
         "Contrato inicial": {
             "instrument_scope": "CONTRATO INICIAL",
             "amendment_id": None,
             "ata_contract_id": None,
             "ata_amendment_id": None,
+            "value": contract_rows[0]["original_value"] if contract_rows else 0,
         }
     }
     for row in query(
-        "SELECT id,ordinal,kind FROM amendments WHERE contract_id=? ORDER BY id",
+        "SELECT id,ordinal,kind,value FROM amendments WHERE contract_id=? ORDER BY id",
         (contract_id,),
     ):
         label = " ".join(filter(None, [str(row["ordinal"] or "").strip(), str(row["kind"] or "").strip()]))
@@ -2473,9 +2475,10 @@ def guarantee_instrument_options(contract_id):
             "amendment_id": row["id"],
             "ata_contract_id": None,
             "ata_amendment_id": None,
+            "value": row["value"],
         }
     for ata in query(
-        "SELECT id,contract_number,client FROM ata_contracts WHERE ata_id=? ORDER BY id",
+        "SELECT id,contract_number,client,original_value FROM ata_contracts WHERE ata_id=? ORDER BY id",
         (contract_id,),
     ):
         ata_label = " · ".join(filter(None, [ata["contract_number"], ata["client"]]))
@@ -2484,9 +2487,10 @@ def guarantee_instrument_options(contract_id):
             "amendment_id": None,
             "ata_contract_id": ata["id"],
             "ata_amendment_id": None,
+            "value": ata["original_value"],
         }
         for amendment in query(
-            "SELECT id,ordinal,kind FROM ata_contract_amendments WHERE ata_contract_id=? ORDER BY id",
+            "SELECT id,ordinal,kind,value FROM ata_contract_amendments WHERE ata_contract_id=? ORDER BY id",
             (ata["id"],),
         ):
             amendment_label = " ".join(filter(None, [
@@ -2498,6 +2502,7 @@ def guarantee_instrument_options(contract_id):
                 "amendment_id": None,
                 "ata_contract_id": ata["id"],
                 "ata_amendment_id": amendment["id"],
+                "value": amendment["value"],
             }
     return options
 
@@ -2633,8 +2638,34 @@ def guarantee_form(
     reference_months=None,
 ):
     values = dict(values or {})
+    # Fora do form de propósito: um selectbox dentro de st.form só atualiza a
+    # tela inteira quando o formulário é enviado, então a "Base contratual"
+    # não conseguiria reagir sozinha à troca de instrumento se ele estivesse
+    # dentro. Aqui fora, trocar o instrumento já dispara um rerun imediato,
+    # permitindo pré-preencher a base com o valor daquele instrumento.
+    instrument_label = st.selectbox(
+        "Instrumento/contrato relacionado",
+        list(instrument_options),
+        index=_option_index(
+            list(instrument_options),
+            _selected_guarantee_instrument(instrument_options, values),
+        ),
+        key=f"{form_key}_instrument",
+        help="Selecionar aqui já preenche a \"Base contratual\" abaixo com o valor "
+        "cadastrado para este instrumento (aditivo/contrato), a título de sugestão "
+        "— ainda editável antes de salvar.",
+    )
+    selected_reference = instrument_options[instrument_label]
+    editing_same_instrument = bool(values.get("id")) and all(
+        selected_reference.get(field) == values.get(field)
+        for field in ("amendment_id", "ata_contract_id", "ata_amendment_id")
+    )
+    default_calculation_base = (
+        values.get("calculation_base", 0) if editing_same_instrument
+        else (selected_reference.get("value") or 0)
+    )
     with st.form(form_key):
-        first, second, third = st.columns(3)
+        first, second = st.columns(2)
         type_options = list(GUARANTEE_TYPES)
         current_type = str(values.get("guarantee_type") or "GARANTIA CONTRATUAL")
         guarantee_type = first.selectbox(
@@ -2645,14 +2676,6 @@ def guarantee_form(
         custom_type = second.text_input(
             "Nome quando o tipo for Outro",
             value=str(values.get("custom_type") or ""),
-        )
-        instrument_label = third.selectbox(
-            "Instrumento/contrato relacionado",
-            list(instrument_options),
-            index=_option_index(
-                list(instrument_options),
-                _selected_guarantee_instrument(instrument_options, values),
-            ),
         )
         first, second = st.columns(2)
         modality_options = list(GUARANTEE_MODALITIES)
@@ -2686,7 +2709,14 @@ def guarantee_form(
         )
         c1, c2, c3 = st.columns(3)
         calculation_base = currency_input(
-            c1, "Base contratual", values.get("calculation_base", 0), f"{form_key}_base"
+            c1, "Base contratual", default_calculation_base,
+            f"{form_key}_base_{instrument_label}",
+        )
+        c1.caption(
+            f"Sugerido a partir do instrumento selecionado acima ({brl(selected_reference.get('value') or 0)}) "
+            "— pode ser editado livremente."
+            if not editing_same_instrument else
+            "Valor já salvo para este instrumento — editável."
         )
         percentage = c2.number_input(
             "Percentual exigido (%)",
