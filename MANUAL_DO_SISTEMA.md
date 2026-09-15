@@ -1,6 +1,6 @@
 # Manual do Sistema — Gestão de Contratos ENGEMIL
 
-> **Versão do sistema documentada aqui: 106 Beta.**
+> **Versão do sistema documentada aqui: 107 Beta.**
 > Este manual é mantido junto do código: sempre que uma atualização muda,
 > adiciona ou remove uma funcionalidade, este arquivo (e a página publicada
 > equivalente) é revisado na mesma tarefa, como parte do próprio trabalho —
@@ -168,6 +168,16 @@ vigência ainda válida**.
 - **Garantias e seguros da carteira**: indicadores de vigência (60 dias),
   documentação recebida e pendências de conferência, com lista das
   garantias pendentes e atalho direto para a ficha de cada uma.
+- **Solicitações de garantia aguardando retorno**: aviso separado, sempre
+  que houver algum, listando toda solicitação de garantia contratual cujo
+  e-mail já foi enviado (pedido automático ao assinar um instrumento novo,
+  ou solicitação antecipada) e que ainda não chegou a uma situação final
+  (aceita, dispensada ou cancelada) — inclusive quando ninguém ainda
+  registrou nada na aba Garantias e seguros daquele contrato. Cada item
+  mostra o contrato, o instrumento, a situação atual e a data da
+  solicitação, com atalho para abrir a ficha e completar o cadastro assim
+  que a seguradora responder. Existe para não perder de vista uma resposta
+  de seguradora no meio do fluxo geral de e-mails.
 - Gráficos de valor e quantidade por modalidade (Manutenção, Obra,
   Reforma, ATA, Consórcio, Outro).
 - Remanescente previsto ano a ano (6 anos) e ranking dos 5 contratos com

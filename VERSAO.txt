@@ -1,4 +1,25 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 107 Beta
+Data: 15/09/2026
+
+Principais alterações:
+- Visão geral ganha um aviso dedicado de "solicitações de garantia
+  contratual aguardando retorno": toda vez que um e-mail pedindo garantia
+  contratual já foi enviado (seja o pedido automático disparado ao assinar
+  um instrumento novo, seja a solicitação antecipada) e ainda não chegou a
+  uma situação final (aceita, dispensada ou cancelada), ele aparece nesse
+  aviso — inclusive quando ninguém ainda registrou nada na aba Garantias e
+  seguros, cobrindo o caso em que o e-mail automático sai mas passa
+  despercebido no meio do fluxo geral;
+- cada item do aviso mostra o contrato, o instrumento, a situação atual e
+  a data da solicitação, com atalho direto para abrir a ficha e
+  completar o cadastro assim que a seguradora responder;
+- cobre também o histórico: solicitações já enviadas antes desta versão
+  também aparecem, não só as novas a partir de agora.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 106 Beta
 Data: 14/09/2026
 

@@ -119,7 +119,7 @@ from notifications import (
 )
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "106"
+APP_VERSION = "107"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -2087,6 +2087,49 @@ def page_dashboard():
                         on_click=open_contract_guarantees,
                         args=(int(item["contract_id"]),),
                     )
+    guarantee_awaiting_broker = [
+        {
+            "contract_id": item["contract_id"],
+            "cost_center": item.get("cost_center"),
+            "client": item.get("contract_client"),
+            "instrument_reference": item.get("instrument_reference"),
+            "status_label": item.get("request_status") or "SOLICITADA",
+            "since": item.get("request_date") or item.get("created_at"),
+            "widget_key": f"g{item['id']}",
+        }
+        for item in guarantee_portfolio
+        if str(item.get("request_status") or "").upper() in GUARANTEE_OPEN_REQUEST_STATUSES
+    ] + load_guarantee_requests_pending_registration(contracts["id"].tolist())
+    if guarantee_awaiting_broker:
+        guarantee_awaiting_broker.sort(key=lambda item: item.get("since") or "")
+        st.warning(
+            f"⏳ {len(guarantee_awaiting_broker)} solicitação(ões) de garantia contratual já "
+            "encaminhada(s) por e-mail à seguradora/corretora e ainda sem apólice registrada "
+            "— fácil de perder de vista no meio do fluxo geral de e-mails do dia a dia."
+        )
+        with st.expander(
+            f"🔔 Exibir solicitações de garantia aguardando retorno ({len(guarantee_awaiting_broker)})",
+            expanded=False,
+        ):
+            st.caption(
+                "Cobre tanto o e-mail exclusivo de garantia enviado automaticamente ao "
+                "assinar um instrumento novo quanto a solicitação antecipada — some aqui até "
+                "a garantia ser aceita, dispensada ou cancelada."
+            )
+            for item in guarantee_awaiting_broker:
+                since_label = fmt_date(item.get("since")) if item.get("since") else "data não informada"
+                st.markdown(
+                    f"**{item.get('cost_center') or 'Sem centro de custo'} · "
+                    f"{item.get('client') or 'Contratante não informado'}**  \n"
+                    f"{item.get('instrument_reference')} · situação: "
+                    f"{item.get('status_label')} · solicitada em {since_label}."
+                )
+                st.button(
+                    "Abrir ficha e revisar garantia",
+                    key=f"dashboard_guarantee_pending_{item['widget_key']}",
+                    on_click=open_contract_guarantees,
+                    args=(int(item["contract_id"]),),
+                )
     left, right = st.columns(2)
     summary = (
         contracts.groupby("category", dropna=False)
@@ -2523,6 +2566,58 @@ def load_contract_guarantees(contract_id, contract_end_date=None):
             item["issues"].append("documento informado como recebido, mas sem arquivo anexado")
         result.append(item)
     return result
+
+
+GUARANTEE_OPEN_REQUEST_STATUSES = {"SOLICITADA", "RECEBIDA", "EM ANÁLISE", "PENDENTE DE CORREÇÃO"}
+
+
+def load_guarantee_requests_pending_registration(contract_ids) -> list[dict]:
+    """Solicitações de garantia contratual cujo e-mail já foi enviado
+    (task_request_log, alimentado por notify_contract_task_needs — tanto o
+    pedido automático de quando um instrumento novo é assinado quanto a
+    solicitação antecipada) mas cujo instrumento ainda não tem NENHUM
+    registro em contract_guarantees além de "A SOLICITAR" — ou seja, o
+    pedido já saiu para a corretora, mas ninguém ainda começou a
+    acompanhar/registrar a resposta no sistema. Complementa
+    GUARANTEE_OPEN_REQUEST_STATUSES (que só enxerga o que já foi
+    registrado): junto, os dois cobrem TODO e-mail de solicitação de
+    garantia já enviado, registrado ou não."""
+    contract_ids = list(contract_ids)
+    if not contract_ids:
+        return []
+    placeholders = ",".join("?" for _ in contract_ids)
+    rows = [
+        dict(row) for row in query(
+            f"""SELECT * FROM task_request_log
+            WHERE task_type='GARANTIA' AND contract_id IN ({placeholders})
+            ORDER BY first_requested_at""",
+            tuple(contract_ids),
+        )
+    ]
+    pending = []
+    for row in rows:
+        if not guarantee_pending(
+            contract_id=row["contract_id"], amendment_id=row["amendment_id"],
+            ata_contract_id=row["ata_contract_id"], ata_amendment_id=row["ata_amendment_id"],
+        ):
+            continue
+        is_amendment = bool(row["amendment_id"] or row["ata_amendment_id"])
+        if is_amendment:
+            reference = f"{row.get('ordinal') or ''} {row.get('kind_label') or ''}".strip().title()
+        elif row.get("ata_contract_id"):
+            reference = f"Contrato ATA {row.get('ata_number') or ''}".strip()
+        else:
+            reference = "Contrato inicial"
+        pending.append({
+            "contract_id": row["contract_id"],
+            "cost_center": row.get("cost_center"),
+            "client": row.get("client"),
+            "instrument_reference": reference or "Instrumento",
+            "status_label": "E-mail enviado — sem registro no sistema ainda",
+            "since": row.get("first_requested_at"),
+            "widget_key": f"log{row['id']}",
+        })
+    return pending
 
 
 BASE_REFERENCE_OPTIONS = ("TOTAL", "ANUAL", "MANUAL")
