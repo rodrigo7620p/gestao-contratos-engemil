@@ -340,6 +340,7 @@ CREATE TABLE IF NOT EXISTS amendments (
     art_status TEXT,
     notes TEXT,
     justification_text TEXT,
+    informative_only INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE IF NOT EXISTS contract_budget_dates (
@@ -384,6 +385,7 @@ CREATE TABLE IF NOT EXISTS ata_contract_amendments (
     guarantee_status TEXT,
     art_status TEXT,
     notes TEXT,
+    informative_only INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE IF NOT EXISTS contract_guarantees (
@@ -996,6 +998,19 @@ def init_db() -> None:
         if ata_contract_columns and "formalized" not in ata_contract_columns:
             conn.execute(
                 "ALTER TABLE ata_contracts ADD COLUMN formalized INTEGER NOT NULL DEFAULT 1"
+            )
+        amendment_columns = {row["name"] for row in conn.execute("PRAGMA table_info(amendments)")}
+        if amendment_columns and "informative_only" not in amendment_columns:
+            conn.execute(
+                "ALTER TABLE amendments ADD COLUMN informative_only INTEGER NOT NULL DEFAULT 0"
+            )
+        ata_amendment_columns = {
+            row["name"] for row in conn.execute("PRAGMA table_info(ata_contract_amendments)")
+        }
+        if ata_amendment_columns and "informative_only" not in ata_amendment_columns:
+            conn.execute(
+                "ALTER TABLE ata_contract_amendments ADD COLUMN informative_only "
+                "INTEGER NOT NULL DEFAULT 0"
             )
         bid_process_columns = {row["name"] for row in conn.execute("PRAGMA table_info(bid_processes)")}
         if bid_process_columns and "agency_cnpj" not in bid_process_columns:

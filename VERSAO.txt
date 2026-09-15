@@ -1,4 +1,31 @@
 GESTÃO DE CONTRATOS ENGEMIL
+Versão: 108 Beta
+Data: 15/09/2026
+
+Principais alterações:
+- corrige a busca do "instrumento anterior" usada como referência de
+  continuidade ao solicitar garantia contratual: antes, se o instrumento
+  imediatamente anterior fosse "apenas informativo" (sem garantia
+  registrada de propósito, ex.: um apostilamento só de redução de jornada,
+  sem mudança de valor ou prazo), o sistema bloqueava a solicitação de
+  garantia do instrumento seguinte por engano, achando que a garantia do
+  anterior estava faltando cadastrar. Agora, a busca pula por cima de
+  qualquer instrumento marcado como informativo e usa a garantia/documento
+  do último instrumento NÃO informativo como referência — ex.: 3ºTA com
+  garantia, 4ºTA informativo sem garantia, 5ºTA volta a exigir garantia: a
+  referência do 5ºTA passa a ser o 3ºTA, não o 4ºTA;
+- a marcação "instrumento apenas informativo" passa a ser salva no
+  cadastro do aditivo (novo campo, tanto no contrato principal quanto em
+  contratos decorrentes de ATA) — antes só existia como escolha pontual na
+  hora de anexar o documento, sem ficar registrada em lugar nenhum, o que
+  impedia o sistema de reconhecer essa informação depois. A opção também
+  passou a existir diretamente no cadastro do aditivo (contrato principal),
+  além de continuar disponível ao anexar o documento; editável depois nas
+  telas de edição de aditivos.
+
+----------------------------------------------------------------------
+
+GESTÃO DE CONTRATOS ENGEMIL
 Versão: 107 Beta
 Data: 15/09/2026
 

@@ -1,6 +1,6 @@
 # Manual do Sistema — Gestão de Contratos ENGEMIL
 
-> **Versão do sistema documentada aqui: 107 Beta.**
+> **Versão do sistema documentada aqui: 108 Beta.**
 > Este manual é mantido junto do código: sempre que uma atualização muda,
 > adiciona ou remove uma funcionalidade, este arquivo (e a página publicada
 > equivalente) é revisado na mesma tarefa, como parte do próprio trabalho —
@@ -229,12 +229,13 @@ ATA** só aparece quando o contrato é do tipo ATA.
   "ARTs vinculadas".
 - **Adicionar aditivo**: número/ordem, tipo (Termo Aditivo, Termo de
   Apostilamento, Contrato, ou "Outro" com nome livre), valor atualizado,
-  datas, descrição e observações. O cadastro em si não envia e-mail — só
-  fica registrado no sistema. Quando o instrumento tem valor informado,
-  toda garantia contratual com referência "Valor total do contrato" tem a
-  base de cálculo e o valor exigido **recalculados automaticamente** para
-  esse novo valor vigente — sem precisar editar a garantia manualmente a
-  cada aditivo (garantias com referência anual/manual não são alteradas).
+  datas, descrição, observações e a caixa **"Instrumento apenas
+  informativo"**. O cadastro em si não envia e-mail — só fica registrado
+  no sistema. Quando o instrumento tem valor informado, toda garantia
+  contratual com referência "Valor total do contrato" tem a base de
+  cálculo e o valor exigido **recalculados automaticamente** para esse
+  novo valor vigente — sem precisar editar a garantia manualmente a cada
+  aditivo (garantias com referência anual/manual não são alteradas).
 - Cada instrumento tem seus próprios documentos. O botão **Reenviar aviso
   de providências** reenvia o e-mail de garantia/ART usando o último
   documento já anexado, sem precisar reanexar nada — útil quando o e-mail
@@ -242,8 +243,19 @@ ATA** só aparece quando o contrato é do tipo ATA.
 - **Anexar ao instrumento**: upload do documento do aditivo/apostilamento
   — é esse anexo que dispara o aviso de providências (garantia/ART); sem
   documento, o aditivo permanece só como registro. A caixa **"Instrumento
-  apenas informativo"** evita disparar o aviso quando o documento não
-  altera valor nem prazo (ex.: correção de dados, apostilamento formal).
+  apenas informativo"** também aparece aqui (marcando em qualquer uma das
+  duas telas já fica valendo) e evita disparar o aviso quando o documento
+  não altera valor nem prazo (ex.: correção de dados, redução de jornada,
+  apostilamento formal).
+- **Um instrumento informativo nunca fica "faltando garantia"**: ao
+  solicitar a garantia do PRÓXIMO instrumento (não informativo), o sistema
+  pula por cima de qualquer instrumento informativo no meio do caminho e
+  usa a garantia/documento do último instrumento não informativo como
+  referência de continuidade para a corretora — ex.: 3ºTA com garantia,
+  4ºTA informativo (sem garantia, de propósito), 5ºTA volta a exigir
+  garantia: a referência do 5ºTA é o 3ºTA, não o 4ºTA. Editável a
+  qualquer momento na tabela de edição dos aditivos (coluna
+  **Informativo**).
 - **Excluir instrumento contratual**: bloqueado se houver garantia
   vinculada a ele.
 

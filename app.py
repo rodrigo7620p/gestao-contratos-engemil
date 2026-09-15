@@ -119,7 +119,7 @@ from notifications import (
 )
 from totp import new_secret, provisioning_uri, verify as verify_totp
 
-APP_VERSION = "107"
+APP_VERSION = "108"
 APP_STAGE = "Beta"
 APP_RELEASE_DATE = "30/08/2026"
 AUTH_COOKIE_NAME = "engemil_auth_session"
@@ -4193,7 +4193,7 @@ def page_contract_detail():
         amendments = contract_amendments_with_arts(cid)
         amendment_columns = [
             "id", "ordinal", "kind", "description", "value", "start_date", "end_date",
-            "duration_months", "guarantee_status", "art_status", "notes",
+            "duration_months", "guarantee_status", "art_status", "informative_only", "notes",
         ]
         amendment_df = pd.DataFrame(amendments)
         if amendments and can_edit():
@@ -4207,6 +4207,7 @@ def page_contract_detail():
                 lambda row: contract_duration_months(row["start_date"], row["end_date"]),
                 axis=1,
             )
+            amendment_edit_df["informative_only"] = amendment_edit_df["informative_only"].astype(bool)
             edited_amendments = st.data_editor(
                 amendment_edit_df, width="stretch", hide_index=True,
                 disabled=["id", "duration_months", "guarantee_status", "art_status"], key="edit_amendments",
@@ -4229,6 +4230,13 @@ def page_contract_detail():
                     "art_status": st.column_config.TextColumn(
                         "ARTs vinculadas",
                         help="Campo automático, alimentado pelos vínculos cadastrados na aba ARTs.",
+                    ),
+                    "informative_only": st.column_config.CheckboxColumn(
+                        "Informativo",
+                        help="Instrumento apenas informativo (sem alteração de valor/prazo) — "
+                        "não conta como pendência de garantia/ART; ao solicitar garantia do "
+                        "próximo instrumento, o sistema pula este e usa o anterior a ele "
+                        "como referência.",
                     ),
                     "notes": st.column_config.TextColumn("Observações", width="large"),
                 },
@@ -4270,13 +4278,14 @@ def page_contract_detail():
                         execute(
                             """UPDATE amendments SET ordinal=?,kind=?,description=?,value=?,
                             start_date=?,end_date=?,duration_months=?,
-                            notes=? WHERE id=? AND contract_id=?""",
+                            notes=?,informative_only=? WHERE id=? AND contract_id=?""",
                             (
                                 clean(row["ordinal"]), clean(row["kind"]),
                                 clean(row["description"]),
                                 parse_brazilian_number(row["value"], 0),
                                 clean(row["start_date"]), clean(row["end_date"]),
                                 duration_months, clean(row["notes"]),
+                                int(bool(row["informative_only"])),
                                 int(row["id"]), cid,
                             ),
                         )
@@ -4291,7 +4300,9 @@ def page_contract_detail():
                 "Descrição": a["description"], "Valor vigente": brl(a["value"]),
                 "Início": fmt_date(a["start_date"]), "Fim": fmt_date(a["end_date"]),
                 "Meses": a["duration_months"], "Garantia": a["guarantee_status"],
-                "ART": a["art_status"], "Observações": a["notes"],
+                "ART": a["art_status"],
+                "Informativo": "Sim" if a.get("informative_only") else "Não",
+                "Observações": a["notes"],
             } for a in amendments])
             modern_table(amendment_display)
         if can_create():
@@ -4323,6 +4334,16 @@ def page_contract_detail():
                     )
                 description = st.text_area("Objeto e alterações relevantes")
                 notes = st.text_area("Observações")
+                new_amendment_informative_only = st.checkbox(
+                    "Instrumento apenas informativo — não altera valor nem prazo do contrato "
+                    "(não solicitar garantia/ART para ele)",
+                    help="Marque para apostilamentos e aditivos puramente formais/informativos "
+                    "(ex.: correção de dados, redução de jornada sem mudança de valor ou "
+                    "prazo). Um instrumento informativo nunca conta como pendência de "
+                    "garantia — quando o PRÓXIMO instrumento (não informativo) precisar "
+                    "solicitar garantia, o sistema pula este e usa a referência do último "
+                    "instrumento não informativo antes dele.",
+                )
                 if st.form_submit_button("Adicionar aditivo"):
                     kind = (
                         custom_kind.strip()
@@ -4337,13 +4358,14 @@ def page_contract_detail():
                         aid = execute(
                             """INSERT INTO amendments(
                             contract_id,ordinal,kind,description,value,start_date,end_date,
-                            duration_months,notes)
-                            VALUES(?,?,?,?,?,?,?,?,?)""",
+                            duration_months,notes,informative_only)
+                            VALUES(?,?,?,?,?,?,?,?,?,?)""",
                             (
                                 cid, ordinal, kind, description, value,
                                 start_date.isoformat() if start_date else None,
                                 end_date.isoformat() if end_date else None,
                                 calculated_duration, notes,
+                                int(new_amendment_informative_only),
                             ),
                         )
                         lifecycle = refresh_contract_lifecycle(cid)
@@ -4361,6 +4383,11 @@ def page_contract_detail():
                                 " Base de cálculo da garantia contratual (referência: valor "
                                 "total do contrato) atualizada para o novo valor vigente."
                                 if updated_guarantees else ""
+                            )
+                            + (
+                                " Marcado como informativo — não vai contar como pendência "
+                                "de garantia/ART."
+                                if new_amendment_informative_only else ""
                             )
                         )
                         rerun()
@@ -4447,9 +4474,15 @@ def page_contract_detail():
                         a for a in amendments if a["id"] == selected_amendment_id
                     )
                     if informative_only:
+                        execute(
+                            "UPDATE amendments SET informative_only=1 WHERE id=?",
+                            (selected_amendment_id,),
+                        )
                         st.success(
                             "Documento vinculado ao instrumento. Marcado como informativo — "
-                            "sem solicitação de garantia/ART."
+                            "sem solicitação de garantia/ART. Quando o próximo instrumento "
+                            "precisar de garantia, o sistema pula este e usa a referência do "
+                            "instrumento anterior a ele."
                         )
                     else:
                         upload_result = notify_signed_instrument(
@@ -4977,7 +5010,8 @@ def page_contract_detail():
                         ata_amendment["guarantee_status"] = "Sem garantia vinculada"
                 ata_amendment_columns = [
                     "id", "ordinal", "kind", "description", "value", "start_date", "end_date",
-                    "duration_months", "guarantee_status", "art_status", "notes",
+                    "duration_months", "guarantee_status", "art_status", "informative_only",
+                    "notes",
                 ]
                 if ata_amendments and can_edit():
                     ata_amendment_df = pd.DataFrame(ata_amendments)[ata_amendment_columns].copy()
@@ -4992,6 +5026,7 @@ def page_contract_detail():
                         ),
                         axis=1,
                     )
+                    ata_amendment_df["informative_only"] = ata_amendment_df["informative_only"].astype(bool)
                     edited_ata_amendments = st.data_editor(
                         ata_amendment_df, width="stretch", hide_index=True,
                         disabled=["id", "duration_months", "guarantee_status"],
@@ -5013,6 +5048,13 @@ def page_contract_detail():
                                 help="Campo automático da aba Garantias e seguros.",
                             ),
                             "art_status": st.column_config.TextColumn("ART"),
+                            "informative_only": st.column_config.CheckboxColumn(
+                                "Informativo",
+                                help="Instrumento apenas informativo (sem alteração de "
+                                "valor/prazo) — não conta como pendência de garantia/ART; ao "
+                                "solicitar garantia do próximo instrumento, o sistema pula "
+                                "este e usa o anterior a ele como referência.",
+                            ),
                             "notes": st.column_config.TextColumn("Observações", width="large"),
                         },
                     )
@@ -5051,7 +5093,7 @@ def page_contract_detail():
                                 execute(
                                     """UPDATE ata_contract_amendments SET ordinal=?,kind=?,
                                     description=?,value=?,start_date=?,end_date=?,
-                                    duration_months=?,art_status=?,notes=?
+                                    duration_months=?,art_status=?,notes=?,informative_only=?
                                     WHERE id=? AND ata_contract_id=?""",
                                     (
                                         clean(row["ordinal"]), clean(row["kind"]),
@@ -5060,6 +5102,7 @@ def page_contract_detail():
                                         clean(row["start_date"]), clean(row["end_date"]),
                                         duration_months, clean(row["art_status"]),
                                         clean(row["notes"]),
+                                        int(bool(row["informative_only"])),
                                         int(row["id"]), ata_contract_id,
                                     ),
                                 )
@@ -5080,6 +5123,7 @@ def page_contract_detail():
                         "Meses": row["duration_months"],
                         "Garantia": row["guarantee_status"],
                         "ART": row["art_status"],
+                        "Informativo": "Sim" if row.get("informative_only") else "Não",
                         "Observações": row["notes"],
                     } for row in ata_amendments])
                     modern_table(ata_amendment_display)
@@ -5133,6 +5177,10 @@ def page_contract_detail():
                             "Instrumento apenas informativo — não altera valor nem prazo "
                             "(não solicitar garantia/ART para ele)",
                             key=f"ata_amendment_informative_{ata_contract_id}",
+                            help="Um instrumento informativo nunca conta como pendência de "
+                            "garantia — quando o PRÓXIMO instrumento (não informativo) "
+                            "precisar solicitar garantia, o sistema pula este e usa a "
+                            "referência do último instrumento não informativo antes dele.",
                         )
                         if st.form_submit_button("Adicionar aditivo ao contrato decorrente"):
                             resolved_ata_kind = (
@@ -5153,8 +5201,8 @@ def page_contract_detail():
                                 new_ata_amendment_id = execute(
                                     """INSERT INTO ata_contract_amendments(
                                     ata_contract_id,ordinal,kind,description,value,start_date,end_date,
-                                    duration_months,notes)
-                                    VALUES(?,?,?,?,?,?,?,?,?)""",
+                                    duration_months,notes,informative_only)
+                                    VALUES(?,?,?,?,?,?,?,?,?,?)""",
                                     (
                                         ata_contract_id, ata_ordinal, resolved_ata_kind,
                                         ata_description, ata_amendment_value,
@@ -5164,6 +5212,7 @@ def page_contract_detail():
                                         if ata_amendment_end else None,
                                         ata_calculated_duration,
                                         ata_amendment_notes,
+                                        int(ata_amendment_informative_only),
                                     ),
                                 )
                                 log_action(
@@ -5292,6 +5341,10 @@ def page_contract_detail():
                             "Instrumento apenas informativo — não altera valor nem prazo "
                             "(não solicitar garantia/ART para ele)",
                             key=f"ata_document_informative_{ata_contract_id}",
+                            help="Um instrumento informativo nunca conta como pendência de "
+                            "garantia — quando o PRÓXIMO instrumento (não informativo) "
+                            "precisar solicitar garantia, o sistema pula este e usa a "
+                            "referência do último instrumento não informativo antes dele.",
                         )
                         if st.form_submit_button("Anexar documento") and ata_document_upload:
                             target_contract_id, target_amendment_id = ata_document_targets[
@@ -5306,6 +5359,12 @@ def page_contract_detail():
                                 user["id"], "ANEXAR", "documento de contrato da ATA",
                                 did, ata_document_upload.name,
                             )
+                            if ata_document_informative_only and target_amendment_id:
+                                execute(
+                                    "UPDATE ata_contract_amendments SET informative_only=1 "
+                                    "WHERE id=?",
+                                    (target_amendment_id,),
+                                )
                             ata_upload_notify_result = None
                             notified, notify_detail = [], ""
                             if not ata_document_informative_only:

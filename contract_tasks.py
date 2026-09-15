@@ -260,28 +260,45 @@ def art_pending(
     return not arts
 
 
+def _first_non_informative(siblings) -> int | None:
+    """Devolve o id do primeiro instrumento NÃO marcado como "apenas
+    informativo" numa lista já ordenada do mais recente para o mais antigo
+    — ou None quando todos (ou nenhum) são anteriores. Um instrumento
+    informativo (sem alteração de valor/prazo, ex.: um apostilamento só de
+    redução de jornada) nunca teve garantia pedida para ele de propósito,
+    então não pode ser confundido com uma pendência de cadastro: a busca
+    simplesmente pula por cima dele e continua para trás."""
+    for row in siblings:
+        if not row["informative_only"]:
+            return row["id"]
+    return None
+
+
 def previous_instrument_guarantee_check(
     contract_id: int | None = None,
     amendment_id: int | None = None,
     ata_contract_id: int | None = None,
     ata_amendment_id: int | None = None,
 ) -> tuple[bool, dict | None, str]:
-    """Localiza o instrumento contratual imediatamente anterior (o aditivo
-    anterior, por ordem de cadastro, ou o contrato/contrato decorrente
-    inicial quando este é o primeiro aditivo) e verifica se a garantia
-    contratual dele já está registrada no sistema com um documento
-    (apólice/endosso) anexado — a corretora precisa dessa referência de
-    continuidade para analisar o novo pedido.
+    """Localiza o instrumento contratual anterior mais recente que NÃO seja
+    apenas informativo (pulando por cima de qualquer aditivo/apostilamento
+    marcado como "instrumento apenas informativo" no meio do caminho — ex.:
+    3ºTA com garantia, 4ºTA informativo sem garantia, 5ºTA volta a exigir
+    garantia: a referência de continuidade do 5ºTA é o 3ºTA, não o 4ºTA) e
+    verifica se a garantia contratual dele já está registrada no sistema
+    com um documento (apólice/endosso) anexado — a corretora precisa dessa
+    referência de continuidade para analisar o novo pedido.
 
     Devolve (ok, documento_anterior, detalhe):
-    - primeiro instrumento do contrato (sem histórico anterior):
+    - primeiro instrumento do contrato, ou só instrumentos informativos
+      antes dele (sem histórico anterior "de verdade"):
       (True, None, "") — nada para anexar, sem pendência de continuidade;
-    - instrumento anterior com garantia e documento registrados:
-      (True, <linha de documents>, "");
-    - instrumento anterior sem garantia registrada, ou registrada mas sem
-      documento anexado: (False, None, "<motivo para mostrar na tela>") —
-      a solicitação de garantia NÃO deve ser enviada nesse caso, até o
-      cadastro anterior ser completado."""
+    - instrumento anterior (não informativo) com garantia e documento
+      registrados: (True, <linha de documents>, "");
+    - instrumento anterior (não informativo) sem garantia registrada, ou
+      registrada mas sem documento anexado: (False, None, "<motivo para
+      mostrar na tela>") — a solicitação de garantia NÃO deve ser enviada
+      nesse caso, até o cadastro anterior ser completado."""
     if ata_amendment_id:
         rows = query(
             "SELECT id,ata_contract_id FROM ata_contract_amendments WHERE id=?",
@@ -291,12 +308,13 @@ def previous_instrument_guarantee_check(
             return True, None, ""
         current_ata_contract_id = rows[0]["ata_contract_id"]
         siblings = query(
-            """SELECT id FROM ata_contract_amendments WHERE ata_contract_id=? AND id<?
-            ORDER BY id DESC LIMIT 1""",
+            """SELECT id,informative_only FROM ata_contract_amendments
+            WHERE ata_contract_id=? AND id<? ORDER BY id DESC""",
             (current_ata_contract_id, ata_amendment_id),
         )
-        if siblings:
-            previous_filter, previous_param = "ata_amendment_id=?", siblings[0]["id"]
+        previous_id = _first_non_informative(siblings)
+        if previous_id:
+            previous_filter, previous_param = "ata_amendment_id=?", previous_id
         else:
             previous_filter = "ata_contract_id=? AND ata_amendment_id IS NULL"
             previous_param = current_ata_contract_id
@@ -310,11 +328,13 @@ def previous_instrument_guarantee_check(
             return True, None, ""
         current_contract_id = rows[0]["contract_id"]
         siblings = query(
-            "SELECT id FROM amendments WHERE contract_id=? AND id<? ORDER BY id DESC LIMIT 1",
+            """SELECT id,informative_only FROM amendments
+            WHERE contract_id=? AND id<? ORDER BY id DESC""",
             (current_contract_id, amendment_id),
         )
-        if siblings:
-            previous_filter, previous_param = "amendment_id=?", siblings[0]["id"]
+        previous_id = _first_non_informative(siblings)
+        if previous_id:
+            previous_filter, previous_param = "amendment_id=?", previous_id
         else:
             previous_filter = "contract_id=? AND amendment_id IS NULL"
             previous_param = current_contract_id
